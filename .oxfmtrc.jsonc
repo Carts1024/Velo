@@ -1,0 +1,25 @@
+{
+  "experimentalSortImports": {
+    "groups": [
+      ["^node:", "value"], // Node.js built-ins
+      ["builtin", "value"],
+      ["external", "value"], // External dependencies
+      ["^@my-internal-scope/", "value"], // Your internal modules
+      ["^./", "^../", "value"], // Sibling and parent imports
+      ["type"], // TypeScript type imports
+    ],
+    "internalPattern": ["^@my-internal-scope/"],
+    "ignoreCase": true,
+    "newlinesBetween": true, // Set to true to add a newline between groups
+    "order": "asc", // Sort alphabetically within groups
+  },
+  "experimentalTailwindcss": {
+    "stylesheet": "./packages/ui/src/styles/globals.css",
+    "attributes": ["class", "className"],
+    "functions": ["clsx", "cn"],
+    "preserveWhitespace": true,
+  },
+  "experimentalSortPackageJson": {
+    "sortScripts": true,
+  },
+}

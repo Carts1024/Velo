@@ -1,0 +1,15 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["react", "nextjs", "import", "jsx-a11y", "typescript"],
+  "rules": {
+    "no-console": "off",
+    "no-debugger": "off",
+    "click-events-have-key-events": "off",
+    "prefer-tag-over-role": "off",
+    "anchor-has-content": "off",
+    "exhaustive-deps": "off",
+    "no-img-element": "off",
+    "no-unused-vars": "error",
+    "typescript/no-explicit-any": "error"
+  }
+}
