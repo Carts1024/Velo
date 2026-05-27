@@ -476,7 +476,7 @@ Sentry + Tenderly + verified project registry for Stellar developers
 
 ## License
 
-TBD
+MIT
 
 ---
 
