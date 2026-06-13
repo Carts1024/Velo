@@ -1,4 +1,5 @@
 import { ConvexClientProvider } from "@/core/providers/convex-provider";
+import { WalletProvider } from "@/core/wallet/wallet-provider";
 import UiProviders from "@repo/ui/ui-providers";
 import localFont from "next/font/local";
 
@@ -44,7 +45,9 @@ export default function RootLayout({
     <html lang="en" className="scroll-smooth">
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
         <ConvexClientProvider>
-          <UiProviders>{children}</UiProviders>
+          <WalletProvider>
+            <UiProviders>{children}</UiProviders>
+          </WalletProvider>
         </ConvexClientProvider>
       </body>
     </html>
