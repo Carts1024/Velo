@@ -1,4 +1,4 @@
-# StellarKit
+# TalaKit
 
 **Verified developer infrastructure for Stellar and Soroban apps.**
 
