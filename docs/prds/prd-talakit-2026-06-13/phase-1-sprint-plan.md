@@ -47,7 +47,7 @@ Connect wallet
 | --- | --- | --- | --- |
 | 0 | Product and Dev Readiness | Decisions, routes, env, and data contracts are pinned. | App shell opens with placeholder routes and Testnet config visible. |
 | 1 | Registry Foundation | Soroban registry contract is complete and tested. | Register DemoPay and add/remove a contract in tests/local flow. |
-| 2 | Project System and Wallet | Developer can connect wallet and create a draft project. | Wallet address appears; draft project appears in dashboard. |
+| 2 | Project System and Multi-Wallet | Developer can connect a supported Stellar wallet and create a draft project. | Selected wallet and address appear; draft project appears in dashboard. |
 | 3 | On-Chain Registration Flow | Draft project can be registered on-chain and synced back. | Project moves from draft/pending to verified. |
 | 4 | Contract Linking and Public Proof | Owner can add official contracts; public page proves them. | Share `/verify/[slug]` showing owner and contract IDs. |
 | 5 | Transaction Debugger | Developer can inspect a Testnet transaction hash. | Debugger shows status, fees, operations/events, and failure states. |
@@ -66,7 +66,7 @@ Goal: remove avoidable ambiguity before implementation work accelerates.
 Scope:
 
 - Confirm customer-facing name for Phase 1 UI: `TalaKit` unless explicitly changed.
-- Confirm Freighter as the first wallet target.
+- Confirm Stellar Wallets Kit as the wallet integration layer, with Freighter as the first validated wallet target.
 - Confirm transaction hash lookup is required; XDR paste remains optional unless capacity allows.
 - Confirm public route format: `/verify/[slug]`.
 - Confirm webhook signing and retries are deferred.
@@ -123,7 +123,7 @@ Dependencies:
 
 - Rust/Soroban toolchain.
 
-### Sprint 2: Project System and Wallet
+### Sprint 2: Project System and Multi-Wallet
 
 Goal: create the off-chain project backbone and first dashboard loop.
 
@@ -131,19 +131,26 @@ Scope:
 
 - Implement Convex schema for `projects`.
 - Add project create/update queries and mutations for draft projects.
-- Implement wallet connection UI using Freighter.
-- Show connected wallet address in app shell.
+- Add Stellar Wallets Kit as the Phase 1 wallet integration layer.
+- Initialize Stellar Wallets Kit only in the browser using Testnet config and the default wallet modules.
+- Implement wallet connection UI using the kit's modal/button flow, starting with Freighter support but not hard-coding the app to Freighter-only APIs.
+- Listen for wallet state updates and disconnect events so the app shell, dashboard, and project owner scope stay in sync.
+- Show selected wallet name/id and connected wallet address in app shell.
 - Build dashboard home with empty state and project table.
 - Build create project form using shared UI components.
 - Generate slug and metadata hash from project metadata.
+- Create a small wallet service/hook boundary that exposes `connect`, `disconnect`, `address`, `walletId`, and future `signTransaction` capability without leaking kit details into page components.
 
 Acceptance criteria:
 
-- Developer can connect and disconnect wallet.
+- Developer can connect and disconnect using Stellar Wallets Kit on Testnet.
+- Developer can connect with Freighter through the kit, and the UI is ready to show other default supported wallets when available.
 - Developer can create a draft project with name, slug, description, website, metadata JSON, and metadata hash.
 - Dashboard lists draft projects scoped to the connected owner wallet.
-- Wallet unavailable, rejected connection, and disconnected states are visible.
+- Wallet unavailable, unsupported wallet, rejected connection, disconnected, and stale wallet-session states are visible.
+- Selected wallet id/name and shortened public address are visible after connection.
 - Draft project creation does not require an on-chain transaction yet.
+- Wallet initialization does not run during server-side rendering or pre-rendering.
 
 Dependencies:
 
@@ -157,7 +164,8 @@ Scope:
 
 - Add `packages/stellar` helpers for Testnet config, ID validation, and registry transaction construction.
 - Build `register_project` transaction from draft metadata.
-- Integrate Freighter signing and transaction submission.
+- Reuse the Sprint 2 Stellar Wallets Kit boundary for signing and transaction submission.
+- Pass the Testnet network passphrase and active wallet address explicitly when requesting signatures.
 - Store pending registration transaction hash in Convex.
 - Implement registry sync to confirm registration and persist `registryProjectId`.
 - Add dashboard states: draft, pending, registered, error, stale.

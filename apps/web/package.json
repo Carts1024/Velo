@@ -10,6 +10,7 @@
     "start": "next start"
   },
   "dependencies": {
+    "@creit-tech/stellar-wallets-kit": "npm:@jsr/creit-tech__stellar-wallets-kit@^2.3.0",
     "@hookform/resolvers": "^5.4.0",
     "@hookstate/core": "^4.0.2",
     "@hookstate/devtools": "^4.0.3",

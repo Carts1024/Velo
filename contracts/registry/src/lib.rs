@@ -5,12 +5,12 @@ mod events;
 mod types;
 
 pub use errors::RegistryError;
-pub use types::Project;
-
-use events::{
+pub use events::{
     ContractAdded, ContractRemoved, OwnershipTransferred, ProjectDeactivated, ProjectRegistered,
     ProjectUpdated,
 };
+pub use types::Project;
+
 use soroban_sdk::{contract, contractimpl, Address, BytesN, Env, String, Vec};
 use types::DataKey;
 
@@ -235,11 +235,13 @@ fn get_contracts(env: &Env, project_id: u64) -> Vec<Address> {
     let contracts = env
         .storage()
         .persistent()
-        .get::<DataKey, Vec<Address>>(&DataKey::ProjectContracts(project_id))
-        .unwrap_or_else(|| Vec::new(env));
+        .get::<DataKey, Vec<Address>>(&DataKey::ProjectContracts(project_id));
 
-    extend_contracts_ttl(env, project_id);
-    contracts
+    if contracts.is_some() {
+        extend_contracts_ttl(env, project_id);
+    }
+
+    contracts.unwrap_or_else(|| Vec::new(env))
 }
 
 fn set_project(env: &Env, project: &Project) {

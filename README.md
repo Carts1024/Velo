@@ -411,14 +411,14 @@ pnpm dev
 ### Build Soroban contract
 
 ```bash
-stellar contract build
+stellar contract build --manifest-path contracts/registry/Cargo.toml
 ```
 
 ### Deploy Soroban contract
 
 ```bash
 stellar contract deploy \
-  --wasm target/wasm32-unknown-unknown/release/stellar_kit_registry.wasm \
+  --wasm contracts/registry/target/wasm32v1-none/release/talakit_registry.wasm \
   --source-account <SOURCE_ACCOUNT> \
   --network testnet
 ```
@@ -487,3 +487,6 @@ Built for the Rise In x Stellar APAC Hackathon.
 Project name: **StellarKit**
 
 Tagline: **Verified developer infrastructure for Stellar apps.**
+
+
+CBSR5LFHR5Q2X3PO3HSMGXI43YEUYGFTHUPGNVGW6XH2VNOQUEUHIEJR
