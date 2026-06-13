@@ -16,20 +16,20 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://vercel.com"),
-  title: "Next-Tailwind Starter Template",
-  description: "Starter Template",
-  keywords: ["nextjs", "tailwindcss", "template", "starter", "kit"],
+  metadataBase: new URL("https://talakit.local"),
+  title: "TalaKit",
+  description: "Verified developer infrastructure for Stellar apps",
+  keywords: ["stellar", "soroban", "developer tools", "verification", "debugging"],
   openGraph: {
-    siteName: "Next-Tailwind Starter Template",
-    title: "Next-Tailwind Starter Template",
-    description: "Starter Template",
+    siteName: "TalaKit",
+    title: "TalaKit",
+    description: "Verified developer infrastructure for Stellar apps",
     images: "/banner.png",
     type: "website",
   },
   twitter: {
-    title: "Next-Tailwind Starter Template",
-    description: "Starter Template",
+    title: "TalaKit",
+    description: "Verified developer infrastructure for Stellar apps",
     images: "/banner.png",
     card: "summary_large_image",
   },

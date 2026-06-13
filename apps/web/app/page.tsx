@@ -1,11 +1,14 @@
-"use client";
-
-import Template from "@repo/ui/components/samples/template";
+import { PlaceholderPage } from "@/features/readiness/placeholder-page";
 
 export default function Home() {
   return (
-    <div className="font-sans">
-      <Template />
-    </div>
+    <PlaceholderPage
+      title="Verified developer infrastructure for Stellar apps"
+      description="Register official Soroban contracts, debug Testnet transactions, monitor events, and prove webhook delivery from one developer operations workspace."
+      primaryAction={{ href: "/dashboard", label: "Open dashboard" }}
+      secondaryAction={{ href: "/debug", label: "Debug transaction" }}
+      checklist={["Landing entry route", "Shared UI import", "Testnet config"]}
+      status="ready"
+    />
   );
 }
