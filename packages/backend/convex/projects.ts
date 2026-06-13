@@ -1,6 +1,10 @@
 import { v } from "convex/values";
 
+import type { Id } from "./_generated/dataModel";
+
 import { mutation, query, type MutationCtx } from "./_generated/server";
+
+const TRANSACTION_HASH_PATTERN = /^[0-9a-f]{64}$/i;
 
 const draftProjectArgs = {
   name: v.string(),
@@ -16,6 +20,16 @@ function normalizeAddress(address: string) {
   return address.trim().toUpperCase();
 }
 
+function normalizeTransactionHash(hash: string) {
+  const normalized = hash.trim().toLowerCase();
+
+  if (!TRANSACTION_HASH_PATTERN.test(normalized)) {
+    throw new Error("Invalid transaction hash");
+  }
+
+  return normalized;
+}
+
 async function requireUniqueSlug(ctx: MutationCtx, slug: string) {
   const existing = await ctx.db
     .query("projects")
@@ -25,6 +39,20 @@ async function requireUniqueSlug(ctx: MutationCtx, slug: string) {
   if (existing) {
     throw new Error("Project slug is already in use");
   }
+}
+
+async function requireOwnerProject(ctx: MutationCtx, id: Id<"projects">, ownerAddress: string) {
+  const project = await ctx.db.get(id);
+
+  if (!project) {
+    throw new Error("Project not found");
+  }
+
+  if (project.ownerAddress !== normalizeAddress(ownerAddress)) {
+    throw new Error("Connected wallet does not own this project");
+  }
+
+  return project;
 }
 
 export const listByOwner = query({
@@ -50,6 +78,13 @@ export const getBySlug = query({
   },
 });
 
+export const getById = query({
+  args: { id: v.id("projects") },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.id);
+  },
+});
+
 export const createDraft = mutation({
   args: draftProjectArgs,
   handler: async (ctx, args) => {
@@ -68,7 +103,98 @@ export const createDraft = mutation({
       metadataHash: args.metadataHash,
       ownerAddress,
       status: "draft",
+      lastSyncAt: undefined,
       createdAt: now,
+      updatedAt: now,
+    });
+  },
+});
+
+export const markRegistrationPending = mutation({
+  args: {
+    id: v.id("projects"),
+    ownerAddress: v.string(),
+    registrationTxHash: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const project = await requireOwnerProject(ctx, args.id, args.ownerAddress);
+
+    if (
+      project.status !== "draft" &&
+      project.status !== "registration_error" &&
+      project.status !== "stale"
+    ) {
+      throw new Error("Only draft, failed, or stale projects can start registration");
+    }
+
+    const now = Date.now();
+    await ctx.db.patch(args.id, {
+      status: "pending_registration",
+      registrationTxHash: normalizeTransactionHash(args.registrationTxHash),
+      registrationError: undefined,
+      lastSyncAt: now,
+      updatedAt: now,
+    });
+  },
+});
+
+export const markRegistrationSynced = mutation({
+  args: {
+    id: v.id("projects"),
+    ownerAddress: v.string(),
+    registryProjectId: v.optional(v.number()),
+    createdLedger: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const project = await requireOwnerProject(ctx, args.id, args.ownerAddress);
+
+    if (!project.registrationTxHash) {
+      throw new Error("Project has no registration transaction to sync");
+    }
+
+    const now = Date.now();
+    await ctx.db.patch(args.id, {
+      status: "registered",
+      registryProjectId: args.registryProjectId,
+      createdLedger: args.createdLedger,
+      registrationError: undefined,
+      lastSyncAt: now,
+      updatedAt: now,
+    });
+  },
+});
+
+export const markRegistrationStale = mutation({
+  args: {
+    id: v.id("projects"),
+    ownerAddress: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await requireOwnerProject(ctx, args.id, args.ownerAddress);
+
+    const now = Date.now();
+    await ctx.db.patch(args.id, {
+      status: "stale",
+      lastSyncAt: now,
+      updatedAt: now,
+    });
+  },
+});
+
+export const markRegistrationError = mutation({
+  args: {
+    id: v.id("projects"),
+    ownerAddress: v.string(),
+    registrationError: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await requireOwnerProject(ctx, args.id, args.ownerAddress);
+
+    const now = Date.now();
+    await ctx.db.patch(args.id, {
+      status: "registration_error",
+      registrationError: args.registrationError.slice(0, 500),
+      lastSyncAt: now,
       updatedAt: now,
     });
   },

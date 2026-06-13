@@ -31,6 +31,15 @@ const statusLabel = {
   pending_registration: "Pending",
   registered: "Registered",
   registration_error: "Error",
+  stale: "Stale",
+} as const;
+
+const statusVariant = {
+  draft: "info",
+  pending_registration: "warning",
+  registered: "success",
+  registration_error: "destructive",
+  stale: "warning",
 } as const;
 
 export function ProjectDashboard() {
@@ -127,10 +136,17 @@ export function ProjectDashboard() {
             <TableBody>
               {projects.map((project) => (
                 <TableRow key={project._id}>
-                  <TableCell className="font-medium">{project.name}</TableCell>
+                  <TableCell className="font-medium">
+                    <Link
+                      className="underline-offset-4 hover:underline"
+                      href={`/projects/${project._id}`}
+                    >
+                      {project.name}
+                    </Link>
+                  </TableCell>
                   <TableCell>{project.slug}</TableCell>
                   <TableCell>
-                    <Badge variant={project.status === "draft" ? "info" : "warning"}>
+                    <Badge variant={statusVariant[project.status]}>
                       {statusLabel[project.status]}
                     </Badge>
                   </TableCell>

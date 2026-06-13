@@ -15,6 +15,7 @@
     "@hookstate/core": "^4.0.2",
     "@hookstate/devtools": "^4.0.3",
     "@repo/backend": "workspace:*",
+    "@repo/stellar": "workspace:*",
     "@repo/ui": "workspace:*",
     "convex": "^1.31.7",
     "lodash.merge": "^4.6.2",

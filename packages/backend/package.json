@@ -9,6 +9,7 @@
     "lint:fix": "oxlint --fix convex && oxfmt --write convex && cd convex && tsc --noEmit"
   },
   "dependencies": {
+    "@repo/stellar": "workspace:*",
     "convex": "^1.31.7"
   }
 }
