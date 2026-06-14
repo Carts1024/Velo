@@ -118,7 +118,7 @@ export function ProjectWebhooks({ projectId }: { projectId: string }) {
     wallet.address ? { projectId: typedProjectId, ownerAddress: wallet.address } : "skip",
   );
   const deliveries = useQuery(
-    api.webhook_endpoints.query.listDeliveries,
+    api.webhook_deliveries.query.listByProject,
     wallet.address
       ? { projectId: typedProjectId, ownerAddress: wallet.address, limit: 50 }
       : "skip",

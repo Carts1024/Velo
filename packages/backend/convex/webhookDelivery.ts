@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 
-import type { Doc, Id } from "./_generated/dataModel";
+import type { Doc } from "./_generated/dataModel";
+import type { WebhookDeliveryId } from "./webhook_deliveries/types";
 import type { WebhookEventType } from "./webhook_endpoints/types";
 
 import { internal } from "./_generated/api";
@@ -92,14 +93,14 @@ export const sendTest = action({
   handler: async (
     ctx,
     args,
-  ): Promise<{ deliveryId: Id<"webhookDeliveries">; status: "success" | "failed" }> => {
+  ): Promise<{ deliveryId: WebhookDeliveryId; status: "success" | "failed" }> => {
     const target: DeliveryTarget = await ctx.runQuery(
       internal.webhook_endpoints.query.getDeliveryTarget,
       args,
     );
     const payload = buildPayload(target, args.eventType);
-    const deliveryId: Id<"webhookDeliveries"> = await ctx.runMutation(
-      internal.webhook_endpoints.mutation.createPendingDelivery,
+    const deliveryId: WebhookDeliveryId = await ctx.runMutation(
+      internal.webhook_deliveries.mutation.createPending,
       {
         projectId: args.projectId,
         endpointId: target.endpoint._id,
@@ -123,7 +124,7 @@ export const sendTest = action({
       });
       const status = response.ok ? "success" : "failed";
 
-      await ctx.runMutation(internal.webhook_endpoints.mutation.finishDelivery, {
+      await ctx.runMutation(internal.webhook_deliveries.mutation.finish, {
         deliveryId,
         status,
         httpStatus: response.status,
@@ -133,7 +134,7 @@ export const sendTest = action({
       return { deliveryId, status };
     } catch (error) {
       const message = error instanceof Error ? error.message : "Webhook request failed";
-      await ctx.runMutation(internal.webhook_endpoints.mutation.finishDelivery, {
+      await ctx.runMutation(internal.webhook_deliveries.mutation.finish, {
         deliveryId,
         status: "failed",
         errorMessage: message,

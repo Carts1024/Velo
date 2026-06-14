@@ -1,13 +1,7 @@
 import { v } from "convex/values";
 
 import { internalQuery, query } from "../_generated/server";
-import {
-  DEFAULT_DELIVERY_LIMIT,
-  MAX_DELIVERY_LIMIT,
-  ownerProjectOrNull,
-  requireOwnerProject,
-  validateWebhookUrl,
-} from "./helpers";
+import { ownerProjectOrNull, requireOwnerProject, validateWebhookUrl } from "./helpers";
 
 export const getSettings = query({
   args: {
@@ -23,27 +17,6 @@ export const getSettings = query({
       .query("webhookEndpoints")
       .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
       .unique();
-  },
-});
-
-export const listDeliveries = query({
-  args: {
-    projectId: v.id("projects"),
-    ownerAddress: v.string(),
-    limit: v.optional(v.number()),
-  },
-  handler: async (ctx, args) => {
-    if (!(await ownerProjectOrNull(ctx, args.projectId, args.ownerAddress))) {
-      return [];
-    }
-
-    const limit = Math.min(MAX_DELIVERY_LIMIT, Math.max(1, args.limit ?? DEFAULT_DELIVERY_LIMIT));
-
-    return await ctx.db
-      .query("webhookDeliveries")
-      .withIndex("by_project_created_at", (q) => q.eq("projectId", args.projectId))
-      .order("desc")
-      .take(limit);
   },
 });
 

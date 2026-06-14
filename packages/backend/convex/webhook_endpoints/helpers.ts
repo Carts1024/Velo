@@ -3,9 +3,6 @@ import type { ProjectId } from "../projects/types";
 
 import { WEBHOOK_EVENT_TYPES, type WebhookEventType } from "./types";
 
-export const DEFAULT_DELIVERY_LIMIT = 25;
-export const MAX_DELIVERY_LIMIT = 100;
-
 const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
 
 export function normalizeOwnerAddress(address: string) {

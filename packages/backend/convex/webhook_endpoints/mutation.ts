@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 
-import { internalMutation, mutation } from "../_generated/server";
+import { mutation } from "../_generated/server";
 import { requireOwnerProject, validateEventTypes, validateWebhookUrl } from "./helpers";
 
 export const saveSettings = mutation({
@@ -36,43 +36,6 @@ export const saveSettings = mutation({
     return await ctx.db.insert("webhookEndpoints", {
       ...value,
       createdAt: now,
-    });
-  },
-});
-
-export const createPendingDelivery = internalMutation({
-  args: {
-    projectId: v.id("projects"),
-    endpointId: v.id("webhookEndpoints"),
-    eventType: v.string(),
-    destinationHost: v.string(),
-    payloadSummary: v.any(),
-  },
-  handler: async (ctx, args) => {
-    const now = Date.now();
-    return await ctx.db.insert("webhookDeliveries", {
-      ...args,
-      status: "pending",
-      attemptCount: 1,
-      lastAttemptAt: now,
-      createdAt: now,
-    });
-  },
-});
-
-export const finishDelivery = internalMutation({
-  args: {
-    deliveryId: v.id("webhookDeliveries"),
-    status: v.union(v.literal("success"), v.literal("failed")),
-    httpStatus: v.optional(v.number()),
-    errorMessage: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    await ctx.db.patch(args.deliveryId, {
-      status: args.status,
-      httpStatus: args.httpStatus,
-      errorMessage: args.errorMessage?.slice(0, 500),
-      lastAttemptAt: Date.now(),
     });
   },
 });

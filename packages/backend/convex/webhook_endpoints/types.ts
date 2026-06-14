@@ -10,9 +10,7 @@ export const WEBHOOK_EVENT_TYPES = [
 
 export type WebhookEventType = (typeof WEBHOOK_EVENT_TYPES)[number];
 export type WebhookEndpoint = Doc<"webhookEndpoints">;
-export type WebhookDelivery = Doc<"webhookDeliveries">;
 export type WebhookEndpointId = Id<"webhookEndpoints">;
-export type WebhookDeliveryId = Id<"webhookDeliveries">;
 
 export type WebhookSettingsInput = Pick<
   WebhookEndpoint,
