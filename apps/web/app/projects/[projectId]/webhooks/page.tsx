@@ -1,4 +1,5 @@
-import { PlaceholderPage } from "@/features/readiness/placeholder-page";
+import { AppShell } from "@/core/app-shell";
+import { ProjectWebhooks } from "@/features/projects/project-webhooks";
 
 type ProjectWebhooksPageProps = {
   params: Promise<{
@@ -10,11 +11,8 @@ export default async function ProjectWebhooksPage({ params }: ProjectWebhooksPag
   const { projectId } = await params;
 
   return (
-    <PlaceholderPage
-      title="Webhooks"
-      description="Sprint 7 will add private webhook endpoint settings, event type selection, demo delivery, and delivery logs."
-      primaryAction={{ href: `/projects/${projectId}`, label: "Project overview" }}
-      checklist={["Endpoint settings", "Test delivery", "Delivery logs"]}
-    />
+    <AppShell>
+      <ProjectWebhooks projectId={projectId} />
+    </AppShell>
   );
 }

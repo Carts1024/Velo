@@ -111,6 +111,30 @@ export default defineSchema({
     errorMessage: v.optional(v.string()),
     updatedAt: v.number(),
   }).index("by_scope", ["scope"]),
+  webhookEndpoints: defineTable({
+    projectId: v.id("projects"),
+    url: v.string(),
+    destinationHost: v.string(),
+    enabled: v.boolean(),
+    eventTypes: v.array(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_project", ["projectId"]),
+  webhookDeliveries: defineTable({
+    projectId: v.id("projects"),
+    endpointId: v.id("webhookEndpoints"),
+    eventType: v.string(),
+    destinationHost: v.string(),
+    payloadSummary: v.any(),
+    status: v.union(v.literal("pending"), v.literal("success"), v.literal("failed")),
+    httpStatus: v.optional(v.number()),
+    errorMessage: v.optional(v.string()),
+    attemptCount: v.number(),
+    lastAttemptAt: v.number(),
+    createdAt: v.number(),
+  })
+    .index("by_project_created_at", ["projectId", "createdAt"])
+    .index("by_endpoint_created_at", ["endpointId", "createdAt"]),
   tasks: defineTable({
     todo: v.string(),
     completed: v.boolean(),

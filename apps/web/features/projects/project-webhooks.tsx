@@ -1,0 +1,510 @@
+"use client";
+
+import { shortenAddress } from "@/core/wallet/format";
+import { useWallet } from "@/core/wallet/wallet-provider";
+import { api } from "@repo/backend/convex/_generated/api";
+import { Badge } from "@repo/ui/components/ui-customs/badge";
+import { Alert, AlertDescription, AlertTitle } from "@repo/ui/components/ui/alert";
+import { Button } from "@repo/ui/components/ui/button";
+import { Checkbox } from "@repo/ui/components/ui/checkbox";
+import { Input } from "@repo/ui/components/ui/input";
+import { Label } from "@repo/ui/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@repo/ui/components/ui/select";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@repo/ui/components/ui/sheet";
+import { Skeleton } from "@repo/ui/components/ui/skeleton";
+import { Switch } from "@repo/ui/components/ui/switch";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@repo/ui/components/ui/table";
+import { useAction, useMutation, useQuery } from "convex/react";
+import {
+  AlertCircleIcon,
+  CheckCircle2Icon,
+  FlaskConicalIcon,
+  LoaderCircleIcon,
+  LockKeyholeIcon,
+  SaveIcon,
+  SendIcon,
+  WalletIcon,
+  WebhookIcon,
+} from "lucide-react";
+import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
+
+import type { Doc, Id } from "@repo/backend/convex/_generated/dataModel";
+
+const eventTypes = [
+  "contract.event",
+  "transaction.succeeded",
+  "transaction.failed",
+  "project.registered",
+  "project.updated",
+] as const;
+
+type EventType = (typeof eventTypes)[number];
+
+const deliveryVariant = {
+  pending: "warning",
+  success: "success",
+  failed: "destructive",
+} as const;
+
+function formatTimestamp(value?: number) {
+  return value ? new Date(value).toLocaleString() : "No deliveries";
+}
+
+function displayJson(value: unknown) {
+  return JSON.stringify(value, null, 2);
+}
+
+function DeliveryDetail({ delivery }: { delivery: Doc<"webhookDeliveries"> }) {
+  return (
+    <SheetContent className="w-full overflow-y-auto sm:max-w-xl">
+      <SheetHeader>
+        <SheetTitle>{delivery.eventType}</SheetTitle>
+        <SheetDescription>
+          Attempted {formatTimestamp(delivery.lastAttemptAt)} to {delivery.destinationHost}
+        </SheetDescription>
+      </SheetHeader>
+      <div className="grid gap-5 px-4 pb-6">
+        <div className="grid gap-2 text-sm">
+          <span className="text-xs font-medium text-zinc-500 uppercase">Status</span>
+          <Badge variant={deliveryVariant[delivery.status]} className="w-fit">
+            {delivery.status}
+          </Badge>
+          <span className="text-xs font-medium text-zinc-500 uppercase">HTTP status</span>
+          <span>{delivery.httpStatus ?? "No response"}</span>
+          <span className="text-xs font-medium text-zinc-500 uppercase">Failure reason</span>
+          <span>{delivery.errorMessage ?? "None"}</span>
+        </div>
+        <div className="grid gap-2">
+          <h3 className="text-sm font-semibold">Payload summary</h3>
+          <pre className="max-h-96 overflow-auto bg-zinc-950 p-3 text-xs text-zinc-100">
+            {displayJson(delivery.payloadSummary)}
+          </pre>
+        </div>
+      </div>
+    </SheetContent>
+  );
+}
+
+export function ProjectWebhooks({ projectId }: { projectId: string }) {
+  const wallet = useWallet();
+  const typedProjectId = projectId as Id<"projects">;
+  const project = useQuery(api.projects.getById, { id: typedProjectId });
+  const settings = useQuery(
+    api.webhooks.getSettings,
+    wallet.address ? { projectId: typedProjectId, ownerAddress: wallet.address } : "skip",
+  );
+  const deliveries = useQuery(
+    api.webhooks.listDeliveries,
+    wallet.address
+      ? { projectId: typedProjectId, ownerAddress: wallet.address, limit: 50 }
+      : "skip",
+  );
+  const activity = useQuery(
+    api.contractEvents.listByProject,
+    wallet.address ? { projectId: typedProjectId, ownerAddress: wallet.address, limit: 1 } : "skip",
+  );
+  const saveSettings = useMutation(api.webhooks.saveSettings);
+  const sendTest = useAction(api.webhookDelivery.sendTest);
+  const loadedSettingsId = useRef<string | null>(null);
+  const [url, setUrl] = useState("");
+  const [enabled, setEnabled] = useState(true);
+  const [selectedTypes, setSelectedTypes] = useState<EventType[]>([...eventTypes]);
+  const [testEventType, setTestEventType] = useState<EventType>("contract.event");
+  const [useObservedEvent, setUseObservedEvent] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isSending, setIsSending] = useState(false);
+  const [notice, setNotice] = useState<{ type: "success" | "error"; message: string } | null>(null);
+
+  useEffect(() => {
+    if (!settings || loadedSettingsId.current === settings._id) {
+      return;
+    }
+
+    loadedSettingsId.current = settings._id;
+    setUrl(settings.url);
+    setEnabled(settings.enabled);
+    setSelectedTypes(settings.eventTypes as EventType[]);
+    const firstType = settings.eventTypes[0] as EventType | undefined;
+    if (firstType) {
+      setTestEventType(firstType);
+    }
+  }, [settings]);
+
+  useEffect(() => {
+    if (!selectedTypes.includes(testEventType) && selectedTypes[0]) {
+      setTestEventType(selectedTypes[0]);
+    }
+  }, [selectedTypes, testEventType]);
+
+  if (project === undefined) {
+    return (
+      <section className="grid gap-4">
+        <Skeleton className="h-10 w-64" />
+        <Skeleton className="h-72 w-full" />
+        <Skeleton className="h-64 w-full" />
+      </section>
+    );
+  }
+
+  if (project === null) {
+    return (
+      <section className="grid gap-4">
+        <h1 className="text-3xl font-semibold">Project not found</h1>
+        <Button asChild className="w-fit">
+          <Link href="/dashboard">Back to dashboard</Link>
+        </Button>
+      </section>
+    );
+  }
+
+  const ownerMatches = wallet.address?.toUpperCase() === project.ownerAddress;
+  const latestEvent = activity?.events[0];
+  const succeeded = deliveries?.filter((delivery) => delivery.status === "success").length ?? 0;
+  const failed = deliveries?.filter((delivery) => delivery.status === "failed").length ?? 0;
+  const finished = succeeded + failed;
+  const successRate = finished ? Math.round((succeeded / finished) * 100) : 0;
+
+  function toggleEventType(eventType: EventType, checked: boolean) {
+    setSelectedTypes((current) =>
+      checked
+        ? Array.from(new Set([...current, eventType]))
+        : current.filter((v) => v !== eventType),
+    );
+  }
+
+  function useTemporaryTester() {
+    if (["localhost", "127.0.0.1", "::1"].includes(window.location.hostname)) {
+      setNotice({
+        type: "error",
+        message:
+          "Hosted Convex cannot call localhost. Deploy this web app or expose port 3000 through an HTTPS tunnel, then use that public URL.",
+      });
+      return;
+    }
+
+    setUrl(`${window.location.origin}/api/webhook-tester`);
+    setNotice({
+      type: "success",
+      message: "Public temporary tester URL filled.",
+    });
+  }
+
+  async function save() {
+    if (!wallet.address) {
+      return;
+    }
+
+    setIsSaving(true);
+    setNotice(null);
+    try {
+      await saveSettings({
+        projectId: typedProjectId,
+        ownerAddress: wallet.address,
+        url,
+        enabled,
+        eventTypes: selectedTypes,
+      });
+      setNotice({ type: "success", message: "Webhook settings saved." });
+    } catch (error) {
+      setNotice({
+        type: "error",
+        message: error instanceof Error ? error.message : "Webhook settings could not be saved",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function send() {
+    if (!wallet.address) {
+      return;
+    }
+
+    setIsSending(true);
+    setNotice(null);
+    try {
+      const result = await sendTest({
+        projectId: typedProjectId,
+        ownerAddress: wallet.address,
+        eventType: testEventType,
+        contractEventId:
+          testEventType === "contract.event" && useObservedEvent ? latestEvent?._id : undefined,
+      });
+      setNotice({
+        type: result.status === "success" ? "success" : "error",
+        message:
+          result.status === "success"
+            ? "Webhook delivered successfully."
+            : "Webhook attempt failed. Open the latest delivery for details.",
+      });
+    } catch (error) {
+      setNotice({
+        type: "error",
+        message: error instanceof Error ? error.message : "Webhook test could not be sent",
+      });
+    } finally {
+      setIsSending(false);
+    }
+  }
+
+  return (
+    <section className="grid gap-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-3xl font-semibold">Webhooks</h1>
+            <Badge variant={settings?.enabled ? "success" : settings ? "warning" : "gray"}>
+              {settings?.enabled ? "Enabled" : settings ? "Disabled" : "Not configured"}
+            </Badge>
+          </div>
+          <p className="mt-2 max-w-2xl text-sm text-zinc-600">
+            Deliver project activity to a private developer endpoint and inspect every attempt.
+          </p>
+        </div>
+        <Button variant="outline" asChild>
+          <Link href={`/projects/${project._id}`}>Project overview</Link>
+        </Button>
+      </div>
+
+      {!wallet.address ? (
+        <Alert>
+          <WalletIcon />
+          <AlertTitle>Owner wallet required</AlertTitle>
+          <AlertDescription>
+            Connect {shortenAddress(project.ownerAddress)} to manage private webhook settings.
+          </AlertDescription>
+        </Alert>
+      ) : !ownerMatches ? (
+        <Alert variant="destructive">
+          <AlertCircleIcon />
+          <AlertTitle>Connected wallet is not the owner</AlertTitle>
+          <AlertDescription>Switch to {shortenAddress(project.ownerAddress)}.</AlertDescription>
+        </Alert>
+      ) : null}
+
+      <Alert>
+        <LockKeyholeIcon />
+        <AlertTitle>Private endpoint</AlertTitle>
+        <AlertDescription>
+          Webhook URLs and delivery logs are never returned by public project queries or pages.
+        </AlertDescription>
+      </Alert>
+
+      {notice ? (
+        <Alert variant={notice.type === "error" ? "destructive" : "default"}>
+          {notice.type === "error" ? <AlertCircleIcon /> : <CheckCircle2Icon />}
+          <AlertTitle>
+            {notice.type === "error" ? "Webhook needs attention" : "Webhook ready"}
+          </AlertTitle>
+          <AlertDescription>{notice.message}</AlertDescription>
+        </Alert>
+      ) : null}
+
+      <div className="grid gap-5 border border-zinc-200 bg-white p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+          <div className="grid flex-1 gap-2">
+            <Label htmlFor="webhook-url">Webhook URL</Label>
+            <Input
+              id="webhook-url"
+              value={url}
+              onChange={(event) => setUrl(event.target.value)}
+              placeholder="https://api.example.com/webhooks/talakit"
+              disabled={!ownerMatches}
+            />
+          </div>
+          <Button variant="outline" onClick={useTemporaryTester} disabled={!ownerMatches}>
+            <FlaskConicalIcon />
+            Use temporary tester
+          </Button>
+        </div>
+
+        <div className="flex items-center justify-between gap-4 border border-zinc-200 p-3">
+          <div>
+            <Label htmlFor="webhook-enabled">Endpoint enabled</Label>
+            <p className="mt-1 text-xs text-zinc-500">
+              Disabled endpoints keep their settings but reject delivery attempts.
+            </p>
+          </div>
+          <Switch
+            id="webhook-enabled"
+            checked={enabled}
+            onCheckedChange={setEnabled}
+            disabled={!ownerMatches}
+          />
+        </div>
+
+        <fieldset className="grid gap-3">
+          <legend className="text-sm font-medium">Event types</legend>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {eventTypes.map((eventType) => (
+              <Label key={eventType} className="border border-zinc-200 p-3">
+                <Checkbox
+                  checked={selectedTypes.includes(eventType)}
+                  onCheckedChange={(checked) => toggleEventType(eventType, checked === true)}
+                  disabled={!ownerMatches}
+                />
+                <span className="font-mono text-xs">{eventType}</span>
+              </Label>
+            ))}
+          </div>
+        </fieldset>
+
+        <div className="flex flex-wrap gap-2">
+          <Button
+            onClick={() => void save()}
+            disabled={!ownerMatches || isSaving || selectedTypes.length === 0}
+          >
+            {isSaving ? <LoaderCircleIcon className="animate-spin" /> : <SaveIcon />}
+            {isSaving ? "Saving..." : "Save webhook"}
+          </Button>
+        </div>
+      </div>
+
+      <div className="grid gap-4 border border-zinc-200 bg-white p-5">
+        <div>
+          <h2 className="font-semibold">Test delivery</h2>
+          <p className="mt-1 text-sm text-zinc-600">
+            Send a generated payload, or use the latest observed event for contract.event.
+          </p>
+        </div>
+        <div className="grid gap-3 md:grid-cols-[1fr_auto_auto] md:items-center">
+          <Select
+            value={testEventType}
+            onValueChange={(value) => setTestEventType(value as EventType)}
+            disabled={!ownerMatches}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {selectedTypes.map((eventType) => (
+                <SelectItem key={eventType} value={eventType}>
+                  {eventType}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Label className="border border-zinc-200 p-3">
+            <Checkbox
+              checked={useObservedEvent}
+              onCheckedChange={(checked) => setUseObservedEvent(checked === true)}
+              disabled={testEventType !== "contract.event" || !latestEvent || !ownerMatches}
+            />
+            Latest observed event
+          </Label>
+          <Button
+            onClick={() => void send()}
+            disabled={
+              !ownerMatches || isSending || !settings || !selectedTypes.includes(testEventType)
+            }
+          >
+            {isSending ? <LoaderCircleIcon className="animate-spin" /> : <SendIcon />}
+            {isSending ? "Sending..." : "Send test event"}
+          </Button>
+        </div>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-3">
+        <div className="border border-zinc-200 bg-white p-4">
+          <p className="text-xs font-medium text-zinc-500 uppercase">Last delivery</p>
+          <p className="mt-2 text-sm">{formatTimestamp(deliveries?.[0]?.lastAttemptAt)}</p>
+        </div>
+        <div className="border border-zinc-200 bg-white p-4">
+          <p className="text-xs font-medium text-zinc-500 uppercase">Recent success rate</p>
+          <p className="mt-2 text-2xl font-semibold">{successRate}%</p>
+        </div>
+        <div className="border border-zinc-200 bg-white p-4">
+          <p className="text-xs font-medium text-zinc-500 uppercase">Failed attempts</p>
+          <p className="mt-2 text-2xl font-semibold">{failed}</p>
+        </div>
+      </div>
+
+      <div className="border border-zinc-200 bg-white">
+        <div className="border-b border-zinc-200 px-4 py-3">
+          <h2 className="font-semibold">Delivery logs</h2>
+          <p className="text-xs text-zinc-500">Showing the latest 50 bounded attempts.</p>
+        </div>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Time</TableHead>
+              <TableHead>Event type</TableHead>
+              <TableHead>Destination</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>HTTP</TableHead>
+              <TableHead>Attempts</TableHead>
+              <TableHead className="text-right">Payload</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {!deliveries?.length ? (
+              <TableRow>
+                <TableCell colSpan={7} className="py-10 text-center text-sm text-zinc-600">
+                  {wallet.address
+                    ? "No webhook delivery attempts yet."
+                    : "Connect the owner wallet to view private delivery logs."}
+                </TableCell>
+              </TableRow>
+            ) : (
+              deliveries.map((delivery) => (
+                <TableRow key={delivery._id}>
+                  <TableCell className="text-sm">
+                    {formatTimestamp(delivery.lastAttemptAt)}
+                  </TableCell>
+                  <TableCell className="font-mono text-xs">{delivery.eventType}</TableCell>
+                  <TableCell>{delivery.destinationHost}</TableCell>
+                  <TableCell>
+                    <Badge variant={deliveryVariant[delivery.status]}>{delivery.status}</Badge>
+                  </TableCell>
+                  <TableCell>{delivery.httpStatus ?? "-"}</TableCell>
+                  <TableCell>{delivery.attemptCount}</TableCell>
+                  <TableCell className="text-right">
+                    <Sheet>
+                      <SheetTrigger asChild>
+                        <Button variant="outline" size="sm">
+                          View
+                        </Button>
+                      </SheetTrigger>
+                      <DeliveryDetail delivery={delivery} />
+                    </Sheet>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      <Alert>
+        <WebhookIcon />
+        <AlertTitle>Temporary tester behavior</AlertTitle>
+        <AlertDescription>
+          On a deployed app or HTTPS tunnel, <code>/api/webhook-tester</code> returns HTTP 200. Add{" "}
+          <code>?status=500</code> to demonstrate failure. Hosted Convex cannot call a localhost
+          URL.
+        </AlertDescription>
+      </Alert>
+    </section>
+  );
+}

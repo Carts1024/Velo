@@ -31,6 +31,7 @@ import {
   RefreshCwIcon,
   SendIcon,
   WalletIcon,
+  WebhookIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
@@ -113,6 +114,15 @@ export function ProjectDetail({ projectId }: ProjectDetailProps) {
           projectId: projectId as Id<"projects">,
           ownerAddress: wallet.address,
           limit: 5,
+        }
+      : "skip",
+  );
+  const webhookSummary = useQuery(
+    api.webhooks.getSummary,
+    wallet.address
+      ? {
+          projectId: projectId as Id<"projects">,
+          ownerAddress: wallet.address,
         }
       : "skip",
   );
@@ -430,6 +440,55 @@ export function ProjectDetail({ projectId }: ProjectDetailProps) {
         />
       </div>
 
+      <div className="rounded-lg border border-zinc-200 bg-white">
+        <div className="flex flex-col gap-2 border-b border-zinc-200 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-base font-semibold tracking-normal">Webhook delivery</h2>
+              <Badge
+                variant={
+                  webhookSummary?.lastDelivery?.status === "success"
+                    ? "success"
+                    : webhookSummary?.lastDelivery?.status === "failed"
+                      ? "destructive"
+                      : webhookSummary?.enabled
+                        ? "info"
+                        : "gray"
+                }
+              >
+                {webhookSummary?.lastDelivery?.status ??
+                  (webhookSummary?.enabled ? "ready" : "not configured")}
+              </Badge>
+            </div>
+            <p className="mt-1 text-sm text-zinc-600">
+              {webhookSummary?.destinationHost
+                ? `${webhookSummary.destinationHost} - ${webhookSummary.eventTypeCount} event types`
+                : "Configure a private endpoint and send a demo delivery."}
+            </p>
+          </div>
+          <Button variant="outline" size="sm" asChild>
+            <Link href={`/projects/${currentProject._id}/webhooks`}>
+              <WebhookIcon />
+              Manage webhooks
+            </Link>
+          </Button>
+        </div>
+        <div className="grid gap-3 p-4 sm:grid-cols-3">
+          <DetailRow
+            label="Last delivery"
+            value={formatTimestamp(webhookSummary?.lastDelivery?.lastAttemptAt)}
+          />
+          <DetailRow
+            label="Recent successes"
+            value={`${webhookSummary?.successCount ?? 0} of ${webhookSummary?.recentCount ?? 0}`}
+          />
+          <DetailRow
+            label="Failed attempts"
+            value={(webhookSummary?.failedCount ?? 0).toString()}
+          />
+        </div>
+      </div>
+
       <div className="flex flex-wrap gap-2">
         <Button variant="outline" asChild>
           <Link href={`/projects/${currentProject._id}/contracts`}>
@@ -441,6 +500,12 @@ export function ProjectDetail({ projectId }: ProjectDetailProps) {
           <Link href={`/projects/${currentProject._id}/events`}>
             <ActivityIcon />
             Events
+          </Link>
+        </Button>
+        <Button variant="outline" asChild>
+          <Link href={`/projects/${currentProject._id}/webhooks`}>
+            <WebhookIcon />
+            Webhooks
           </Link>
         </Button>
         <Button variant="outline" asChild>

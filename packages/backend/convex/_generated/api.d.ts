@@ -14,6 +14,8 @@ import type * as crons from "../crons.js";
 import type * as projects from "../projects.js";
 import type * as tasks from "../tasks.js";
 import type * as transactions from "../transactions.js";
+import type * as webhookDelivery from "../webhookDelivery.js";
+import type * as webhooks from "../webhooks.js";
 
 import type {
   ApiFromModules,
@@ -28,6 +30,8 @@ declare const fullApi: ApiFromModules<{
   projects: typeof projects;
   tasks: typeof tasks;
   transactions: typeof transactions;
+  webhookDelivery: typeof webhookDelivery;
+  webhooks: typeof webhooks;
 }>;
 
 /**
