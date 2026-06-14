@@ -129,7 +129,7 @@ export function ProjectDetail({ projectId }: ProjectDetailProps) {
       : "skip",
   );
   const recentActivity = useQuery(
-    api.contractEvents.listByProject,
+    api.contract_events.query.listByProject,
     wallet.address
       ? {
           projectId: projectId as Id<"projects">,

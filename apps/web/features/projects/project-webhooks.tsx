@@ -124,7 +124,7 @@ export function ProjectWebhooks({ projectId }: { projectId: string }) {
       : "skip",
   );
   const activity = useQuery(
-    api.contractEvents.listByProject,
+    api.contract_events.query.listByProject,
     wallet.address ? { projectId: typedProjectId, ownerAddress: wallet.address, limit: 1 } : "skip",
   );
   const saveSettings = useMutation(api.webhook_endpoints.mutation.saveSettings);

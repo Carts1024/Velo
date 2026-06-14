@@ -1,48 +1,17 @@
 import { v } from "convex/values";
 
-import type { Doc, Id } from "./_generated/dataModel";
+import type { ProjectId } from "../projects/types";
 
-import { internalMutation, internalQuery, query, type QueryCtx } from "./_generated/server";
-
-const DEFAULT_PAGE_SIZE = 25;
-const MAX_PAGE_SIZE = 100;
-const MAX_SCHEDULED_CONTRACTS = 100;
-const MAX_SCHEDULED_PROJECTS = 20;
-const STALE_AFTER_MS = 2 * 60 * 1_000;
-const METADATA_HASH_PATTERN = /^[0-9a-f]{64}$/i;
-
-type PollStatus = "live" | "polling" | "stale" | "error" | "empty";
-
-function projectScope(projectId: Id<"projects">) {
-  return `project:${projectId}`;
-}
-
-function normalizeOwnerAddress(address: string) {
-  return address.trim().toUpperCase();
-}
-
-async function pollerForProject(ctx: QueryCtx, projectId: Id<"projects">) {
-  return await ctx.db
-    .query("pollerState")
-    .withIndex("by_scope", (q) => q.eq("scope", projectScope(projectId)))
-    .unique();
-}
-
-function publicPollStatus(poller: Doc<"pollerState"> | null, eventCount: number): PollStatus {
-  if (!poller) {
-    return eventCount > 0 ? "stale" : "empty";
-  }
-
-  if (poller.status === "polling" || poller.status === "error") {
-    return poller.status;
-  }
-
-  if (!poller.lastRunAt || Date.now() - poller.lastRunAt > STALE_AFTER_MS) {
-    return "stale";
-  }
-
-  return eventCount > 0 ? "live" : "empty";
-}
+import { internalQuery, query } from "../_generated/server";
+import {
+  MAX_SCHEDULED_CONTRACTS,
+  MAX_SCHEDULED_PROJECTS,
+  METADATA_HASH_PATTERN,
+  normalizeOwnerAddress,
+  normalizePageSize,
+  pollerForProject,
+  publicPollStatus,
+} from "./helpers";
 
 export const listByProject = query({
   args: {
@@ -57,12 +26,11 @@ export const listByProject = query({
       return null;
     }
 
-    const limit = Math.min(MAX_PAGE_SIZE, Math.max(1, args.limit ?? DEFAULT_PAGE_SIZE));
     const events = await ctx.db
       .query("contractEvents")
       .withIndex("by_project_ledger", (q) => q.eq("projectId", args.projectId))
       .order("desc")
-      .take(limit);
+      .take(normalizePageSize(args.limit));
     const poller = await pollerForProject(ctx, args.projectId);
 
     return {
@@ -188,7 +156,7 @@ export const listScheduledTargets = internalQuery({
       .query("projectContracts")
       .withIndex("by_status", (q) => q.eq("status", "active"))
       .take(MAX_SCHEDULED_CONTRACTS);
-    const contractIdsByProject = new Map<Id<"projects">, string[]>();
+    const contractIdsByProject = new Map<ProjectId, string[]>();
 
     for (const contract of activeContracts) {
       const contractIds = contractIdsByProject.get(contract.projectId) ?? [];
@@ -217,118 +185,5 @@ export const listScheduledTargets = internalQuery({
     }
 
     return targets;
-  },
-});
-
-export const markPolling = internalMutation({
-  args: { projectId: v.id("projects") },
-  handler: async (ctx, args) => {
-    const scope = projectScope(args.projectId);
-    const existing = await ctx.db
-      .query("pollerState")
-      .withIndex("by_scope", (q) => q.eq("scope", scope))
-      .unique();
-    const value = {
-      scope,
-      projectId: args.projectId,
-      status: "polling" as const,
-      errorMessage: undefined,
-      updatedAt: Date.now(),
-    };
-
-    if (existing) {
-      await ctx.db.patch(existing._id, value);
-      return;
-    }
-
-    await ctx.db.insert("pollerState", value);
-  },
-});
-
-export const storePollResult = internalMutation({
-  args: {
-    projectId: v.id("projects"),
-    latestLedger: v.optional(v.number()),
-    events: v.array(
-      v.object({
-        eventId: v.string(),
-        contractId: v.string(),
-        transactionHash: v.string(),
-        ledger: v.number(),
-        timestamp: v.optional(v.number()),
-        topic: v.string(),
-        topics: v.array(v.any()),
-        type: v.string(),
-        raw: v.any(),
-        decoded: v.optional(v.any()),
-      }),
-    ),
-  },
-  handler: async (ctx, args) => {
-    const observedAt = Date.now();
-
-    for (const event of args.events) {
-      const eventKey = `${args.projectId}:${event.eventId}`;
-      const existing = await ctx.db
-        .query("contractEvents")
-        .withIndex("by_event_key", (q) => q.eq("eventKey", eventKey))
-        .unique();
-      const value = { ...event, eventKey, projectId: args.projectId, observedAt };
-
-      if (existing) {
-        await ctx.db.patch(existing._id, value);
-      } else {
-        await ctx.db.insert("contractEvents", value);
-      }
-    }
-
-    const scope = projectScope(args.projectId);
-    const poller = await ctx.db
-      .query("pollerState")
-      .withIndex("by_scope", (q) => q.eq("scope", scope))
-      .unique();
-    const state = {
-      scope,
-      projectId: args.projectId,
-      status: "idle" as const,
-      lastLedger: args.latestLedger,
-      lastRunAt: observedAt,
-      errorMessage: undefined,
-      updatedAt: observedAt,
-    };
-
-    if (poller) {
-      await ctx.db.patch(poller._id, state);
-    } else {
-      await ctx.db.insert("pollerState", state);
-    }
-  },
-});
-
-export const markPollError = internalMutation({
-  args: {
-    projectId: v.id("projects"),
-    message: v.string(),
-  },
-  handler: async (ctx, args) => {
-    const scope = projectScope(args.projectId);
-    const existing = await ctx.db
-      .query("pollerState")
-      .withIndex("by_scope", (q) => q.eq("scope", scope))
-      .unique();
-    const value = {
-      scope,
-      projectId: args.projectId,
-      status: "error" as const,
-      lastRunAt: Date.now(),
-      errorMessage: args.message.slice(0, 500),
-      updatedAt: Date.now(),
-    };
-
-    if (existing) {
-      await ctx.db.patch(existing._id, value);
-    } else {
-      await ctx.db.insert("pollerState", value);
-    }
   },
 });

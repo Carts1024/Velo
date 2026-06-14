@@ -9,7 +9,10 @@
  */
 
 import type * as contractEventPolling from "../contractEventPolling.js";
-import type * as contractEvents from "../contractEvents.js";
+import type * as contract_events_helpers from "../contract_events/helpers.js";
+import type * as contract_events_mutation from "../contract_events/mutation.js";
+import type * as contract_events_query from "../contract_events/query.js";
+import type * as contract_events_types from "../contract_events/types.js";
 import type * as crons from "../crons.js";
 import type * as project_contracts_helpers from "../project_contracts/helpers.js";
 import type * as project_contracts_mutation from "../project_contracts/mutation.js";
@@ -39,7 +42,10 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   contractEventPolling: typeof contractEventPolling;
-  contractEvents: typeof contractEvents;
+  "contract_events/helpers": typeof contract_events_helpers;
+  "contract_events/mutation": typeof contract_events_mutation;
+  "contract_events/query": typeof contract_events_query;
+  "contract_events/types": typeof contract_events_types;
   crons: typeof crons;
   "project_contracts/helpers": typeof project_contracts_helpers;
   "project_contracts/mutation": typeof project_contracts_mutation;

@@ -153,7 +153,7 @@ export function ProjectEvents({ projectId }: ProjectEventsProps) {
     wallet.address ? { projectId: typedProjectId, ownerAddress: wallet.address } : "skip",
   );
   const activity = useQuery(
-    api.contractEvents.listByProject,
+    api.contract_events.query.listByProject,
     wallet.address
       ? { projectId: typedProjectId, ownerAddress: wallet.address, limit: 100 }
       : "skip",

@@ -1,19 +1,13 @@
 import { fetchRecentContractEvents } from "@repo/stellar";
 import { v } from "convex/values";
 
-import type { Id } from "./_generated/dataModel";
 import type { ActionCtx } from "./_generated/server";
+import type { PollTarget } from "./contract_events/types";
 
 import { internal } from "./_generated/api";
 import { action, internalAction } from "./_generated/server";
 
 const DEFAULT_TESTNET_RPC_URL = "https://soroban-testnet.stellar.org";
-
-type PollTarget = {
-  projectId: Id<"projects">;
-  contractIds: string[];
-  lastLedger?: number;
-};
 
 type OwnerPollTarget = Omit<PollTarget, "projectId">;
 
@@ -32,7 +26,7 @@ function rpcUrl() {
 
 async function pollTarget(ctx: ActionCtx, target: PollTarget): Promise<PollResult> {
   if (target.contractIds.length === 0) {
-    await ctx.runMutation(internal.contractEvents.storePollResult, {
+    await ctx.runMutation(internal.contract_events.mutation.storePollResult, {
       projectId: target.projectId,
       latestLedger: target.lastLedger,
       events: [],
@@ -40,7 +34,7 @@ async function pollTarget(ctx: ActionCtx, target: PollTarget): Promise<PollResul
     return { eventCount: 0, contractCount: 0 };
   }
 
-  await ctx.runMutation(internal.contractEvents.markPolling, {
+  await ctx.runMutation(internal.contract_events.mutation.markPolling, {
     projectId: target.projectId,
   });
 
@@ -51,7 +45,7 @@ async function pollTarget(ctx: ActionCtx, target: PollTarget): Promise<PollResul
       afterLedger: target.lastLedger,
     });
 
-    await ctx.runMutation(internal.contractEvents.storePollResult, {
+    await ctx.runMutation(internal.contract_events.mutation.storePollResult, {
       projectId: target.projectId,
       latestLedger: result.latestLedger,
       events: result.events,
@@ -60,7 +54,7 @@ async function pollTarget(ctx: ActionCtx, target: PollTarget): Promise<PollResul
     return { eventCount: result.events.length, contractCount: target.contractIds.length };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Stellar event polling failed";
-    await ctx.runMutation(internal.contractEvents.markPollError, {
+    await ctx.runMutation(internal.contract_events.mutation.markPollError, {
       projectId: target.projectId,
       message,
     });
@@ -74,7 +68,10 @@ export const pollProject = action({
     ownerAddress: v.string(),
   },
   handler: async (ctx, args): Promise<PollResult> => {
-    const target: OwnerPollTarget = await ctx.runQuery(internal.contractEvents.getPollTarget, args);
+    const target: OwnerPollTarget = await ctx.runQuery(
+      internal.contract_events.query.getPollTarget,
+      args,
+    );
     return await pollTarget(ctx, { ...target, projectId: args.projectId });
   },
 });
@@ -83,7 +80,7 @@ export const pollScheduled = internalAction({
   args: {},
   handler: async (ctx): Promise<{ projectCount: number; eventCount: number }> => {
     const targets: PollTarget[] = await ctx.runQuery(
-      internal.contractEvents.listScheduledTargets,
+      internal.contract_events.query.listScheduledTargets,
       {},
     );
     let eventCount = 0;
