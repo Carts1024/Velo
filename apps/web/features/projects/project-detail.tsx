@@ -13,6 +13,14 @@ import { Badge } from "@repo/ui/components/ui-customs/badge";
 import { Alert, AlertDescription, AlertTitle } from "@repo/ui/components/ui/alert";
 import { Button } from "@repo/ui/components/ui/button";
 import { Skeleton } from "@repo/ui/components/ui/skeleton";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@repo/ui/components/ui/table";
 import { useMutation, useQuery } from "convex/react";
 import {
   AlertCircleIcon,
@@ -41,6 +49,22 @@ const statusVariant = {
   pending_registration: "warning",
   registered: "success",
   registration_error: "destructive",
+  stale: "warning",
+} as const;
+
+const contractStatusLabel = {
+  pending_add: "Pending add",
+  active: "Active",
+  pending_remove: "Pending remove",
+  contract_error: "Error",
+  stale: "Stale",
+} as const;
+
+const contractStatusVariant = {
+  pending_add: "warning",
+  active: "success",
+  pending_remove: "warning",
+  contract_error: "destructive",
   stale: "warning",
 } as const;
 
@@ -76,6 +100,9 @@ function isRejectedSignature(error: unknown) {
 export function ProjectDetail({ projectId }: ProjectDetailProps) {
   const wallet = useWallet();
   const project = useQuery(api.projects.getById, { id: projectId as Id<"projects"> });
+  const contracts = useQuery(api.projects.listContracts, {
+    projectId: projectId as Id<"projects">,
+  });
   const markPending = useMutation(api.projects.markRegistrationPending);
   const markSynced = useMutation(api.projects.markRegistrationSynced);
   const markStale = useMutation(api.projects.markRegistrationStale);
@@ -308,6 +335,61 @@ export function ProjectDetail({ projectId }: ProjectDetailProps) {
           value={currentProject.createdLedger?.toString() ?? "Not available"}
         />
         <DetailRow label="Last sync" value={formatTimestamp(currentProject.lastSyncAt)} />
+      </div>
+
+      <div className="rounded-lg border border-zinc-200 bg-white">
+        <div className="flex flex-col gap-2 border-b border-zinc-200 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-base font-semibold tracking-normal">Official contracts</h2>
+            <p className="text-sm text-zinc-600">
+              Active contract IDs are published on the public proof page.
+            </p>
+          </div>
+          <Button variant="outline" size="sm" asChild>
+            <Link href={`/projects/${currentProject._id}/contracts`}>Manage</Link>
+          </Button>
+        </div>
+        {contracts === undefined ? (
+          <div className="space-y-3 p-5">
+            <Skeleton className="h-8 w-48" />
+            <Skeleton className="h-12 w-full" />
+          </div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Contract ID</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Last sync</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {contracts.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={3} className="py-8 text-center text-sm text-zinc-600">
+                    No official contracts linked.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                contracts.map((contract) => (
+                  <TableRow key={contract._id}>
+                    <TableCell className="max-w-[20rem] break-all font-mono text-xs">
+                      {contract.contractId}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={contractStatusVariant[contract.status]}>
+                        {contractStatusLabel[contract.status]}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right text-sm text-zinc-600">
+                      {formatTimestamp(contract.lastSyncAt)}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        )}
       </div>
 
       <div className="flex flex-wrap gap-2">

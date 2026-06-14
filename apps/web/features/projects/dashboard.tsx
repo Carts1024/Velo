@@ -86,8 +86,8 @@ export function ProjectDashboard() {
         <div>
           <h1 className="text-3xl font-semibold tracking-normal">Projects</h1>
           <p className="mt-2 max-w-2xl text-sm text-zinc-600">
-            Draft projects for {shortenAddress(wallet.address)}. On-chain registration starts in
-            Sprint 3.
+            Projects for {shortenAddress(wallet.address)} with registration and contract proof
+            status.
           </p>
         </div>
         <Button asChild>

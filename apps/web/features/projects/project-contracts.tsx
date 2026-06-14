@@ -1,0 +1,424 @@
+"use client";
+
+import { stellarConfig } from "@/core/config/stellar";
+import { shortenAddress } from "@/core/wallet/format";
+import { useWallet } from "@/core/wallet/wallet-provider";
+import { api } from "@repo/backend/convex/_generated/api";
+import {
+  buildAddOfficialContractTransaction,
+  buildRemoveOfficialContractTransaction,
+  confirmContractTransaction,
+  submitSignedTransaction,
+} from "@repo/stellar";
+import { Badge } from "@repo/ui/components/ui-customs/badge";
+import { Alert, AlertDescription, AlertTitle } from "@repo/ui/components/ui/alert";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@repo/ui/components/ui/alert-dialog";
+import { Button } from "@repo/ui/components/ui/button";
+import { Input } from "@repo/ui/components/ui/input";
+import { Skeleton } from "@repo/ui/components/ui/skeleton";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@repo/ui/components/ui/table";
+import { useMutation, useQuery } from "convex/react";
+import { AlertCircleIcon, CheckCircle2Icon, LinkIcon, Trash2Icon, WalletIcon } from "lucide-react";
+import Link from "next/link";
+import { FormEvent, useState } from "react";
+
+import type { Doc, Id } from "@repo/backend/convex/_generated/dataModel";
+
+const statusLabel = {
+  pending_add: "Pending add",
+  active: "Active",
+  pending_remove: "Pending remove",
+  contract_error: "Error",
+  stale: "Stale",
+} as const;
+
+const statusVariant = {
+  pending_add: "warning",
+  active: "success",
+  pending_remove: "warning",
+  contract_error: "destructive",
+  stale: "warning",
+} as const;
+
+type ProjectContractsProps = {
+  projectId: string;
+};
+
+function errorMessage(error: unknown) {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return "Contract request failed";
+}
+
+function isRejectedSignature(error: unknown) {
+  return /reject|denied|cancel/i.test(errorMessage(error));
+}
+
+function formatTimestamp(value?: number) {
+  return value ? new Date(value).toLocaleString() : "Not synced";
+}
+
+function wait(milliseconds: number) {
+  return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+}
+
+export function ProjectContracts({ projectId }: ProjectContractsProps) {
+  const wallet = useWallet();
+  const project = useQuery(api.projects.getById, { id: projectId as Id<"projects"> });
+  const contracts = useQuery(api.projects.listContracts, {
+    projectId: projectId as Id<"projects">,
+  });
+  const markAddPending = useMutation(api.projects.markContractAddPending);
+  const markAddConfirmed = useMutation(api.projects.markContractAddConfirmed);
+  const markRemovePending = useMutation(api.projects.markContractRemovePending);
+  const markRemoved = useMutation(api.projects.markContractRemoved);
+  const markStale = useMutation(api.projects.markContractStale);
+  const markError = useMutation(api.projects.markContractError);
+  const [contractId, setContractId] = useState("");
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [isAdding, setIsAdding] = useState(false);
+  const [localError, setLocalError] = useState<string | null>(null);
+
+  if (project === undefined || contracts === undefined) {
+    return (
+      <section className="grid gap-4">
+        <Skeleton className="h-10 w-64" />
+        <Skeleton className="h-24 w-full" />
+        <Skeleton className="h-48 w-full" />
+      </section>
+    );
+  }
+
+  if (project === null) {
+    return (
+      <section className="grid gap-4">
+        <h1 className="text-3xl font-semibold tracking-normal">Project not found</h1>
+        <Button asChild className="w-fit">
+          <Link href="/dashboard">Back to dashboard</Link>
+        </Button>
+      </section>
+    );
+  }
+
+  const currentProject = project;
+  const currentContracts = contracts;
+  const ownerMatches = wallet.address?.toUpperCase() === currentProject.ownerAddress;
+  const canManage =
+    ownerMatches &&
+    currentProject.status === "registered" &&
+    currentProject.registryProjectId !== undefined;
+
+  async function syncContract(
+    linkId: Id<"projectContracts">,
+    transactionHash: string,
+    outcome: "add" | "remove",
+  ) {
+    if (!wallet.address) {
+      return;
+    }
+
+    let confirmation = await confirmContractTransaction({
+      rpcUrl: stellarConfig.rpcUrl,
+      transactionHash,
+    });
+
+    for (let attempt = 0; confirmation.status === "pending" && attempt < 4; attempt += 1) {
+      await wait(1_500);
+      confirmation = await confirmContractTransaction({
+        rpcUrl: stellarConfig.rpcUrl,
+        transactionHash,
+      });
+    }
+
+    if (confirmation.status === "pending") {
+      await markStale({ id: linkId, ownerAddress: wallet.address });
+      return;
+    }
+
+    if (confirmation.status === "error") {
+      await markError({
+        id: linkId,
+        ownerAddress: wallet.address,
+        error: confirmation.message,
+      });
+      return;
+    }
+
+    if (outcome === "add") {
+      await markAddConfirmed({
+        id: linkId,
+        ownerAddress: wallet.address,
+        confirmedLedger: confirmation.ledger ?? undefined,
+      });
+      return;
+    }
+
+    await markRemoved({ id: linkId, ownerAddress: wallet.address });
+  }
+
+  async function addContract(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (
+      !wallet.address ||
+      currentProject.registryProjectId === undefined ||
+      !stellarConfig.registryContractId
+    ) {
+      setLocalError("Registered project, owner wallet, and registry contract are required.");
+      return;
+    }
+
+    setIsAdding(true);
+    setLocalError(null);
+
+    try {
+      const transactionXdr = await buildAddOfficialContractTransaction({
+        rpcUrl: stellarConfig.rpcUrl,
+        networkPassphrase: stellarConfig.networkPassphrase,
+        registryContractId: stellarConfig.registryContractId,
+        sourcePublicKey: wallet.address,
+        registryProjectId: currentProject.registryProjectId,
+        officialContractId: contractId,
+      });
+      const signedXdr = await wallet.signTransaction(transactionXdr);
+      const transactionHash = await submitSignedTransaction({
+        rpcUrl: stellarConfig.rpcUrl,
+        networkPassphrase: stellarConfig.networkPassphrase,
+        signedXdr,
+      });
+      const linkId = await markAddPending({
+        projectId: currentProject._id,
+        ownerAddress: wallet.address,
+        contractId,
+        transactionHash,
+      });
+
+      setContractId("");
+      await syncContract(linkId, transactionHash, "add");
+    } catch (error) {
+      setLocalError(
+        isRejectedSignature(error)
+          ? `Rejected signature: ${errorMessage(error)}`
+          : errorMessage(error),
+      );
+    } finally {
+      setIsAdding(false);
+    }
+  }
+
+  async function removeContract(link: Doc<"projectContracts">) {
+    if (!wallet.address || !stellarConfig.registryContractId) {
+      setLocalError("Connected owner wallet and registry contract are required.");
+      return;
+    }
+
+    setBusyId(link._id);
+    setLocalError(null);
+    let pendingRecorded = false;
+
+    try {
+      const transactionXdr = await buildRemoveOfficialContractTransaction({
+        rpcUrl: stellarConfig.rpcUrl,
+        networkPassphrase: stellarConfig.networkPassphrase,
+        registryContractId: stellarConfig.registryContractId,
+        sourcePublicKey: wallet.address,
+        registryProjectId: link.registryProjectId,
+        officialContractId: link.contractId,
+      });
+      const signedXdr = await wallet.signTransaction(transactionXdr);
+      const transactionHash = await submitSignedTransaction({
+        rpcUrl: stellarConfig.rpcUrl,
+        networkPassphrase: stellarConfig.networkPassphrase,
+        signedXdr,
+      });
+
+      await markRemovePending({
+        id: link._id,
+        ownerAddress: wallet.address,
+        transactionHash,
+      });
+      pendingRecorded = true;
+      await syncContract(link._id, transactionHash, "remove");
+    } catch (error) {
+      const message = isRejectedSignature(error)
+        ? `Rejected signature: ${errorMessage(error)}`
+        : errorMessage(error);
+      setLocalError(message);
+      if (pendingRecorded) {
+        await markError({ id: link._id, ownerAddress: wallet.address, error: message });
+      }
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  return (
+    <section className="grid gap-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-3xl font-semibold tracking-normal">Official contracts</h1>
+          <p className="mt-2 max-w-2xl text-sm text-zinc-600">
+            Link Soroban contracts to {currentProject.name} after the registry confirms the project.
+          </p>
+        </div>
+        <Button variant="outline" asChild>
+          <Link href={`/projects/${currentProject._id}`}>Project overview</Link>
+        </Button>
+      </div>
+
+      {!wallet.address ? (
+        <Alert>
+          <WalletIcon />
+          <AlertTitle>Owner wallet required</AlertTitle>
+          <AlertDescription>
+            Connect {shortenAddress(currentProject.ownerAddress)} to manage contracts.
+          </AlertDescription>
+        </Alert>
+      ) : !ownerMatches ? (
+        <Alert variant="destructive">
+          <AlertCircleIcon />
+          <AlertTitle>Connected wallet is not the owner</AlertTitle>
+          <AlertDescription>
+            Switch to {shortenAddress(currentProject.ownerAddress)}.
+          </AlertDescription>
+        </Alert>
+      ) : currentProject.status !== "registered" ? (
+        <Alert>
+          <AlertCircleIcon />
+          <AlertTitle>Registration required</AlertTitle>
+          <AlertDescription>
+            Register and sync this project before linking official contracts.
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
+      {localError ? (
+        <Alert variant="destructive">
+          <AlertCircleIcon />
+          <AlertTitle>Contract update failed</AlertTitle>
+          <AlertDescription>{localError}</AlertDescription>
+        </Alert>
+      ) : null}
+
+      <form
+        className="grid gap-3 rounded-md border border-zinc-200 bg-white p-4"
+        onSubmit={addContract}
+      >
+        <label className="text-sm font-medium text-zinc-900" htmlFor="contract-id">
+          Contract ID
+        </label>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Input
+            id="contract-id"
+            value={contractId}
+            onChange={(event) => setContractId(event.target.value)}
+            placeholder="C..."
+            className="font-mono"
+            disabled={!canManage || isAdding}
+          />
+          <Button type="submit" disabled={!canManage || isAdding || !contractId.trim()}>
+            <LinkIcon />
+            {isAdding ? "Adding..." : "Add contract"}
+          </Button>
+        </div>
+      </form>
+
+      <div className="rounded-lg border border-zinc-200 bg-white">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Contract ID</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Transaction</TableHead>
+              <TableHead>Last sync</TableHead>
+              <TableHead className="text-right">Action</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {currentContracts.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={5} className="py-8 text-center text-sm text-zinc-600">
+                  No official contracts linked.
+                </TableCell>
+              </TableRow>
+            ) : (
+              currentContracts.map((link) => (
+                <TableRow key={link._id}>
+                  <TableCell className="max-w-[18rem] break-all font-mono text-xs">
+                    {link.contractId}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={statusVariant[link.status]}>{statusLabel[link.status]}</Badge>
+                  </TableCell>
+                  <TableCell className="font-mono text-xs">
+                    {(link.removeTxHash ?? link.addTxHash)?.slice(0, 16) ?? "Not submitted"}...
+                  </TableCell>
+                  <TableCell className="text-sm text-zinc-600">
+                    {formatTimestamp(link.lastSyncAt)}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={!canManage || link.status !== "active" || busyId === link._id}
+                        >
+                          <Trash2Icon />
+                          Remove
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Remove official contract?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This submits a Testnet transaction to remove {link.contractId} from the
+                            public proof.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => removeContract(link)}>
+                            Confirm remove
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      <div className="flex items-center gap-2 text-sm text-zinc-600">
+        <CheckCircle2Icon className="size-4" />
+        Active contracts appear on{" "}
+        <Link className="underline" href={`/verify/${currentProject.slug}`}>
+          public proof
+        </Link>
+        .
+      </div>
+    </section>
+  );
+}

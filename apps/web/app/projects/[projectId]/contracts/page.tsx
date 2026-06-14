@@ -1,4 +1,5 @@
-import { PlaceholderPage } from "@/features/readiness/placeholder-page";
+import { AppShell } from "@/core/app-shell";
+import { ProjectContracts } from "@/features/projects/project-contracts";
 
 type ProjectContractsPageProps = {
   params: Promise<{
@@ -10,12 +11,8 @@ export default async function ProjectContractsPage({ params }: ProjectContractsP
   const { projectId } = await params;
 
   return (
-    <PlaceholderPage
-      title="Official contracts"
-      description="Sprint 4 will add owner-only contract add/remove flows, contract ID validation, and confirmation states."
-      primaryAction={{ href: `/projects/${projectId}`, label: "Project overview" }}
-      secondaryAction={{ href: `/verify/${projectId}`, label: "Public page" }}
-      checklist={["Add contract", "Remove contract", "Contract table"]}
-    />
+    <AppShell>
+      <ProjectContracts projectId={projectId} />
+    </AppShell>
   );
 }
