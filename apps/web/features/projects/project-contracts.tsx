@@ -85,21 +85,21 @@ function wait(milliseconds: number) {
 export function ProjectContracts({ projectId }: ProjectContractsProps) {
   const wallet = useWallet();
   const project = useQuery(
-    api.projects.getById,
+    api.projects.query.getById,
     wallet.address ? { id: projectId as Id<"projects">, ownerAddress: wallet.address } : "skip",
   );
   const contracts = useQuery(
-    api.projects.listContracts,
+    api.projects.query.listContracts,
     wallet.address
       ? { projectId: projectId as Id<"projects">, ownerAddress: wallet.address }
       : "skip",
   );
-  const markAddPending = useMutation(api.projects.markContractAddPending);
-  const markAddConfirmed = useMutation(api.projects.markContractAddConfirmed);
-  const markRemovePending = useMutation(api.projects.markContractRemovePending);
-  const markRemoved = useMutation(api.projects.markContractRemoved);
-  const markStale = useMutation(api.projects.markContractStale);
-  const markError = useMutation(api.projects.markContractError);
+  const markAddPending = useMutation(api.projects.mutation.markContractAddPending);
+  const markAddConfirmed = useMutation(api.projects.mutation.markContractAddConfirmed);
+  const markRemovePending = useMutation(api.projects.mutation.markContractRemovePending);
+  const markRemoved = useMutation(api.projects.mutation.markContractRemoved);
+  const markStale = useMutation(api.projects.mutation.markContractStale);
+  const markError = useMutation(api.projects.mutation.markContractError);
   const [contractId, setContractId] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [isAdding, setIsAdding] = useState(false);

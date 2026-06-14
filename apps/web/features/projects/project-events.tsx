@@ -145,11 +145,11 @@ export function ProjectEvents({ projectId }: ProjectEventsProps) {
   const wallet = useWallet();
   const typedProjectId = projectId as Id<"projects">;
   const project = useQuery(
-    api.projects.getById,
+    api.projects.query.getById,
     wallet.address ? { id: typedProjectId, ownerAddress: wallet.address } : "skip",
   );
   const contracts = useQuery(
-    api.projects.listContracts,
+    api.projects.query.listContracts,
     wallet.address ? { projectId: typedProjectId, ownerAddress: wallet.address } : "skip",
   );
   const activity = useQuery(

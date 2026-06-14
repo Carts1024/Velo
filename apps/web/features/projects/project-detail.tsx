@@ -119,11 +119,11 @@ function isRejectedSignature(error: unknown) {
 export function ProjectDetail({ projectId }: ProjectDetailProps) {
   const wallet = useWallet();
   const project = useQuery(
-    api.projects.getById,
+    api.projects.query.getById,
     wallet.address ? { id: projectId as Id<"projects">, ownerAddress: wallet.address } : "skip",
   );
   const contracts = useQuery(
-    api.projects.listContracts,
+    api.projects.query.listContracts,
     wallet.address
       ? { projectId: projectId as Id<"projects">, ownerAddress: wallet.address }
       : "skip",
@@ -139,7 +139,7 @@ export function ProjectDetail({ projectId }: ProjectDetailProps) {
       : "skip",
   );
   const webhookSummary = useQuery(
-    api.webhooks.getSummary,
+    api.webhook_endpoints.query.getSummary,
     wallet.address
       ? {
           projectId: projectId as Id<"projects">,
@@ -147,10 +147,10 @@ export function ProjectDetail({ projectId }: ProjectDetailProps) {
         }
       : "skip",
   );
-  const markPending = useMutation(api.projects.markRegistrationPending);
-  const markSynced = useMutation(api.projects.markRegistrationSynced);
-  const markStale = useMutation(api.projects.markRegistrationStale);
-  const markError = useMutation(api.projects.markRegistrationError);
+  const markPending = useMutation(api.projects.mutation.markRegistrationPending);
+  const markSynced = useMutation(api.projects.mutation.markRegistrationSynced);
+  const markStale = useMutation(api.projects.mutation.markRegistrationStale);
+  const markError = useMutation(api.projects.mutation.markRegistrationError);
   const [isRegistering, setIsRegistering] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);

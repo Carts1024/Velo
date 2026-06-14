@@ -110,15 +110,15 @@ export function ProjectWebhooks({ projectId }: { projectId: string }) {
   const wallet = useWallet();
   const typedProjectId = projectId as Id<"projects">;
   const project = useQuery(
-    api.projects.getById,
+    api.projects.query.getById,
     wallet.address ? { id: typedProjectId, ownerAddress: wallet.address } : "skip",
   );
   const settings = useQuery(
-    api.webhooks.getSettings,
+    api.webhook_endpoints.query.getSettings,
     wallet.address ? { projectId: typedProjectId, ownerAddress: wallet.address } : "skip",
   );
   const deliveries = useQuery(
-    api.webhooks.listDeliveries,
+    api.webhook_endpoints.query.listDeliveries,
     wallet.address
       ? { projectId: typedProjectId, ownerAddress: wallet.address, limit: 50 }
       : "skip",
@@ -127,7 +127,7 @@ export function ProjectWebhooks({ projectId }: { projectId: string }) {
     api.contractEvents.listByProject,
     wallet.address ? { projectId: typedProjectId, ownerAddress: wallet.address, limit: 1 } : "skip",
   );
-  const saveSettings = useMutation(api.webhooks.saveSettings);
+  const saveSettings = useMutation(api.webhook_endpoints.mutation.saveSettings);
   const sendTest = useAction(api.webhookDelivery.sendTest);
   const loadedSettingsId = useRef<string | null>(null);
   const [url, setUrl] = useState("");

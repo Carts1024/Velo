@@ -1,34 +1,12 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
+import projects from "./projects/schema";
+import webhookEndpoints from "./webhook_endpoints/schema";
+
 export default defineSchema({
-  projects: defineTable({
-    name: v.string(),
-    slug: v.string(),
-    description: v.string(),
-    website: v.optional(v.string()),
-    metadataJson: v.string(),
-    metadataHash: v.string(),
-    ownerAddress: v.string(),
-    status: v.union(
-      v.literal("draft"),
-      v.literal("pending_registration"),
-      v.literal("registered"),
-      v.literal("registration_error"),
-      v.literal("stale"),
-    ),
-    registryProjectId: v.optional(v.number()),
-    registrationTxHash: v.optional(v.string()),
-    registrationError: v.optional(v.string()),
-    createdLedger: v.optional(v.number()),
-    lastSyncAt: v.optional(v.number()),
-    createdAt: v.number(),
-    updatedAt: v.number(),
-  })
-    .index("by_owner", ["ownerAddress"])
-    .index("by_slug", ["slug"])
-    .index("by_owner_status", ["ownerAddress", "status"])
-    .index("by_registry_project_id", ["registryProjectId"]),
+  projects,
+  webhookEndpoints,
   projectContracts: defineTable({
     projectId: v.id("projects"),
     ownerAddress: v.string(),
@@ -111,15 +89,6 @@ export default defineSchema({
     errorMessage: v.optional(v.string()),
     updatedAt: v.number(),
   }).index("by_scope", ["scope"]),
-  webhookEndpoints: defineTable({
-    projectId: v.id("projects"),
-    url: v.string(),
-    destinationHost: v.string(),
-    enabled: v.boolean(),
-    eventTypes: v.array(v.string()),
-    createdAt: v.number(),
-    updatedAt: v.number(),
-  }).index("by_project", ["projectId"]),
   webhookDeliveries: defineTable({
     projectId: v.id("projects"),
     endpointId: v.id("webhookEndpoints"),

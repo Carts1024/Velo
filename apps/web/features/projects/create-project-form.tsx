@@ -23,7 +23,7 @@ import {
 export function CreateProjectForm() {
   const router = useRouter();
   const wallet = useWallet();
-  const createDraft = useMutation(api.projects.createDraft);
+  const createDraft = useMutation(api.projects.mutation.createDraft);
   const [name, setName] = useState("DemoPay");
   const [slug, setSlug] = useState("demopay");
   const [description, setDescription] = useState(

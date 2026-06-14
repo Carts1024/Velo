@@ -1,16 +1,10 @@
 import { v } from "convex/values";
 
 import type { Doc, Id } from "./_generated/dataModel";
+import type { WebhookEventType } from "./webhook_endpoints/types";
 
 import { internal } from "./_generated/api";
 import { action } from "./_generated/server";
-
-type EventType =
-  | "contract.event"
-  | "transaction.succeeded"
-  | "transaction.failed"
-  | "project.registered"
-  | "project.updated";
 
 type DeliveryTarget = {
   endpoint: Doc<"webhookEndpoints">;
@@ -18,7 +12,7 @@ type DeliveryTarget = {
   contractEvent?: Doc<"contractEvents"> | null;
 };
 
-function buildPayload(target: DeliveryTarget, eventType: EventType) {
+function buildPayload(target: DeliveryTarget, eventType: WebhookEventType) {
   const event = target.contractEvent;
   const sentAt = new Date().toISOString();
   const base = {
@@ -99,10 +93,13 @@ export const sendTest = action({
     ctx,
     args,
   ): Promise<{ deliveryId: Id<"webhookDeliveries">; status: "success" | "failed" }> => {
-    const target: DeliveryTarget = await ctx.runQuery(internal.webhooks.getDeliveryTarget, args);
+    const target: DeliveryTarget = await ctx.runQuery(
+      internal.webhook_endpoints.query.getDeliveryTarget,
+      args,
+    );
     const payload = buildPayload(target, args.eventType);
     const deliveryId: Id<"webhookDeliveries"> = await ctx.runMutation(
-      internal.webhooks.createPendingDelivery,
+      internal.webhook_endpoints.mutation.createPendingDelivery,
       {
         projectId: args.projectId,
         endpointId: target.endpoint._id,
@@ -126,7 +123,7 @@ export const sendTest = action({
       });
       const status = response.ok ? "success" : "failed";
 
-      await ctx.runMutation(internal.webhooks.finishDelivery, {
+      await ctx.runMutation(internal.webhook_endpoints.mutation.finishDelivery, {
         deliveryId,
         status,
         httpStatus: response.status,
@@ -136,7 +133,7 @@ export const sendTest = action({
       return { deliveryId, status };
     } catch (error) {
       const message = error instanceof Error ? error.message : "Webhook request failed";
-      await ctx.runMutation(internal.webhooks.finishDelivery, {
+      await ctx.runMutation(internal.webhook_endpoints.mutation.finishDelivery, {
         deliveryId,
         status: "failed",
         errorMessage: message,

@@ -50,7 +50,7 @@ function ProofRow({
 }
 
 export function PublicVerification({ slug }: PublicVerificationProps) {
-  const proof = useQuery(api.projects.getPublicVerification, { slug });
+  const proof = useQuery(api.projects.query.getPublicVerification, { slug });
   const recentActivity = useQuery(api.contractEvents.listPublicBySlug, { slug, limit: 5 });
 
   if (proof === undefined) {
