@@ -1,8 +1,8 @@
 import { v } from "convex/values";
 
 import { query } from "../_generated/server";
+import { activeContractsForProject } from "../project_contracts/helpers";
 import {
-  activeContractsForProject,
   METADATA_HASH_PATTERN,
   normalizeAddress,
   ownerProjectOrNull,
@@ -39,24 +39,6 @@ export const getById = query({
   },
   handler: async (ctx, args) => {
     return await ownerProjectOrNull(ctx, args.id, args.ownerAddress);
-  },
-});
-
-export const listContracts = query({
-  args: {
-    projectId: v.id("projects"),
-    ownerAddress: v.string(),
-  },
-  handler: async (ctx, args) => {
-    if (!(await ownerProjectOrNull(ctx, args.projectId, args.ownerAddress))) {
-      return [];
-    }
-
-    return await ctx.db
-      .query("projectContracts")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
-      .order("desc")
-      .take(100);
   },
 });
 

@@ -89,17 +89,17 @@ export function ProjectContracts({ projectId }: ProjectContractsProps) {
     wallet.address ? { id: projectId as Id<"projects">, ownerAddress: wallet.address } : "skip",
   );
   const contracts = useQuery(
-    api.projects.query.listContracts,
+    api.project_contracts.query.listByProject,
     wallet.address
       ? { projectId: projectId as Id<"projects">, ownerAddress: wallet.address }
       : "skip",
   );
-  const markAddPending = useMutation(api.projects.mutation.markContractAddPending);
-  const markAddConfirmed = useMutation(api.projects.mutation.markContractAddConfirmed);
-  const markRemovePending = useMutation(api.projects.mutation.markContractRemovePending);
-  const markRemoved = useMutation(api.projects.mutation.markContractRemoved);
-  const markStale = useMutation(api.projects.mutation.markContractStale);
-  const markError = useMutation(api.projects.mutation.markContractError);
+  const markAddPending = useMutation(api.project_contracts.mutation.markAddPending);
+  const markAddConfirmed = useMutation(api.project_contracts.mutation.markAddConfirmed);
+  const markRemovePending = useMutation(api.project_contracts.mutation.markRemovePending);
+  const markRemoved = useMutation(api.project_contracts.mutation.markRemoved);
+  const markStale = useMutation(api.project_contracts.mutation.markStale);
+  const markError = useMutation(api.project_contracts.mutation.markError);
   const [contractId, setContractId] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [isAdding, setIsAdding] = useState(false);

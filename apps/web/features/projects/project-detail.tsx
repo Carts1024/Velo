@@ -123,7 +123,7 @@ export function ProjectDetail({ projectId }: ProjectDetailProps) {
     wallet.address ? { id: projectId as Id<"projects">, ownerAddress: wallet.address } : "skip",
   );
   const contracts = useQuery(
-    api.projects.query.listContracts,
+    api.project_contracts.query.listByProject,
     wallet.address
       ? { projectId: projectId as Id<"projects">, ownerAddress: wallet.address }
       : "skip",

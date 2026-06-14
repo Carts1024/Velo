@@ -1,4 +1,3 @@
-import { assertValidContractId } from "@repo/stellar";
 import { v } from "convex/values";
 
 import type { MutationCtx, QueryCtx } from "../_generated/server";
@@ -29,10 +28,6 @@ export function normalizeTransactionHash(hash: string) {
   }
 
   return normalized;
-}
-
-export function normalizeContractId(contractId: string) {
-  return assertValidContractId(contractId);
 }
 
 export function safeWebsite(website?: string) {
@@ -81,32 +76,4 @@ export async function ownerProjectOrNull(ctx: QueryCtx, id: ProjectId, ownerAddr
   }
 
   return project;
-}
-
-export async function requireRegisteredOwnerProject(
-  ctx: MutationCtx,
-  id: ProjectId,
-  ownerAddress: string,
-) {
-  const project = await requireOwnerProject(ctx, id, ownerAddress);
-
-  if (project.status !== "registered" || project.registryProjectId === undefined) {
-    throw new Error("Only registered projects can manage official contracts");
-  }
-
-  return project;
-}
-
-export async function activeContractsForProject(ctx: QueryCtx, projectId: ProjectId) {
-  const contracts = await ctx.db
-    .query("projectContracts")
-    .withIndex("by_project", (q) => q.eq("projectId", projectId))
-    .take(100);
-
-  return contracts.filter(
-    (contract) =>
-      contract.status === "active" ||
-      contract.status === "pending_remove" ||
-      (contract.status === "contract_error" && contract.confirmedLedger !== undefined),
-  );
 }
