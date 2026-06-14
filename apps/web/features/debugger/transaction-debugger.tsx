@@ -32,7 +32,7 @@ import {
 import { FormEvent, useState } from "react";
 
 type LookupResult = Awaited<
-  ReturnType<ReturnType<typeof useAction<typeof api.transactions.lookup>>>
+  ReturnType<ReturnType<typeof useAction<typeof api.transactions.action.lookup>>>
 >;
 
 type OperationRow = {
@@ -114,7 +114,7 @@ function SummaryValue({ label, value }: { label: string; value: string }) {
 }
 
 export function TransactionDebugger({ initialHash = "" }: { initialHash?: string }) {
-  const lookup = useAction(api.transactions.lookup);
+  const lookup = useAction(api.transactions.action.lookup);
   const [hash, setHash] = useState(initialHash);
   const [result, setResult] = useState<LookupResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
