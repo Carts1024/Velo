@@ -8,6 +8,9 @@
  * @module
  */
 
+import type * as contractEventPolling from "../contractEventPolling.js";
+import type * as contractEvents from "../contractEvents.js";
+import type * as crons from "../crons.js";
 import type * as projects from "../projects.js";
 import type * as tasks from "../tasks.js";
 import type * as transactions from "../transactions.js";
@@ -19,6 +22,9 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  contractEventPolling: typeof contractEventPolling;
+  contractEvents: typeof contractEvents;
+  crons: typeof crons;
   projects: typeof projects;
   tasks: typeof tasks;
   transactions: typeof transactions;

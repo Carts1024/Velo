@@ -18,6 +18,8 @@ import { useQuery } from "convex/react";
 import { AlertCircleIcon, CheckCircle2Icon, ExternalLinkIcon, ShieldCheckIcon } from "lucide-react";
 import Link from "next/link";
 
+import { EventActivityTable } from "./event-activity";
+
 type PublicVerificationProps = {
   slug: string;
 };
@@ -29,14 +31,15 @@ function formatTimestamp(value?: number) {
 function ProofRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="grid gap-1 rounded-md border border-zinc-200 bg-white p-3">
-      <span className="text-xs font-medium uppercase tracking-normal text-zinc-500">{label}</span>
-      <span className="break-all font-mono text-sm text-zinc-900">{value}</span>
+      <span className="text-xs font-medium tracking-normal text-zinc-500 uppercase">{label}</span>
+      <span className="font-mono text-sm break-all text-zinc-900">{value}</span>
     </div>
   );
 }
 
 export function PublicVerification({ slug }: PublicVerificationProps) {
   const proof = useQuery(api.projects.getPublicVerification, { slug });
+  const recentActivity = useQuery(api.contractEvents.listPublicBySlug, { slug, limit: 5 });
 
   if (proof === undefined) {
     return (
@@ -146,12 +149,25 @@ export function PublicVerification({ slug }: PublicVerificationProps) {
               ) : (
                 proof.officialContractIds.map((contractId) => (
                   <TableRow key={contractId}>
-                    <TableCell className="break-all font-mono text-xs">{contractId}</TableCell>
+                    <TableCell className="font-mono text-xs break-all">{contractId}</TableCell>
                   </TableRow>
                 ))
               )}
             </TableBody>
           </Table>
+        </div>
+
+        <div className="rounded-lg border border-zinc-200 bg-white">
+          <div className="border-b border-zinc-200 p-4">
+            <h2 className="text-base font-semibold tracking-normal">Recent public activity</h2>
+            <p className="text-sm text-zinc-600">
+              Public event fields only. Raw payloads and poller errors remain dashboard-only.
+            </p>
+          </div>
+          <EventActivityTable
+            events={recentActivity ?? []}
+            emptyMessage="No recent public activity is available."
+          />
         </div>
       </div>
     </main>

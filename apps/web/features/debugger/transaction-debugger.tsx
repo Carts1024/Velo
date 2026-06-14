@@ -104,7 +104,7 @@ function displayJson(value: unknown) {
 function SummaryValue({ label, value }: { label: string; value: string }) {
   return (
     <div className="grid min-w-0 gap-1 border-r border-zinc-200 px-4 py-3 last:border-r-0">
-      <span className="text-xs font-medium uppercase text-zinc-500">{label}</span>
+      <span className="text-xs font-medium text-zinc-500 uppercase">{label}</span>
       <span className="truncate font-mono text-sm text-zinc-950" title={value}>
         {value}
       </span>
@@ -112,9 +112,9 @@ function SummaryValue({ label, value }: { label: string; value: string }) {
   );
 }
 
-export function TransactionDebugger() {
+export function TransactionDebugger({ initialHash = "" }: { initialHash?: string }) {
   const lookup = useAction(api.transactions.lookup);
-  const [hash, setHash] = useState("");
+  const [hash, setHash] = useState(initialHash);
   const [result, setResult] = useState<LookupResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [inputError, setInputError] = useState<string | null>(null);
@@ -276,7 +276,7 @@ export function TransactionDebugger() {
                   <div key={index} className="grid gap-2 p-4">
                     <div className="flex flex-wrap items-center gap-2">
                       <Badge variant="outline">{event.type ?? "contract"}</Badge>
-                      <span className="break-all font-mono text-xs">
+                      <span className="font-mono text-xs break-all">
                         {event.contractId ?? "No contract ID"}
                       </span>
                     </div>
@@ -355,7 +355,7 @@ function ResultTable({
                 {row.map((value, cellIndex) => (
                   <TableCell
                     key={cellIndex}
-                    className={cellIndex === 0 ? "text-sm" : "max-w-64 break-all font-mono text-xs"}
+                    className={cellIndex === 0 ? "text-sm" : "max-w-64 font-mono text-xs break-all"}
                   >
                     {value}
                   </TableCell>

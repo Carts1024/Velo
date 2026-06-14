@@ -1,4 +1,5 @@
-import { PlaceholderPage } from "@/features/readiness/placeholder-page";
+import { AppShell } from "@/core/app-shell";
+import { ProjectEvents } from "@/features/projects/project-events";
 
 type ProjectEventsPageProps = {
   params: Promise<{
@@ -10,12 +11,8 @@ export default async function ProjectEventsPage({ params }: ProjectEventsPagePro
   const { projectId } = await params;
 
   return (
-    <PlaceholderPage
-      title="Events"
-      description="Sprint 6 will add bounded event polling, event filters, table rows, and raw/decoded event detail sheets."
-      primaryAction={{ href: `/projects/${projectId}`, label: "Project overview" }}
-      secondaryAction={{ href: `/projects/${projectId}/webhooks`, label: "Webhooks" }}
-      checklist={["Event polling", "Event table", "Detail sheet"]}
-    />
+    <AppShell>
+      <ProjectEvents projectId={projectId} />
+    </AppShell>
   );
 }

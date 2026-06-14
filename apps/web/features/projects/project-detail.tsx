@@ -23,6 +23,7 @@ import {
 } from "@repo/ui/components/ui/table";
 import { useMutation, useQuery } from "convex/react";
 import {
+  ActivityIcon,
   AlertCircleIcon,
   CheckCircle2Icon,
   ClockIcon,
@@ -35,6 +36,8 @@ import Link from "next/link";
 import { useState } from "react";
 
 import type { Id } from "@repo/backend/convex/_generated/dataModel";
+
+import { EventActivityTable } from "./event-activity";
 
 const statusLabel = {
   draft: "Draft",
@@ -75,8 +78,8 @@ type ProjectDetailProps = {
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="grid gap-1 rounded-md border border-zinc-200 bg-white p-3">
-      <span className="text-xs font-medium uppercase tracking-normal text-zinc-500">{label}</span>
-      <span className="break-all font-mono text-sm text-zinc-900">{value}</span>
+      <span className="text-xs font-medium tracking-normal text-zinc-500 uppercase">{label}</span>
+      <span className="font-mono text-sm break-all text-zinc-900">{value}</span>
     </div>
   );
 }
@@ -103,6 +106,16 @@ export function ProjectDetail({ projectId }: ProjectDetailProps) {
   const contracts = useQuery(api.projects.listContracts, {
     projectId: projectId as Id<"projects">,
   });
+  const recentActivity = useQuery(
+    api.contractEvents.listByProject,
+    wallet.address
+      ? {
+          projectId: projectId as Id<"projects">,
+          ownerAddress: wallet.address,
+          limit: 5,
+        }
+      : "skip",
+  );
   const markPending = useMutation(api.projects.markRegistrationPending);
   const markSynced = useMutation(api.projects.markRegistrationSynced);
   const markStale = useMutation(api.projects.markRegistrationStale);
@@ -373,7 +386,7 @@ export function ProjectDetail({ projectId }: ProjectDetailProps) {
               ) : (
                 contracts.map((contract) => (
                   <TableRow key={contract._id}>
-                    <TableCell className="max-w-[20rem] break-all font-mono text-xs">
+                    <TableCell className="max-w-[20rem] font-mono text-xs break-all">
                       {contract.contractId}
                     </TableCell>
                     <TableCell>
@@ -392,11 +405,42 @@ export function ProjectDetail({ projectId }: ProjectDetailProps) {
         )}
       </div>
 
+      <div className="rounded-lg border border-zinc-200 bg-white">
+        <div className="flex flex-col gap-2 border-b border-zinc-200 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-base font-semibold tracking-normal">Recent activity</h2>
+            <p className="text-sm text-zinc-600">
+              Bounded Testnet events observed for active official contracts.
+            </p>
+          </div>
+          <Button variant="outline" size="sm" asChild>
+            <Link href={`/projects/${currentProject._id}/events`}>
+              <ActivityIcon />
+              View events
+            </Link>
+          </Button>
+        </div>
+        <EventActivityTable
+          events={recentActivity?.events ?? []}
+          emptyMessage={
+            wallet.address
+              ? "No recent events cached for this project."
+              : "Connect the owner wallet to view dashboard activity."
+          }
+        />
+      </div>
+
       <div className="flex flex-wrap gap-2">
         <Button variant="outline" asChild>
           <Link href={`/projects/${currentProject._id}/contracts`}>
             <ExternalLinkIcon />
             Contracts
+          </Link>
+        </Button>
+        <Button variant="outline" asChild>
+          <Link href={`/projects/${currentProject._id}/events`}>
+            <ActivityIcon />
+            Events
           </Link>
         </Button>
         <Button variant="outline" asChild>
