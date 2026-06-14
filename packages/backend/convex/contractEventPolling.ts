@@ -34,7 +34,7 @@ async function pollTarget(ctx: ActionCtx, target: PollTarget): Promise<PollResul
     return { eventCount: 0, contractCount: 0 };
   }
 
-  await ctx.runMutation(internal.contract_events.mutation.markPolling, {
+  await ctx.runMutation(internal.poller_state.mutation.markPolling, {
     projectId: target.projectId,
   });
 
@@ -54,7 +54,7 @@ async function pollTarget(ctx: ActionCtx, target: PollTarget): Promise<PollResul
     return { eventCount: result.events.length, contractCount: target.contractIds.length };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Stellar event polling failed";
-    await ctx.runMutation(internal.contract_events.mutation.markPollError, {
+    await ctx.runMutation(internal.poller_state.mutation.markError, {
       projectId: target.projectId,
       message,
     });

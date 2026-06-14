@@ -3,14 +3,14 @@ import { v } from "convex/values";
 import type { ProjectId } from "../projects/types";
 
 import { internalQuery, query } from "../_generated/server";
+import { publicPollStatus } from "../poller_state/helpers";
+import { pollerForProject } from "../poller_state/query";
 import {
   MAX_SCHEDULED_CONTRACTS,
   MAX_SCHEDULED_PROJECTS,
   METADATA_HASH_PATTERN,
   normalizeOwnerAddress,
   normalizePageSize,
-  pollerForProject,
-  publicPollStatus,
 } from "./helpers";
 
 export const listByProject = query({

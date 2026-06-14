@@ -1,7 +1,8 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
-import contractEvents, { pollerState } from "./contract_events/schema";
+import contractEvents from "./contract_events/schema";
+import pollerState from "./poller_state/schema";
 import projectContracts from "./project_contracts/schema";
 import projects from "./projects/schema";
 import webhookDeliveries from "./webhook_deliveries/schema";
