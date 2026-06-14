@@ -7,7 +7,8 @@
     "build": "next build",
     "dev": "next dev --port 3000",
     "lint:fix": "oxlint --fix . && oxfmt --write . && next typegen && tsc --noEmit",
-    "start": "next start"
+    "start": "next start",
+    "test": "node --experimental-strip-types --test features/**/*.test.ts"
   },
   "dependencies": {
     "@creit-tech/stellar-wallets-kit": "npm:@jsr/creit-tech__stellar-wallets-kit@^2.3.0",

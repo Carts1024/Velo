@@ -64,7 +64,7 @@ type EventType = (typeof eventTypes)[number];
 const deliveryVariant = {
   pending: "warning",
   success: "success",
-  failed: "destructive",
+  failed: "error",
 } as const;
 
 function formatTimestamp(value?: number) {
@@ -109,7 +109,10 @@ function DeliveryDetail({ delivery }: { delivery: Doc<"webhookDeliveries"> }) {
 export function ProjectWebhooks({ projectId }: { projectId: string }) {
   const wallet = useWallet();
   const typedProjectId = projectId as Id<"projects">;
-  const project = useQuery(api.projects.getById, { id: typedProjectId });
+  const project = useQuery(
+    api.projects.getById,
+    wallet.address ? { id: typedProjectId, ownerAddress: wallet.address } : "skip",
+  );
   const settings = useQuery(
     api.webhooks.getSettings,
     wallet.address ? { projectId: typedProjectId, ownerAddress: wallet.address } : "skip",
@@ -157,6 +160,25 @@ export function ProjectWebhooks({ projectId }: { projectId: string }) {
     }
   }, [selectedTypes, testEventType]);
 
+  if (!wallet.address) {
+    return (
+      <section className="grid gap-4">
+        <h1 className="text-3xl font-semibold">Webhooks</h1>
+        <Alert>
+          <WalletIcon />
+          <AlertTitle>Connect the owner wallet</AlertTitle>
+          <AlertDescription>
+            Private webhook settings and delivery logs load only after ownership is verified.
+          </AlertDescription>
+        </Alert>
+        <Button onClick={wallet.connect} className="w-fit">
+          <WalletIcon />
+          Connect wallet
+        </Button>
+      </section>
+    );
+  }
+
   if (project === undefined) {
     return (
       <section className="grid gap-4">
@@ -170,7 +192,10 @@ export function ProjectWebhooks({ projectId }: { projectId: string }) {
   if (project === null) {
     return (
       <section className="grid gap-4">
-        <h1 className="text-3xl font-semibold">Project not found</h1>
+        <h1 className="text-3xl font-semibold">Project unavailable</h1>
+        <p className="text-sm text-zinc-600">
+          The project does not exist or the connected wallet is not its owner.
+        </p>
         <Button asChild className="w-fit">
           <Link href="/dashboard">Back to dashboard</Link>
         </Button>
@@ -184,6 +209,8 @@ export function ProjectWebhooks({ projectId }: { projectId: string }) {
   const failed = deliveries?.filter((delivery) => delivery.status === "failed").length ?? 0;
   const finished = succeeded + failed;
   const successRate = finished ? Math.round((succeeded / finished) * 100) : 0;
+  const privateDataLoading =
+    ownerMatches && (settings === undefined || deliveries === undefined || activity === undefined);
 
   function toggleEventType(eventType: EventType, checked: boolean) {
     setSelectedTypes((current) =>
@@ -312,13 +339,20 @@ export function ProjectWebhooks({ projectId }: { projectId: string }) {
       </Alert>
 
       {notice ? (
-        <Alert variant={notice.type === "error" ? "destructive" : "default"}>
+        <Alert variant={notice.type === "error" ? "destructive" : "default"} aria-live="polite">
           {notice.type === "error" ? <AlertCircleIcon /> : <CheckCircle2Icon />}
           <AlertTitle>
             {notice.type === "error" ? "Webhook needs attention" : "Webhook ready"}
           </AlertTitle>
           <AlertDescription>{notice.message}</AlertDescription>
         </Alert>
+      ) : null}
+
+      {privateDataLoading ? (
+        <div className="grid gap-3" aria-label="Loading private webhook data">
+          <Skeleton className="h-28 w-full" />
+          <Skeleton className="h-28 w-full" />
+        </div>
       ) : null}
 
       <div className="grid gap-5 border border-zinc-200 bg-white p-5">

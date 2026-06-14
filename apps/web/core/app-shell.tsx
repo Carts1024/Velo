@@ -3,6 +3,7 @@
 import { stellarConfig } from "@/core/config/stellar";
 import { shortenAddress } from "@/core/wallet/format";
 import { useWallet } from "@/core/wallet/wallet-provider";
+import { CopyButton } from "@repo/ui/components/common/copy-button";
 import { Badge } from "@repo/ui/components/ui-customs/badge";
 import { Alert, AlertDescription, AlertTitle } from "@repo/ui/components/ui/alert";
 import { Button } from "@repo/ui/components/ui/button";
@@ -61,6 +62,9 @@ export function AppShell({ children }: { children: ReactNode }) {
             <Badge variant={wallet.address ? "success" : "warning"}>
               {wallet.address ? shortenAddress(wallet.address) : walletStatusCopy[wallet.status]}
             </Badge>
+            {wallet.address ? (
+              <CopyButton value={wallet.address} label="connected wallet address" />
+            ) : null}
             {wallet.address ? (
               <Button variant="outline" size="sm" onClick={wallet.disconnect}>
                 <PowerIcon />

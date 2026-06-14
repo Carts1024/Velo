@@ -4,6 +4,7 @@ import { shortenAddress } from "@/core/wallet/format";
 import { useWallet } from "@/core/wallet/wallet-provider";
 import { api } from "@repo/backend/convex/_generated/api";
 import { filterContractEvents } from "@repo/stellar";
+import { CopyButton } from "@repo/ui/components/common/copy-button";
 import { Badge } from "@repo/ui/components/ui-customs/badge";
 import { Alert, AlertDescription, AlertTitle } from "@repo/ui/components/ui/alert";
 import { Button } from "@repo/ui/components/ui/button";
@@ -101,9 +102,15 @@ function EventDetail({ event }: { event: Doc<"contractEvents"> }) {
       <div className="grid gap-5 px-4 pb-6">
         <div className="grid gap-2 text-sm">
           <span className="text-xs font-medium text-zinc-500 uppercase">Contract ID</span>
-          <span className="font-mono break-all">{event.contractId}</span>
+          <div className="flex items-start gap-1">
+            <span className="min-w-0 flex-1 font-mono break-all">{event.contractId}</span>
+            <CopyButton value={event.contractId} label="contract ID" />
+          </div>
           <span className="text-xs font-medium text-zinc-500 uppercase">Transaction hash</span>
-          <span className="font-mono break-all">{event.transactionHash}</span>
+          <div className="flex items-start gap-1">
+            <span className="min-w-0 flex-1 font-mono break-all">{event.transactionHash}</span>
+            <CopyButton value={event.transactionHash} label="transaction hash" />
+          </div>
           <Button variant="outline" size="sm" asChild className="w-fit">
             <Link href={`/debug?hash=${event.transactionHash}`}>
               <ExternalLinkIcon />
@@ -137,8 +144,14 @@ function EventDetail({ event }: { event: Doc<"contractEvents"> }) {
 export function ProjectEvents({ projectId }: ProjectEventsProps) {
   const wallet = useWallet();
   const typedProjectId = projectId as Id<"projects">;
-  const project = useQuery(api.projects.getById, { id: typedProjectId });
-  const contracts = useQuery(api.projects.listContracts, { projectId: typedProjectId });
+  const project = useQuery(
+    api.projects.getById,
+    wallet.address ? { id: typedProjectId, ownerAddress: wallet.address } : "skip",
+  );
+  const contracts = useQuery(
+    api.projects.listContracts,
+    wallet.address ? { projectId: typedProjectId, ownerAddress: wallet.address } : "skip",
+  );
   const activity = useQuery(
     api.contractEvents.listByProject,
     wallet.address
@@ -153,6 +166,25 @@ export function ProjectEvents({ projectId }: ProjectEventsProps) {
   const [isPolling, setIsPolling] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
 
+  if (!wallet.address) {
+    return (
+      <section className="grid gap-4">
+        <h1 className="text-3xl font-semibold">Events</h1>
+        <Alert>
+          <WalletIcon />
+          <AlertTitle>Connect the owner wallet</AlertTitle>
+          <AlertDescription>
+            Private event details load only after wallet ownership is verified.
+          </AlertDescription>
+        </Alert>
+        <Button onClick={wallet.connect} className="w-fit">
+          <WalletIcon />
+          Connect wallet
+        </Button>
+      </section>
+    );
+  }
+
   if (project === undefined || contracts === undefined) {
     return (
       <section className="grid gap-4">
@@ -166,7 +198,10 @@ export function ProjectEvents({ projectId }: ProjectEventsProps) {
   if (project === null) {
     return (
       <section className="grid gap-4">
-        <h1 className="text-3xl font-semibold">Project not found</h1>
+        <h1 className="text-3xl font-semibold">Project unavailable</h1>
+        <p className="text-sm text-zinc-600">
+          The project does not exist or the connected wallet is not its owner.
+        </p>
         <Button asChild className="w-fit">
           <Link href="/dashboard">Back to dashboard</Link>
         </Button>
@@ -362,11 +397,17 @@ export function ProjectEvents({ projectId }: ProjectEventsProps) {
                       </Badge>
                     </div>
                   </TableCell>
-                  <TableCell className="font-mono text-xs" title={event.contractId}>
-                    {shortValue(event.contractId)}
+                  <TableCell className="font-mono text-xs">
+                    <div className="flex items-center gap-1">
+                      <span title={event.contractId}>{shortValue(event.contractId)}</span>
+                      <CopyButton value={event.contractId} label="contract ID" />
+                    </div>
                   </TableCell>
-                  <TableCell className="font-mono text-xs" title={event.transactionHash}>
-                    {shortValue(event.transactionHash)}
+                  <TableCell className="font-mono text-xs">
+                    <div className="flex items-center gap-1">
+                      <span title={event.transactionHash}>{shortValue(event.transactionHash)}</span>
+                      <CopyButton value={event.transactionHash} label="transaction hash" />
+                    </div>
                   </TableCell>
                   <TableCell className="font-mono text-xs">{event.ledger}</TableCell>
                   <TableCell className="text-sm text-zinc-600">

@@ -1,5 +1,6 @@
 "use client";
 
+import { CopyButton } from "@repo/ui/components/common/copy-button";
 import { Badge } from "@repo/ui/components/ui-customs/badge";
 import {
   Table,
@@ -79,11 +80,17 @@ export function EventActivityTable({
                   </Badge>
                 </div>
               </TableCell>
-              <TableCell className="font-mono text-xs" title={event.contractId}>
-                {shortValue(event.contractId)}
+              <TableCell className="font-mono text-xs">
+                <div className="flex items-center gap-1">
+                  <span title={event.contractId}>{shortValue(event.contractId)}</span>
+                  <CopyButton value={event.contractId} label="contract ID" />
+                </div>
               </TableCell>
-              <TableCell className="font-mono text-xs" title={event.transactionHash}>
-                {shortValue(event.transactionHash)}
+              <TableCell className="font-mono text-xs">
+                <div className="flex items-center gap-1">
+                  <span title={event.transactionHash}>{shortValue(event.transactionHash)}</span>
+                  <CopyButton value={event.transactionHash} label="transaction hash" />
+                </div>
               </TableCell>
               <TableCell className="font-mono text-xs">{event.ledger}</TableCell>
               <TableCell className="text-right text-sm text-zinc-600">

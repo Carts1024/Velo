@@ -9,9 +9,11 @@ import {
   confirmRegistration,
   submitSignedTransaction,
 } from "@repo/stellar";
+import { CopyButton } from "@repo/ui/components/common/copy-button";
 import { Badge } from "@repo/ui/components/ui-customs/badge";
 import { Alert, AlertDescription, AlertTitle } from "@repo/ui/components/ui/alert";
 import { Button } from "@repo/ui/components/ui/button";
+import { Progress } from "@repo/ui/components/ui/progress";
 import { Skeleton } from "@repo/ui/components/ui/skeleton";
 import {
   Table,
@@ -27,6 +29,7 @@ import {
   AlertCircleIcon,
   CheckCircle2Icon,
   ClockIcon,
+  CircleIcon,
   ExternalLinkIcon,
   RefreshCwIcon,
   SendIcon,
@@ -38,6 +41,7 @@ import { useState } from "react";
 
 import type { Id } from "@repo/backend/convex/_generated/dataModel";
 
+import { getDemoReadiness } from "./demo-readiness";
 import { EventActivityTable } from "./event-activity";
 
 const statusLabel = {
@@ -76,11 +80,22 @@ type ProjectDetailProps = {
   projectId: string;
 };
 
-function DetailRow({ label, value }: { label: string; value: string }) {
+function DetailRow({
+  label,
+  value,
+  copyValue,
+}: {
+  label: string;
+  value: string;
+  copyValue?: string;
+}) {
   return (
     <div className="grid gap-1 rounded-md border border-zinc-200 bg-white p-3">
       <span className="text-xs font-medium tracking-normal text-zinc-500 uppercase">{label}</span>
-      <span className="font-mono text-sm break-all text-zinc-900">{value}</span>
+      <div className="flex min-w-0 items-start gap-1">
+        <span className="min-w-0 flex-1 font-mono text-sm break-all text-zinc-900">{value}</span>
+        {copyValue ? <CopyButton value={copyValue} label={label.toLowerCase()} /> : null}
+      </div>
     </div>
   );
 }
@@ -103,10 +118,16 @@ function isRejectedSignature(error: unknown) {
 
 export function ProjectDetail({ projectId }: ProjectDetailProps) {
   const wallet = useWallet();
-  const project = useQuery(api.projects.getById, { id: projectId as Id<"projects"> });
-  const contracts = useQuery(api.projects.listContracts, {
-    projectId: projectId as Id<"projects">,
-  });
+  const project = useQuery(
+    api.projects.getById,
+    wallet.address ? { id: projectId as Id<"projects">, ownerAddress: wallet.address } : "skip",
+  );
+  const contracts = useQuery(
+    api.projects.listContracts,
+    wallet.address
+      ? { projectId: projectId as Id<"projects">, ownerAddress: wallet.address }
+      : "skip",
+  );
   const recentActivity = useQuery(
     api.contractEvents.listByProject,
     wallet.address
@@ -134,6 +155,25 @@ export function ProjectDetail({ projectId }: ProjectDetailProps) {
   const [isSyncing, setIsSyncing] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
 
+  if (!wallet.address) {
+    return (
+      <section className="grid gap-4">
+        <h1 className="text-3xl font-semibold">Owner project</h1>
+        <Alert>
+          <WalletIcon />
+          <AlertTitle>Connect the owner wallet</AlertTitle>
+          <AlertDescription>
+            Private project state loads only after wallet ownership is verified.
+          </AlertDescription>
+        </Alert>
+        <Button onClick={wallet.connect} className="w-fit">
+          <WalletIcon />
+          Connect wallet
+        </Button>
+      </section>
+    );
+  }
+
   if (project === undefined) {
     return (
       <section className="grid gap-4">
@@ -147,7 +187,10 @@ export function ProjectDetail({ projectId }: ProjectDetailProps) {
   if (project === null) {
     return (
       <section className="grid gap-4">
-        <h1 className="text-3xl font-semibold tracking-normal">Project not found</h1>
+        <h1 className="text-3xl font-semibold tracking-normal">Project unavailable</h1>
+        <p className="text-sm text-zinc-600">
+          The project does not exist or the connected wallet is not its owner.
+        </p>
         <Button asChild className="w-fit">
           <Link href="/dashboard">Back to dashboard</Link>
         </Button>
@@ -163,6 +206,18 @@ export function ProjectDetail({ projectId }: ProjectDetailProps) {
       currentProject.status === "registration_error" ||
       currentProject.status === "stale");
   const canSync = ownerMatches && Boolean(currentProject.registrationTxHash);
+  const activeContractCount =
+    contracts?.filter((contract) => contract.status === "active").length ?? 0;
+  const demoReadiness = getDemoReadiness({
+    project: currentProject,
+    activeContractCount,
+    eventCount: recentActivity?.events.length ?? 0,
+    webhookConfigured: webhookSummary?.configured ?? false,
+    deliveryCount: webhookSummary?.recentCount ?? 0,
+  });
+  const readinessLoading =
+    ownerMatches &&
+    (contracts === undefined || recentActivity === undefined || webhookSummary === undefined);
 
   async function syncRegistration(transactionHash = currentProject.registrationTxHash) {
     if (!transactionHash || !wallet.address || !stellarConfig.registryContractId) {
@@ -342,12 +397,68 @@ export function ProjectDetail({ projectId }: ProjectDetailProps) {
         </Alert>
       ) : null}
 
+      <div className="grid gap-4 rounded-lg border border-zinc-200 bg-white p-5">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 className="text-base font-semibold">DemoPay readiness</h2>
+            <p className="text-sm text-zinc-600">
+              Complete this owner flow before the timed demo. No database edits are required.
+            </p>
+          </div>
+          <p className="text-sm font-medium" aria-live="polite">
+            {readinessLoading
+              ? "Checking readiness..."
+              : `${demoReadiness.completedCount} of ${demoReadiness.totalCount} complete`}
+          </p>
+        </div>
+        <Progress value={demoReadiness.percent} aria-label="DemoPay readiness progress" />
+        <ol className="grid gap-2 md:grid-cols-2">
+          {demoReadiness.items.map((item) => {
+            const href = item.href?.startsWith("/")
+              ? item.href
+              : item.href
+                ? `/projects/${currentProject._id}/${item.href}`
+                : undefined;
+
+            return (
+              <li key={item.id} className="flex gap-3 border border-zinc-200 p-3">
+                {item.complete ? (
+                  <CheckCircle2Icon className="mt-0.5 size-5 shrink-0 text-emerald-600" />
+                ) : (
+                  <CircleIcon className="mt-0.5 size-5 shrink-0 text-zinc-400" />
+                )}
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="font-medium">{item.label}</span>
+                    {!item.complete && href ? (
+                      <Button variant="outline" size="xs" asChild>
+                        <Link href={href}>Continue</Link>
+                      </Button>
+                    ) : null}
+                  </div>
+                  <p className="mt-1 text-xs text-zinc-600">{item.description}</p>
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+      </div>
+
       <div className="grid gap-3 md:grid-cols-2">
-        <DetailRow label="Owner wallet" value={currentProject.ownerAddress} />
-        <DetailRow label="Metadata hash" value={currentProject.metadataHash} />
+        <DetailRow
+          label="Owner wallet"
+          value={currentProject.ownerAddress}
+          copyValue={currentProject.ownerAddress}
+        />
+        <DetailRow
+          label="Metadata hash"
+          value={currentProject.metadataHash}
+          copyValue={currentProject.metadataHash}
+        />
         <DetailRow
           label="Transaction hash"
           value={currentProject.registrationTxHash ?? "Not submitted"}
+          copyValue={currentProject.registrationTxHash}
         />
         <DetailRow
           label="Registry project ID"
@@ -397,7 +508,10 @@ export function ProjectDetail({ projectId }: ProjectDetailProps) {
                 contracts.map((contract) => (
                   <TableRow key={contract._id}>
                     <TableCell className="max-w-[20rem] font-mono text-xs break-all">
-                      {contract.contractId}
+                      <div className="flex items-start gap-1">
+                        <span className="min-w-0 flex-1">{contract.contractId}</span>
+                        <CopyButton value={contract.contractId} label="contract ID" />
+                      </div>
                     </TableCell>
                     <TableCell>
                       <Badge variant={contractStatusVariant[contract.status]}>
@@ -430,14 +544,21 @@ export function ProjectDetail({ projectId }: ProjectDetailProps) {
             </Link>
           </Button>
         </div>
-        <EventActivityTable
-          events={recentActivity?.events ?? []}
-          emptyMessage={
-            wallet.address
-              ? "No recent events cached for this project."
-              : "Connect the owner wallet to view dashboard activity."
-          }
-        />
+        {ownerMatches && recentActivity === undefined ? (
+          <div className="space-y-3 p-5" aria-label="Loading recent activity">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+          </div>
+        ) : (
+          <EventActivityTable
+            events={recentActivity?.events ?? []}
+            emptyMessage={
+              wallet.address
+                ? "No recent events cached for this project."
+                : "Connect the owner wallet to view dashboard activity."
+            }
+          />
+        )}
       </div>
 
       <div className="rounded-lg border border-zinc-200 bg-white">
@@ -473,20 +594,28 @@ export function ProjectDetail({ projectId }: ProjectDetailProps) {
             </Link>
           </Button>
         </div>
-        <div className="grid gap-3 p-4 sm:grid-cols-3">
-          <DetailRow
-            label="Last delivery"
-            value={formatTimestamp(webhookSummary?.lastDelivery?.lastAttemptAt)}
-          />
-          <DetailRow
-            label="Recent successes"
-            value={`${webhookSummary?.successCount ?? 0} of ${webhookSummary?.recentCount ?? 0}`}
-          />
-          <DetailRow
-            label="Failed attempts"
-            value={(webhookSummary?.failedCount ?? 0).toString()}
-          />
-        </div>
+        {ownerMatches && webhookSummary === undefined ? (
+          <div className="grid gap-3 p-4 sm:grid-cols-3" aria-label="Loading webhook summary">
+            <Skeleton className="h-20 w-full" />
+            <Skeleton className="h-20 w-full" />
+            <Skeleton className="h-20 w-full" />
+          </div>
+        ) : (
+          <div className="grid gap-3 p-4 sm:grid-cols-3">
+            <DetailRow
+              label="Last delivery"
+              value={formatTimestamp(webhookSummary?.lastDelivery?.lastAttemptAt)}
+            />
+            <DetailRow
+              label="Recent successes"
+              value={`${webhookSummary?.successCount ?? 0} of ${webhookSummary?.recentCount ?? 0}`}
+            />
+            <DetailRow
+              label="Failed attempts"
+              value={(webhookSummary?.failedCount ?? 0).toString()}
+            />
+          </div>
+        )}
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -514,6 +643,7 @@ export function ProjectDetail({ projectId }: ProjectDetailProps) {
             Public proof
           </Link>
         </Button>
+        <CopyButton value={`/verify/${currentProject.slug}`} label="public proof URL" size="sm" />
       </div>
     </section>
   );

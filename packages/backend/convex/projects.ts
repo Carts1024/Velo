@@ -74,6 +74,16 @@ async function requireOwnerProject(ctx: MutationCtx, id: Id<"projects">, ownerAd
   return project;
 }
 
+async function ownerProjectOrNull(ctx: QueryCtx, id: Id<"projects">, ownerAddress: string) {
+  const project = await ctx.db.get(id);
+
+  if (!project || project.ownerAddress !== normalizeAddress(ownerAddress)) {
+    return null;
+  }
+
+  return project;
+}
+
 async function requireRegisteredOwnerProject(
   ctx: MutationCtx,
   id: Id<"projects">,
@@ -126,15 +136,25 @@ export const getBySlug = query({
 });
 
 export const getById = query({
-  args: { id: v.id("projects") },
+  args: {
+    id: v.id("projects"),
+    ownerAddress: v.string(),
+  },
   handler: async (ctx, args) => {
-    return await ctx.db.get(args.id);
+    return await ownerProjectOrNull(ctx, args.id, args.ownerAddress);
   },
 });
 
 export const listContracts = query({
-  args: { projectId: v.id("projects") },
+  args: {
+    projectId: v.id("projects"),
+    ownerAddress: v.string(),
+  },
   handler: async (ctx, args) => {
+    if (!(await ownerProjectOrNull(ctx, args.projectId, args.ownerAddress))) {
+      return [];
+    }
+
     return await ctx.db
       .query("projectContracts")
       .withIndex("by_project", (q) => q.eq("projectId", args.projectId))

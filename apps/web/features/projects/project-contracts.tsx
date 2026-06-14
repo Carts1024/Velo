@@ -10,6 +10,7 @@ import {
   confirmContractTransaction,
   submitSignedTransaction,
 } from "@repo/stellar";
+import { CopyButton } from "@repo/ui/components/common/copy-button";
 import { Badge } from "@repo/ui/components/ui-customs/badge";
 import { Alert, AlertDescription, AlertTitle } from "@repo/ui/components/ui/alert";
 import {
@@ -83,10 +84,16 @@ function wait(milliseconds: number) {
 
 export function ProjectContracts({ projectId }: ProjectContractsProps) {
   const wallet = useWallet();
-  const project = useQuery(api.projects.getById, { id: projectId as Id<"projects"> });
-  const contracts = useQuery(api.projects.listContracts, {
-    projectId: projectId as Id<"projects">,
-  });
+  const project = useQuery(
+    api.projects.getById,
+    wallet.address ? { id: projectId as Id<"projects">, ownerAddress: wallet.address } : "skip",
+  );
+  const contracts = useQuery(
+    api.projects.listContracts,
+    wallet.address
+      ? { projectId: projectId as Id<"projects">, ownerAddress: wallet.address }
+      : "skip",
+  );
   const markAddPending = useMutation(api.projects.markContractAddPending);
   const markAddConfirmed = useMutation(api.projects.markContractAddConfirmed);
   const markRemovePending = useMutation(api.projects.markContractRemovePending);
@@ -97,6 +104,25 @@ export function ProjectContracts({ projectId }: ProjectContractsProps) {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [isAdding, setIsAdding] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
+
+  if (!wallet.address) {
+    return (
+      <section className="grid gap-4">
+        <h1 className="text-3xl font-semibold">Official contracts</h1>
+        <Alert>
+          <WalletIcon />
+          <AlertTitle>Connect the owner wallet</AlertTitle>
+          <AlertDescription>
+            Private contract state loads only after wallet ownership is verified.
+          </AlertDescription>
+        </Alert>
+        <Button onClick={wallet.connect} className="w-fit">
+          <WalletIcon />
+          Connect wallet
+        </Button>
+      </section>
+    );
+  }
 
   if (project === undefined || contracts === undefined) {
     return (
@@ -111,7 +137,10 @@ export function ProjectContracts({ projectId }: ProjectContractsProps) {
   if (project === null) {
     return (
       <section className="grid gap-4">
-        <h1 className="text-3xl font-semibold tracking-normal">Project not found</h1>
+        <h1 className="text-3xl font-semibold tracking-normal">Project unavailable</h1>
+        <p className="text-sm text-zinc-600">
+          The project does not exist or the connected wallet is not its owner.
+        </p>
         <Button asChild className="w-fit">
           <Link href="/dashboard">Back to dashboard</Link>
         </Button>
@@ -364,13 +393,27 @@ export function ProjectContracts({ projectId }: ProjectContractsProps) {
               currentContracts.map((link) => (
                 <TableRow key={link._id}>
                   <TableCell className="max-w-[18rem] break-all font-mono text-xs">
-                    {link.contractId}
+                    <div className="flex items-start gap-1">
+                      <span className="min-w-0 flex-1">{link.contractId}</span>
+                      <CopyButton value={link.contractId} label="contract ID" />
+                    </div>
                   </TableCell>
                   <TableCell>
                     <Badge variant={statusVariant[link.status]}>{statusLabel[link.status]}</Badge>
                   </TableCell>
                   <TableCell className="font-mono text-xs">
-                    {(link.removeTxHash ?? link.addTxHash)?.slice(0, 16) ?? "Not submitted"}...
+                    <div className="flex items-center gap-1">
+                      <span>
+                        {(link.removeTxHash ?? link.addTxHash)?.slice(0, 16) ?? "Not submitted"}
+                        {(link.removeTxHash ?? link.addTxHash) ? "..." : ""}
+                      </span>
+                      {(link.removeTxHash ?? link.addTxHash) ? (
+                        <CopyButton
+                          value={(link.removeTxHash ?? link.addTxHash)!}
+                          label="transaction hash"
+                        />
+                      ) : null}
+                    </div>
                   </TableCell>
                   <TableCell className="text-sm text-zinc-600">
                     {formatTimestamp(link.lastSyncAt)}

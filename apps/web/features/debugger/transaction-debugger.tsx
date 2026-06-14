@@ -1,6 +1,7 @@
 "use client";
 
 import { api } from "@repo/backend/convex/_generated/api";
+import { CopyButton } from "@repo/ui/components/common/copy-button";
 import { Badge } from "@repo/ui/components/ui-customs/badge";
 import {
   Accordion,
@@ -179,6 +180,9 @@ export function TransactionDebugger({ initialHash = "" }: { initialHash?: string
             {isLoading ? <RefreshCwIcon className="animate-spin" /> : <SearchIcon />}
             {isLoading ? "Inspecting..." : "Inspect transaction"}
           </Button>
+          {/^[0-9a-f]{64}$/i.test(hash.trim()) ? (
+            <CopyButton value={hash.trim()} label="transaction hash" size="sm" />
+          ) : null}
         </div>
       </form>
 
@@ -279,6 +283,9 @@ export function TransactionDebugger({ initialHash = "" }: { initialHash?: string
                       <span className="font-mono text-xs break-all">
                         {event.contractId ?? "No contract ID"}
                       </span>
+                      {event.contractId ? (
+                        <CopyButton value={event.contractId} label="contract ID" />
+                      ) : null}
                     </div>
                     <pre className="overflow-x-auto bg-zinc-950 p-3 text-xs text-zinc-100">
                       {displayJson({ topics: event.topics, data: event.data })}

@@ -2,6 +2,7 @@
 
 import { shortenAddress } from "@/core/wallet/format";
 import { api } from "@repo/backend/convex/_generated/api";
+import { CopyButton } from "@repo/ui/components/common/copy-button";
 import { Badge } from "@repo/ui/components/ui-customs/badge";
 import { Alert, AlertDescription, AlertTitle } from "@repo/ui/components/ui/alert";
 import { Button } from "@repo/ui/components/ui/button";
@@ -28,11 +29,22 @@ function formatTimestamp(value?: number) {
   return value ? new Date(value).toLocaleString() : "Not synced";
 }
 
-function ProofRow({ label, value }: { label: string; value: string }) {
+function ProofRow({
+  label,
+  value,
+  copyValue,
+}: {
+  label: string;
+  value: string;
+  copyValue?: string;
+}) {
   return (
     <div className="grid gap-1 rounded-md border border-zinc-200 bg-white p-3">
       <span className="text-xs font-medium tracking-normal text-zinc-500 uppercase">{label}</span>
-      <span className="font-mono text-sm break-all text-zinc-900">{value}</span>
+      <div className="flex min-w-0 items-start gap-1">
+        <span className="min-w-0 flex-1 font-mono text-sm break-all text-zinc-900">{value}</span>
+        {copyValue ? <CopyButton value={copyValue} label={label.toLowerCase()} /> : null}
+      </div>
     </div>
   );
 }
@@ -80,9 +92,12 @@ export function PublicVerification({ slug }: PublicVerificationProps) {
             </div>
             <p className="mt-2 max-w-2xl text-sm text-zinc-600">{proof.description}</p>
           </div>
-          <Button variant="outline" asChild>
-            <Link href="/dashboard">TalaKit</Link>
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" asChild>
+              <Link href="/dashboard">TalaKit</Link>
+            </Button>
+            <CopyButton value={`/verify/${proof.slug}`} label="public proof URL" size="sm" />
+          </div>
         </header>
 
         {proof.active ? (
@@ -109,12 +124,17 @@ export function PublicVerification({ slug }: PublicVerificationProps) {
           <ProofRow
             label="Owner wallet"
             value={`${shortenAddress(proof.ownerAddress)} (${proof.ownerAddress})`}
+            copyValue={proof.ownerAddress}
           />
           <ProofRow
             label="Registry project ID"
             value={proof.registryProjectId?.toString() ?? "Not registered"}
           />
-          <ProofRow label="Metadata hash" value={proof.metadataHash} />
+          <ProofRow
+            label="Metadata hash"
+            value={proof.metadataHash}
+            copyValue={proof.metadataHash}
+          />
           <ProofRow
             label="Created ledger"
             value={proof.createdLedger?.toString() ?? "Not available"}
@@ -149,7 +169,12 @@ export function PublicVerification({ slug }: PublicVerificationProps) {
               ) : (
                 proof.officialContractIds.map((contractId) => (
                   <TableRow key={contractId}>
-                    <TableCell className="font-mono text-xs break-all">{contractId}</TableCell>
+                    <TableCell className="font-mono text-xs break-all">
+                      <div className="flex items-start gap-1">
+                        <span className="min-w-0 flex-1">{contractId}</span>
+                        <CopyButton value={contractId} label="contract ID" />
+                      </div>
+                    </TableCell>
                   </TableRow>
                 ))
               )}
@@ -164,10 +189,17 @@ export function PublicVerification({ slug }: PublicVerificationProps) {
               Public event fields only. Raw payloads and poller errors remain dashboard-only.
             </p>
           </div>
-          <EventActivityTable
-            events={recentActivity ?? []}
-            emptyMessage="No recent public activity is available."
-          />
+          {recentActivity === undefined ? (
+            <div className="space-y-3 p-5" aria-label="Loading recent public activity">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+          ) : (
+            <EventActivityTable
+              events={recentActivity}
+              emptyMessage="No recent public activity is available."
+            />
+          )}
         </div>
       </div>
     </main>

@@ -314,6 +314,22 @@ Dependencies:
 
 - Sprints 1-7.
 
+Implementation notes:
+
+- The project dashboard includes a six-step DemoPay readiness checklist derived from live project, contract, event, public proof, and webhook state.
+- Shared copy controls cover displayed wallet addresses, contract IDs, transaction hashes, metadata hashes, and public proof URLs.
+- Core project, event, webhook, debugger, and public proof screens distinguish loading, empty, stale, error, and retry/continue states.
+- Public queries return explicit safe projections and exclude webhook settings, delivery logs, raw event payloads, and poller errors.
+- The repeatable setup and timed flow are documented in `demo-setup.md`.
+
+Known limitations:
+
+- Phase 1 supports Stellar Testnet only.
+- Hosted Convex webhook delivery cannot reach localhost; the demo requires a deployed HTTPS endpoint or tunnel.
+- Webhook retries and signing remain deferred. Every manual send creates one delivery attempt record.
+- Event polling is bounded and may report stale during RPC delays.
+- Demo data is prepared through the documented wallet-signed flow rather than database seeding.
+
 ## 5. Cut Line
 
 If time gets tight, protect these in order:
