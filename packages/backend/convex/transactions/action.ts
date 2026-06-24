@@ -1,3 +1,5 @@
+"use node";
+
 import { lookupTestnetTransaction } from "@repo/stellar";
 import { v } from "convex/values";
 
