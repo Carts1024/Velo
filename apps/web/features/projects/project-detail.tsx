@@ -35,6 +35,8 @@ import {
   SendIcon,
   WalletIcon,
   WebhookIcon,
+  KeyIcon,
+  Trash2Icon,
 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
@@ -151,8 +153,14 @@ export function ProjectDetail({ projectId }: ProjectDetailProps) {
   const markSynced = useMutation(api.projects.mutation.markRegistrationSynced);
   const markStale = useMutation(api.projects.mutation.markRegistrationStale);
   const markError = useMutation(api.projects.mutation.markRegistrationError);
+  const generateApiKey = useMutation(api.projects.mutation.generateApiKey);
+  const revokeApiKey = useMutation(api.projects.mutation.revokeApiKey);
+
   const [isRegistering, setIsRegistering] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isGeneratingKey, setIsGeneratingKey] = useState(false);
+  const [isRevokingKey, setIsRevokingKey] = useState(false);
+  const [newRawKey, setNewRawKey] = useState<string | null>(null);
   const [localError, setLocalError] = useState<string | null>(null);
 
   if (!wallet.address) {
@@ -319,6 +327,56 @@ export function ProjectDetail({ projectId }: ProjectDetailProps) {
     } finally {
       setIsRegistering(false);
     }
+  }
+
+  async function handleGenerateKey() {
+    if (!wallet.address) return;
+    setIsGeneratingKey(true);
+    setNewRawKey(null);
+    setLocalError(null);
+    try {
+      const result = await generateApiKey({
+        id: currentProject._id,
+        ownerAddress: wallet.address,
+      });
+      setNewRawKey(result.rawKey);
+    } catch (err) {
+      console.error(err);
+      setLocalError("Failed to generate API Key.");
+    } finally {
+      setIsGeneratingKey(false);
+    }
+  }
+
+  async function handleRevokeKey() {
+    if (!wallet.address) return;
+    if (
+      !window.confirm(
+        "Are you sure you want to revoke this API key? This action will instantly disable access for any clients using it.",
+      )
+    ) {
+      return;
+    }
+    setIsRevokingKey(true);
+    setLocalError(null);
+    try {
+      await revokeApiKey({
+        id: currentProject._id,
+        ownerAddress: wallet.address,
+      });
+      setNewRawKey(null);
+    } catch (err) {
+      console.error(err);
+      setLocalError("Failed to revoke API Key.");
+    } finally {
+      setIsRevokingKey(false);
+    }
+  }
+
+  function copyEndpoint(path: string) {
+    if (typeof window === "undefined") return;
+    const url = `${window.location.origin}${path}`;
+    navigator.clipboard.writeText(url);
   }
 
   return (
@@ -614,6 +672,151 @@ export function ProjectDetail({ projectId }: ProjectDetailProps) {
               label="Failed attempts"
               value={(webhookSummary?.failedCount ?? 0).toString()}
             />
+          </div>
+        )}
+      </div>
+
+      {/* API Key Access Section */}
+      <div className="rounded-lg border border-zinc-200 bg-white shadow-sm hover:shadow duration-200">
+        <div className="flex flex-col gap-2 border-b border-zinc-200 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-base font-semibold tracking-normal flex items-center gap-1.5">
+                <KeyIcon className="size-4.5 text-zinc-500" />
+                API key
+              </h2>
+              <Badge variant={currentProject.apiKeyHash ? "success" : "gray"}>
+                {currentProject.apiKeyHash ? "active" : "inactive"}
+              </Badge>
+            </div>
+            <p className="mt-1 text-sm text-zinc-600">
+              {currentProject.apiKeyPrefix
+                ? `Key prefix: ${currentProject.apiKeyPrefix} • Generated ${formatTimestamp(currentProject.apiKeyCreatedAt)}`
+                : "Generate a Project API Key to access TalaKit services programmatically."}
+            </p>
+          </div>
+          <div className="flex gap-2">
+            {currentProject.apiKeyHash ? (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleGenerateKey}
+                  disabled={isGeneratingKey}
+                >
+                  <RefreshCwIcon
+                    className={`mr-1.5 size-4 ${isGeneratingKey ? "animate-spin" : ""}`}
+                  />
+                  Regenerate
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={handleRevokeKey}
+                  disabled={isRevokingKey}
+                >
+                  <Trash2Icon className="mr-1.5 size-4" />
+                  {isRevokingKey ? "Revoking..." : "Revoke"}
+                </Button>
+              </>
+            ) : (
+              <Button size="sm" onClick={handleGenerateKey} disabled={isGeneratingKey}>
+                <KeyIcon className="mr-1.5 size-4" />
+                {isGeneratingKey ? "Generating..." : "Generate API key"}
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {/* Display newly generated raw API key (one-time show) */}
+        {newRawKey && (
+          <div className="border-b border-zinc-200 bg-zinc-50 p-4">
+            <Alert className="border-emerald-200 bg-emerald-50/50 text-emerald-950">
+              <KeyIcon className="size-5 text-emerald-600" />
+              <AlertTitle className="font-semibold text-emerald-900">Save your API Key</AlertTitle>
+              <AlertDescription className="text-emerald-800">
+                <p className="mb-3 text-xs leading-relaxed text-emerald-900">
+                  Please copy this key and save it securely. For security reasons, you will **not**
+                  be able to see it again after closing this box or refreshing the page.
+                </p>
+                <div className="flex items-center gap-2 rounded border border-emerald-200 bg-white p-2.5 font-mono text-xs font-semibold text-zinc-900 shadow-sm break-all">
+                  <span className="min-w-0 flex-1 select-all">{newRawKey}</span>
+                  <CopyButton value={newRawKey} label="API key" size="sm" />
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-3 bg-white text-zinc-800 hover:bg-zinc-100 hover:text-zinc-900 border-zinc-200"
+                  onClick={() => setNewRawKey(null)}
+                >
+                  I have copied the key
+                </Button>
+              </AlertDescription>
+            </Alert>
+          </div>
+        )}
+
+        {currentProject.apiKeyHash && (
+          <div className="p-4 bg-zinc-50/40">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-3">
+              Available API endpoints
+            </h3>
+            <div className="grid gap-2.5">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 p-2.5 rounded border border-zinc-100 bg-white">
+                <div className="min-w-0 flex-1">
+                  <span className="inline-flex items-center rounded bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-800 font-mono mr-2">
+                    GET
+                  </span>
+                  <span className="font-mono text-xs text-zinc-700">/api/v1/events</span>
+                  <p className="text-xs text-zinc-500 mt-1">
+                    Retrieve recent contract events observed for this project.
+                  </p>
+                </div>
+                <Button variant="outline" size="xs" onClick={() => copyEndpoint("/api/v1/events")}>
+                  Copy URL
+                </Button>
+              </div>
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 p-2.5 rounded border border-zinc-100 bg-white">
+                <div className="min-w-0 flex-1">
+                  <span className="inline-flex items-center rounded bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-800 font-mono mr-2">
+                    GET
+                  </span>
+                  <span className="font-mono text-xs text-zinc-700">
+                    /api/v1/transactions/[hash]
+                  </span>
+                  <p className="text-xs text-zinc-500 mt-1">
+                    Lookup a Stellar transaction by its hash.
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="xs"
+                  onClick={() => copyEndpoint("/api/v1/transactions/[hash]")}
+                >
+                  Copy URL
+                </Button>
+              </div>
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 p-2.5 rounded border border-zinc-100 bg-white">
+                <div className="min-w-0 flex-1">
+                  <span className="inline-flex items-center rounded bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-800 font-mono mr-2">
+                    GET
+                  </span>
+                  <span className="font-mono text-xs text-zinc-700">
+                    /api/v1/webhooks/deliveries
+                  </span>
+                  <p className="text-xs text-zinc-500 mt-1">
+                    Check recent webhook delivery attempts.
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="xs"
+                  onClick={() => copyEndpoint("/api/v1/webhooks/deliveries")}
+                >
+                  Copy URL
+                </Button>
+              </div>
+            </div>
           </div>
         )}
       </div>

@@ -183,3 +183,56 @@ export const updateDraft = mutation({
     });
   },
 });
+
+export const generateApiKey = mutation({
+  args: {
+    id: v.id("projects"),
+    ownerAddress: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await requireOwnerProject(ctx, args.id, args.ownerAddress);
+
+    // Generate secure random API key token: tk_live_<32 hex chars>
+    const randomBytes = new Uint8Array(16);
+    crypto.getRandomValues(randomBytes);
+    const token = Array.from(randomBytes)
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+    const rawKey = `tk_live_${token}`;
+
+    // Hash the rawKey using SHA-256
+    const encoder = new TextEncoder();
+    const data = encoder.encode(rawKey);
+    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const apiKeyHash = hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+
+    const now = Date.now();
+    await ctx.db.patch(args.id, {
+      apiKeyHash,
+      apiKeyPrefix: `tk_live_${token.slice(0, 4)}...${token.slice(-4)}`,
+      apiKeyCreatedAt: now,
+      updatedAt: now,
+    });
+
+    return { rawKey };
+  },
+});
+
+export const revokeApiKey = mutation({
+  args: {
+    id: v.id("projects"),
+    ownerAddress: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await requireOwnerProject(ctx, args.id, args.ownerAddress);
+
+    const now = Date.now();
+    await ctx.db.patch(args.id, {
+      apiKeyHash: undefined,
+      apiKeyPrefix: undefined,
+      apiKeyCreatedAt: undefined,
+      updatedAt: now,
+    });
+  },
+});

@@ -80,3 +80,93 @@ export const getPublicVerification = query({
     };
   },
 });
+
+export const verifyApiKeyAndGetEvents = query({
+  args: {
+    apiKeyHash: v.string(),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const project = await ctx.db
+      .query("projects")
+      .withIndex("by_api_key_hash", (q) => q.eq("apiKeyHash", args.apiKeyHash))
+      .unique();
+
+    if (!project) {
+      return { authorized: false };
+    }
+
+    const limit = Math.min(100, Math.max(1, args.limit ?? 20));
+    const events = await ctx.db
+      .query("contractEvents")
+      .withIndex("by_project_ledger", (q) => q.eq("projectId", project._id))
+      .order("desc")
+      .take(limit);
+
+    return {
+      authorized: true,
+      project: {
+        id: project._id,
+        name: project.name,
+        slug: project.slug,
+      },
+      events,
+    };
+  },
+});
+
+export const verifyApiKeyAndGetTransaction = query({
+  args: {
+    apiKeyHash: v.string(),
+    hash: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const project = await ctx.db
+      .query("projects")
+      .withIndex("by_api_key_hash", (q) => q.eq("apiKeyHash", args.apiKeyHash))
+      .unique();
+
+    if (!project) {
+      return { authorized: false };
+    }
+
+    const transaction = await ctx.db
+      .query("transactions")
+      .withIndex("by_hash", (q) => q.eq("hash", args.hash.trim().toLowerCase()))
+      .unique();
+
+    return {
+      authorized: true,
+      transaction,
+    };
+  },
+});
+
+export const verifyApiKeyAndGetWebhookDeliveries = query({
+  args: {
+    apiKeyHash: v.string(),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const project = await ctx.db
+      .query("projects")
+      .withIndex("by_api_key_hash", (q) => q.eq("apiKeyHash", args.apiKeyHash))
+      .unique();
+
+    if (!project) {
+      return { authorized: false };
+    }
+
+    const limit = Math.min(100, Math.max(1, args.limit ?? 20));
+    const deliveries = await ctx.db
+      .query("webhookDeliveries")
+      .withIndex("by_project_created_at", (q) => q.eq("projectId", project._id))
+      .order("desc")
+      .take(limit);
+
+    return {
+      authorized: true,
+      deliveries,
+    };
+  },
+});
