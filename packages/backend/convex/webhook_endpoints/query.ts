@@ -91,3 +91,35 @@ export const getDeliveryTarget = internalQuery({
     return { endpoint, project, contractEvent };
   },
 });
+
+export const getDeliveryTargetInternal = internalQuery({
+  args: {
+    projectId: v.id("projects"),
+    eventType: v.string(),
+    contractEventId: v.optional(v.id("contractEvents")),
+  },
+  handler: async (ctx, args) => {
+    const project = await ctx.db.get(args.projectId);
+    if (!project) {
+      return null;
+    }
+    const endpoint = await ctx.db
+      .query("webhookEndpoints")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .unique();
+
+    if (!endpoint || !endpoint.enabled || !endpoint.eventTypes.includes(args.eventType)) {
+      return null;
+    }
+
+    validateWebhookUrl(endpoint.url);
+
+    const contractEvent = args.contractEventId ? await ctx.db.get(args.contractEventId) : undefined;
+
+    if (contractEvent && contractEvent.projectId !== args.projectId) {
+      throw new Error("Observed event does not belong to this project");
+    }
+
+    return { endpoint, project, contractEvent };
+  },
+});

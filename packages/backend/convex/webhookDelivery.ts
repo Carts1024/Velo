@@ -5,7 +5,7 @@ import type { WebhookDeliveryId } from "./webhook_deliveries/types";
 import type { WebhookEventType } from "./webhook_endpoints/types";
 
 import { internal } from "./_generated/api";
-import { action } from "./_generated/server";
+import { action, internalAction } from "./_generated/server";
 
 type DeliveryTarget = {
   endpoint: Doc<"webhookEndpoints">;
@@ -13,13 +13,13 @@ type DeliveryTarget = {
   contractEvent?: Doc<"contractEvents"> | null;
 };
 
-function buildPayload(target: DeliveryTarget, eventType: WebhookEventType) {
+function buildPayload(target: DeliveryTarget, eventType: WebhookEventType, test = false) {
   const event = target.contractEvent;
   const sentAt = new Date().toISOString();
   const base = {
     id: crypto.randomUUID(),
     type: eventType,
-    test: true,
+    test,
     sentAt,
     project: {
       id: target.project._id,
@@ -32,7 +32,6 @@ function buildPayload(target: DeliveryTarget, eventType: WebhookEventType) {
   if (eventType === "contract.event" && event) {
     return {
       ...base,
-      test: false,
       contractId: event.contractId,
       transactionHash: event.transactionHash,
       ledger: event.ledger,
@@ -98,7 +97,7 @@ export const sendTest = action({
       internal.webhook_endpoints.query.getDeliveryTarget,
       args,
     );
-    const payload = buildPayload(target, args.eventType);
+    const payload = buildPayload(target, args.eventType, true);
     const deliveryId: WebhookDeliveryId = await ctx.runMutation(
       internal.webhook_deliveries.mutation.createPending,
       {
@@ -140,6 +139,70 @@ export const sendTest = action({
         errorMessage: message,
       });
       return { deliveryId, status: "failed" };
+    }
+  },
+});
+
+export const trigger = internalAction({
+  args: {
+    projectId: v.id("projects"),
+    eventType: v.union(
+      v.literal("contract.event"),
+      v.literal("transaction.succeeded"),
+      v.literal("transaction.failed"),
+      v.literal("project.registered"),
+      v.literal("project.updated"),
+    ),
+    contractEventId: v.optional(v.id("contractEvents")),
+  },
+  handler: async (ctx, args) => {
+    const target = await ctx.runQuery(
+      internal.webhook_endpoints.query.getDeliveryTargetInternal,
+      args,
+    );
+    if (!target) {
+      return;
+    }
+
+    const payload = buildPayload(target, args.eventType, false);
+    const deliveryId: WebhookDeliveryId = await ctx.runMutation(
+      internal.webhook_deliveries.mutation.createPending,
+      {
+        projectId: args.projectId,
+        endpointId: target.endpoint._id,
+        eventType: args.eventType,
+        destinationHost: target.endpoint.destinationHost,
+        payloadSummary: payloadSummary(payload),
+      },
+    );
+
+    try {
+      const response = await fetch(target.endpoint.url, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "user-agent": "TalaKit-Webhook/1.0",
+          "x-talakit-event": args.eventType,
+          "x-talakit-delivery": deliveryId,
+        },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(10_000),
+      });
+      const status = response.ok ? "success" : "failed";
+
+      await ctx.runMutation(internal.webhook_deliveries.mutation.finish, {
+        deliveryId,
+        status,
+        httpStatus: response.status,
+        errorMessage: response.ok ? undefined : `Endpoint returned HTTP ${response.status}`,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Webhook request failed";
+      await ctx.runMutation(internal.webhook_deliveries.mutation.finish, {
+        deliveryId,
+        status: "failed",
+        errorMessage: message,
+      });
     }
   },
 });

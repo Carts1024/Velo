@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 
+import { internal } from "../_generated/api";
 import { internalMutation } from "../_generated/server";
 import { storePollSuccess } from "../poller_state/helpers";
 
@@ -36,7 +37,12 @@ export const storePollResult = internalMutation({
       if (existing) {
         await ctx.db.patch(existing._id, value);
       } else {
-        await ctx.db.insert("contractEvents", value);
+        const contractEventId = await ctx.db.insert("contractEvents", value);
+        await ctx.scheduler.runAfter(0, internal.webhookDelivery.trigger, {
+          projectId: args.projectId,
+          eventType: "contract.event",
+          contractEventId,
+        });
       }
     }
 

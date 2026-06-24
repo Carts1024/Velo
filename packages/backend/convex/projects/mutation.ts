@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 
+import { internal } from "../_generated/api";
 import { mutation } from "../_generated/server";
 import {
   draftProjectArgs,
@@ -85,6 +86,16 @@ export const markRegistrationSynced = mutation({
       lastSyncAt: now,
       updatedAt: now,
     });
+
+    await ctx.scheduler.runAfter(0, internal.webhookDelivery.trigger, {
+      projectId: args.id,
+      eventType: "project.registered",
+    });
+
+    await ctx.scheduler.runAfter(0, internal.webhookDelivery.trigger, {
+      projectId: args.id,
+      eventType: "transaction.succeeded",
+    });
   },
 });
 
@@ -120,6 +131,11 @@ export const markRegistrationError = mutation({
       registrationError: args.registrationError.slice(0, 500),
       lastSyncAt: now,
       updatedAt: now,
+    });
+
+    await ctx.scheduler.runAfter(0, internal.webhookDelivery.trigger, {
+      projectId: args.id,
+      eventType: "transaction.failed",
     });
   },
 });
@@ -159,6 +175,11 @@ export const updateDraft = mutation({
       metadataHash: args.metadataHash,
       ownerAddress,
       updatedAt: Date.now(),
+    });
+
+    await ctx.scheduler.runAfter(0, internal.webhookDelivery.trigger, {
+      projectId: args.id,
+      eventType: "project.updated",
     });
   },
 });
