@@ -1,9 +1,15 @@
 "use client";
 
 import { ArrowRight, Terminal } from "lucide-react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 
-import { PixelBlast } from "../components/pixel-blast";
+import type { PixelBlastProps } from "@repo/ui/components/ui-customs/pixel-blast/PixelBlast";
+
+const PixelBlast = dynamic<PixelBlastProps>(
+  () => import("@repo/ui/components/ui-customs/pixel-blast/PixelBlast"),
+  { ssr: false },
+);
 
 export function HeroSection() {
   return (
@@ -13,7 +19,7 @@ export function HeroSection() {
         <PixelBlast
           variant="circle"
           pixelSize={5}
-          color="#A78BFA" // violet-400
+          color="#ffffff" // user changed base to white
           patternScale={3.5}
           patternDensity={1.1}
           pixelSizeJitter={0.3}
@@ -33,9 +39,11 @@ export function HeroSection() {
       {/* Header / Mini Nav inside Hero */}
       <header className="w-full max-w-7xl mx-auto px-6 py-6 flex items-center justify-between relative z-20">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-sky-400 flex items-center justify-center font-mono font-bold text-zinc-950 text-base shadow-[0_0_15px_rgba(167,139,250,0.5)]">
-            T
-          </div>
+          <img
+            src="/icon.png"
+            alt="TalaKit Logo"
+            className="w-8 h-8 rounded-lg shadow-[0_0_15px_rgba(167,139,250,0.3)] object-contain"
+          />
           <div>
             <span className="font-sans font-bold tracking-tight text-lg text-zinc-100">
               TalaKit

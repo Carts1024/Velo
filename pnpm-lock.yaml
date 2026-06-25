@@ -157,6 +157,9 @@ importers:
       '@tailwindcss/postcss':
         specifier: ^4.1.18
         version: 4.3.0
+      '@types/three':
+        specifier: ^0.184.1
+        version: 0.184.1
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -184,6 +187,9 @@ importers:
       postcss:
         specifier: ^8.5.6
         version: 8.5.15
+      postprocessing:
+        specifier: ^6.39.1
+        version: 6.39.1(three@0.185.0)
       radix-ui:
         specifier: ^1.4.3
         version: 1.4.3(@types/react-dom@19.2.3(@types/react@19.2.13))(@types/react@19.2.13)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
@@ -214,6 +220,9 @@ importers:
       tailwindcss:
         specifier: ^4.1.18
         version: 4.3.0
+      three:
+        specifier: ^0.185.0
+        version: 0.185.0
       tw-animate-css:
         specifier: ^1.4.0
         version: 1.4.0

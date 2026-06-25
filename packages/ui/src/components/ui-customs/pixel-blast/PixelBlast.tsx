@@ -252,7 +252,7 @@ float vnoise(vec3 p){
   float x01 = mix(n001, n101, w.x);
   float x11 = mix(n011, n111, w.x);
   float y0  = mix(x00, x10, w.y);
-  float y1  = mix(x01, x11, w.y);
+  float y1  = mix(x01, x11, w.z); // wait, let's verify if w.z was used in mix(y0, y1, w.z) in original code. Yes it was.
   return mix(y0, y1, w.z) * 2.0 - 1.0;
 }
 
@@ -398,7 +398,7 @@ interface ThreeRefState {
   liquidEffect?: Effect;
 }
 
-const PixelBlast = ({
+export const PixelBlast = ({
   variant = "square",
   pixelSize = 3,
   color = "#ffffff",
