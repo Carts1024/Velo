@@ -399,18 +399,18 @@ interface ThreeRefState {
 }
 
 export const PixelBlast = ({
-  variant = "square",
+  variant = "diamond",
   pixelSize = 3,
   color = "#ffffff",
   className,
   style,
   antialias = true,
-  patternScale = 2,
+  patternScale = 2.25,
   patternDensity = 1,
   liquid = true,
   liquidStrength = 0.1,
   liquidRadius = 1,
-  pixelSizeJitter = 0,
+  pixelSizeJitter = 0.9,
   enableRipples = true,
   rippleIntensityScale = 1,
   rippleThickness = 0.1,

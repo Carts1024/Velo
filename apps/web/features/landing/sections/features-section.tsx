@@ -37,7 +37,7 @@ export function FeaturesSection() {
   return (
     <section className="py-24 px-6 bg-zinc-950 text-zinc-50 border-b border-zinc-900 relative">
       {/* Decorative gradient blur */}
-      <div className="absolute right-0 top-1/2 -translate-y-1/2 w-96 h-96 bg-violet-600/10 rounded-full blur-[100px] pointer-events-none" />
+      <div className="absolute right-0 top-1/2 -translate-y-1/2 w-96 h-96 bg-zinc-800/10 rounded-full blur-[100px] pointer-events-none" />
 
       <div className="max-w-7xl mx-auto">
         {/* Title Block */}
@@ -64,18 +64,18 @@ export function FeaturesSection() {
                 className="group relative p-8 rounded-2xl bg-zinc-900/30 border border-zinc-800/60 hover:bg-zinc-900/50 hover:border-zinc-700/60 hover:shadow-[0_4px_30px_rgba(0,0,0,0.4)] transition-all duration-300 backdrop-blur-sm"
               >
                 {/* Glow outline decoration */}
-                <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-violet-500/0 via-violet-500/0 to-sky-400/0 group-hover:from-violet-500/5 group-hover:to-sky-400/5 transition-all duration-300 pointer-events-none" />
+                <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-white/0 to-zinc-400/0 group-hover:from-white/5 group-hover:to-zinc-400/5 transition-all duration-300 pointer-events-none" />
 
                 <div className="flex items-start justify-between mb-6">
-                  <div className="w-12 h-12 rounded-xl bg-zinc-900 border border-zinc-800 group-hover:border-violet-500/50 group-hover:bg-violet-950/20 text-sky-400 group-hover:text-violet-400 flex items-center justify-center transition-all duration-300">
+                  <div className="w-12 h-12 rounded-xl bg-zinc-900 border border-zinc-800 group-hover:border-zinc-500/50 group-hover:bg-zinc-900/60 text-zinc-400 group-hover:text-zinc-100 flex items-center justify-center transition-all duration-300">
                     <Icon size={24} />
                   </div>
                   <span
                     className={`text-[10px] font-mono px-2 py-0.5 rounded-full border ${
                       item.badge === "Active"
-                        ? "border-emerald-500/25 bg-emerald-500/5 text-emerald-400"
+                        ? "border-zinc-300 bg-zinc-900 text-zinc-100"
                         : item.badge === "Beta"
-                          ? "border-sky-500/25 bg-sky-500/5 text-sky-400"
+                          ? "border-zinc-700/50 bg-zinc-900 text-zinc-300"
                           : "border-zinc-800 bg-zinc-900 text-zinc-500"
                     }`}
                   >

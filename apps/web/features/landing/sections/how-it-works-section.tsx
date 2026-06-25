@@ -47,14 +47,14 @@ export function HowItWorksSection() {
         {/* Steps display */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 relative">
           {/* Connector Line (Desktop) */}
-          <div className="hidden lg:block absolute top-16 left-[15%] right-[15%] h-[1px] bg-gradient-to-r from-violet-500/20 via-sky-400/20 to-violet-500/20 z-0 border-t border-dashed border-zinc-800" />
+          <div className="hidden lg:block absolute top-16 left-[15%] right-[15%] h-[1px] bg-gradient-to-r from-zinc-800 via-zinc-700/50 to-zinc-800 z-0 border-t border-dashed border-zinc-800" />
 
           {steps.map((item, idx) => {
             const Icon = item.icon;
             return (
               <div key={idx} className="flex flex-col items-center text-center relative z-10 group">
                 {/* Step Circle with Icon */}
-                <div className="w-16 h-16 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center text-sky-400 group-hover:text-violet-400 group-hover:border-violet-500/50 group-hover:bg-violet-950/20 shadow-[0_0_15px_rgba(0,0,0,0.3)] transition-all duration-300 mb-6">
+                <div className="w-16 h-16 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-400 group-hover:text-zinc-100 group-hover:border-zinc-500/50 group-hover:bg-zinc-900/60 shadow-[0_0_15px_rgba(0,0,0,0.3)] transition-all duration-300 mb-6">
                   <Icon size={24} />
                 </div>
 

@@ -76,15 +76,15 @@ export function HeroSection() {
       {/* Content Area */}
       <div className="relative z-20 flex-1 flex flex-col items-center justify-center text-center px-6 max-w-4xl mx-auto py-12">
         {/* Micro-badge */}
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-violet-500/30 bg-violet-950/20 text-violet-300 text-xs font-mono mb-6 tracking-wide backdrop-blur-md animate-fade-in">
-          <Terminal size={14} className="text-sky-400" />
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-zinc-800 bg-zinc-900/60 text-zinc-300 text-xs font-mono mb-6 tracking-wide backdrop-blur-md animate-fade-in">
+          <Terminal size={14} className="text-zinc-400" />
           <span>Verified developer operations on Stellar Testnet</span>
         </div>
 
         {/* Headings */}
         <h1 className="text-4xl md:text-7xl font-bold tracking-tight text-zinc-100 mb-6 leading-none">
           The All-in-One <br />
-          <span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-400 via-fuchsia-300 to-sky-400">
+          <span className="text-transparent bg-clip-text bg-gradient-to-r from-white to-zinc-400">
             Developer Toolkit
           </span>{" "}
           for Stellar
@@ -100,7 +100,7 @@ export function HeroSection() {
         <div className="flex flex-col sm:flex-row gap-4 items-center justify-center">
           <Link
             href="/dashboard"
-            className="w-full sm:w-auto px-8 py-4 rounded-xl text-sm font-semibold bg-gradient-to-r from-violet-500 to-sky-400 text-zinc-950 hover:opacity-90 hover:scale-[1.02] shadow-[0_0_25px_rgba(167,139,250,0.3)] transition-all flex items-center justify-center gap-2 group pointer-events-auto"
+            className="w-full sm:w-auto px-8 py-4 rounded-xl text-sm font-semibold bg-white text-zinc-950 hover:bg-zinc-200 hover:scale-[1.02] shadow-[0_0_25px_rgba(255,255,255,0.15)] transition-all flex items-center justify-center gap-2 group pointer-events-auto"
           >
             <span>Open Dashboard</span>
             <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />

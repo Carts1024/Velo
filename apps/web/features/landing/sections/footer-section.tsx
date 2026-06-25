@@ -10,9 +10,7 @@ export function FooterSection() {
       <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
         {/* Logo label */}
         <div className="flex items-center gap-2.5">
-          <div className="w-6 h-6 rounded-md bg-gradient-to-br from-violet-500 to-sky-400 flex items-center justify-center font-mono font-bold text-zinc-950 text-xs">
-            T
-          </div>
+          <img src="/icon.png" alt="TalaKit Logo" className="w-6 h-6 rounded-md object-contain" />
           <span className="font-sans font-semibold text-zinc-400 text-sm tracking-tight">
             TalaKit
           </span>

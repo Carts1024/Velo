@@ -52,15 +52,15 @@ impl TalaKitRegistry {
 
             <ul className="flex flex-col gap-3 font-light text-zinc-300 text-sm mt-2">
               <li className="flex items-center gap-3">
-                <CheckCircle2 size={16} className="text-sky-400 shrink-0" />
+                <CheckCircle2 size={16} className="text-zinc-400 shrink-0" />
                 <span>Strict compatibility with the latest Soroban Rust SDK</span>
               </li>
               <li className="flex items-center gap-3">
-                <CheckCircle2 size={16} className="text-sky-400 shrink-0" />
+                <CheckCircle2 size={16} className="text-zinc-400 shrink-0" />
                 <span>One-line registration validation hooks</span>
               </li>
               <li className="flex items-center gap-3">
-                <CheckCircle2 size={16} className="text-sky-400 shrink-0" />
+                <CheckCircle2 size={16} className="text-zinc-400 shrink-0" />
                 <span>Exportable typescript interfaces for Freighter integration</span>
               </li>
             </ul>
@@ -69,15 +69,15 @@ impl TalaKitRegistry {
           {/* Code Window Mock */}
           <div className="lg:col-span-7 relative">
             {/* Absolute blur background decoration */}
-            <div className="absolute inset-0 bg-gradient-to-tr from-violet-600/10 to-sky-400/10 rounded-2xl blur-3xl pointer-events-none z-0" />
+            <div className="absolute inset-0 bg-gradient-to-tr from-zinc-900/10 to-zinc-800/10 rounded-2xl blur-3xl pointer-events-none z-0" />
 
             <div className="relative z-10 w-full rounded-xl bg-zinc-950 border border-zinc-800 shadow-2xl overflow-hidden font-mono text-xs">
               {/* IDE Header Bar */}
               <div className="flex items-center justify-between px-4 py-3 bg-zinc-900/60 border-b border-zinc-900 select-none">
                 <div className="flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-full bg-red-500/80" />
-                  <div className="w-2.5 h-2.5 rounded-full bg-amber-500/80" />
-                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-500/80" />
+                  <div className="w-2.5 h-2.5 rounded-full bg-zinc-800" />
+                  <div className="w-2.5 h-2.5 rounded-full bg-zinc-700" />
+                  <div className="w-2.5 h-2.5 rounded-full bg-zinc-600" />
                   <span className="text-[10px] text-zinc-500 ml-3 flex items-center gap-1.5">
                     <Terminal size={12} className="text-zinc-600" />
                     contracts/registry/src/lib.rs
@@ -89,7 +89,7 @@ impl TalaKitRegistry {
                   title="Copy snippet"
                 >
                   {copied ? (
-                    <span className="text-[9px] text-emerald-400 font-sans font-semibold">
+                    <span className="text-[9px] text-zinc-300 font-sans font-semibold">
                       Copied!
                     </span>
                   ) : (
@@ -103,30 +103,30 @@ impl TalaKitRegistry {
                 <pre>
                   <code>
                     <span className="text-zinc-600">{`// Cargo.toml\n`}</span>
-                    <span className="text-sky-400">{`[dependencies]\n`}</span>
-                    <span className="text-violet-400">{`soroban-sdk`}</span>
+                    <span className="text-zinc-400">{`[dependencies]\n`}</span>
+                    <span className="text-zinc-100">{`soroban-sdk`}</span>
                     {` = `}
-                    <span className="text-amber-300">{`"22.0.0"\n\n`}</span>
+                    <span className="text-zinc-300">{`"22.0.0"\n\n`}</span>
 
                     <span className="text-zinc-600">{`// src/lib.rs\n`}</span>
-                    <span className="text-sky-400">{`use`}</span>
+                    <span className="text-zinc-100">{`use`}</span>
                     {` soroban_sdk::{contract, contractimpl, Env, Symbol};\n\n`}
 
-                    <span className="text-violet-400">{`#[contract]\n`}</span>
-                    <span className="text-sky-400">{`pub struct`}</span>
-                    <span className="text-violet-400">{` TalaKitRegistry`}</span>
+                    <span className="text-zinc-400">{`#[contract]\n`}</span>
+                    <span className="text-zinc-100">{`pub struct`}</span>
+                    <span className="text-zinc-400">{` TalaKitRegistry`}</span>
                     {`;\n\n`}
 
-                    <span className="text-violet-400">{`#[contractimpl]\n`}</span>
-                    <span className="text-sky-400">{`impl`}</span>
-                    <span className="text-violet-400">{` TalaKitRegistry`}</span>
+                    <span className="text-zinc-400">{`#[contractimpl]\n`}</span>
+                    <span className="text-zinc-100">{`impl`}</span>
+                    <span className="text-zinc-400">{` TalaKitRegistry`}</span>
                     {` {\n`}
-                    <span className="text-sky-400">{`    pub fn`}</span>
-                    <span className="text-amber-200">{` register_project`}</span>
+                    <span className="text-zinc-100">{`    pub fn`}</span>
+                    <span className="text-zinc-300">{` register_project`}</span>
                     {`(\n        env: Env, \n        owner: Symbol, \n        hash: Symbol\n    ) {\n`}
                     <span className="text-zinc-600">{`        // Cryptographic ownership validation\n`}</span>
                     {`        log!(&env, `}
-                    <span className="text-amber-300">{`"Verifying owner: {:?}"`}</span>
+                    <span className="text-zinc-300">{`"Verifying owner: {:?}"`}</span>
                     {`, owner);\n    }\n}`}
                   </code>
                 </pre>
