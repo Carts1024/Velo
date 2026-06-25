@@ -69,7 +69,7 @@ Soroban Registry Contract on Stellar Testnet
 | ADR-005 | Store only trust-minimal project registry data on-chain. | Keeps contract simple and cheap. | Public metadata must be integrity-linked by hash. |
 | ADR-006 | Store webhook URLs only in private Convex records. | Prevents public-page leakage. | Requires separate public and owner dashboard query paths. |
 | ADR-007 | Implement event monitoring with bounded polling first. | Demoable with fewer moving parts than a production indexer. | Event history is recent-window only in MVP. |
-| ADR-008 | Defer API keys and RPC gateway unless core demo is done. | PRD explicitly marks these optional. | Request log architecture is documented but not required for MVP acceptance. |
+| ADR-008 | Implement Project API Keys for secure developer endpoints. | Exposes events, transactions, and webhook deliveries via authenticated GET endpoints. | Key is cryptographically secure, stored hashed in DB, and verified via index lookup. |
 | ADR-009 | Use deterministic project slugs off-chain, not on-chain. | Friendly URLs are a web concern. | Slug conflicts must be handled in Convex. |
 | ADR-010 | Do webhook delivery through Convex actions with delivery logs. | Provides visible evidence for demo and operational debugging. | Retry/backoff remains limited in MVP. |
 
@@ -456,7 +456,7 @@ MVP delivery policy:
 - Public queries must use dedicated return models with only public fields.
 - Webhook URLs should be treated as secrets and omitted from public pages and payload summaries.
 - SSRF protection for webhook URLs should block localhost, private IP ranges, and non-HTTP protocols before production. For hackathon MVP, at minimum allow only `https://` and optionally `http://` for local demo mode.
-- API keys are deferred. If added, store only hashed keys and scope them to project IDs.
+- API keys: Store only SHA-256 hashes of keys on the project document (with a separate index `by_api_key_hash` for O(1) query lookups). The raw key is generated via secure cryptographical random values (`tk_live_` + 32 hex characters) and shown only once upon generation. Next.js API endpoints (`/api/v1/*`) extract the token from `Authorization` or `x-api-key` headers and verify the hash against the database.
 
 ## 8. Reliability, Performance, and Observability
 

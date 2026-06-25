@@ -23,7 +23,7 @@ The product addresses the gap between raw Stellar infrastructure and the operati
 - Help Soroban developers prove which contracts officially belong to a project.
 - Reduce time spent stitching together RPC calls, explorers, event indexers, databases, webhook workers, and debugging scripts.
 - Provide a hackathon-ready demo path that shows project registration, contract verification, transaction inspection, event monitoring, and webhook logs.
-- Establish a foundation for a later developer beta with API keys, RPC request logs, richer webhooks, and team projects.
+- Establish a foundation for a later developer beta with RPC request logs, richer webhooks, and team projects (Project API Keys implemented in Phase 1).
 
 ### Non-Goals
 
@@ -76,10 +76,10 @@ The MVP is **TalaKit Verify + Debug** for Stellar Testnet and Soroban apps.
 - Contract event monitoring for registered contracts.
 - Webhook URL configuration.
 - Webhook delivery log display for demoable event notifications.
+- API key generation and developer APIs for event monitoring and transaction lookup.
 
 ### Optional MVP Scope
 
-- API key generation.
 - Basic RPC gateway or request logger.
 - Event filtering beyond simple project, contract, event type, transaction hash, and ledger filters.
 - Simple error explanation engine.
@@ -203,10 +203,11 @@ The MVP is **TalaKit Verify + Debug** for Stellar Testnet and Soroban apps.
 
 ### F9. RPC Request Logs and API Keys
 
-- **FR-052:** If included in MVP, the app must let developers generate an API key.
-- **FR-053:** If included in MVP, the app must log selected RPC method, timestamp, status, latency, project, API key, and error message.
-- **FR-054:** If included in MVP, request logs must be scoped to the owning project.
-- **FR-055:** API keys and RPC gateway behavior are optional for the hackathon demo and must not block Verify + Debug.
+- **FR-052:** The app must let developers generate a Project API Key, showing it only once upon generation and masking it (prefix/created date) on subsequent loads.
+- **FR-052.1:** The app must expose developer API endpoints (`/api/v1/events`, `/api/v1/transactions/[hash]`, `/api/v1/webhooks/deliveries`) that authenticate requests using the Project API Key.
+- **FR-053:** If included in later phases, the app must log selected RPC method, timestamp, status, latency, project, API key, and error message.
+- **FR-054:** If included in later phases, request logs must be scoped to the owning project.
+- **FR-055:** RPC gateway request logs are optional for the hackathon demo.
 
 ## 8. Non-Functional Requirements
 
@@ -269,10 +270,10 @@ The MVP is **TalaKit Verify + Debug** for Stellar Testnet and Soroban apps.
 - Basic transaction lookup.
 - Basic event monitor.
 - Simple webhook demo.
+- Project API Keys and Developer APIs.
 
 ### Phase 2: Developer Beta
 
-- API keys.
 - RPC gateway.
 - Request logs.
 - Better transaction debugging.
