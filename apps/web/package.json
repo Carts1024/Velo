@@ -18,14 +18,17 @@
     "@repo/backend": "workspace:*",
     "@repo/stellar": "workspace:*",
     "@repo/ui": "workspace:*",
+    "@types/three": "^0.184.1",
     "convex": "^1.31.7",
     "lodash.merge": "^4.6.2",
     "lucide-react": "^0.563.0",
     "next": "16.1.6",
+    "postprocessing": "^6.39.1",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-hook-form": "^7.76.1",
     "sonner": "^2.0.7",
+    "three": "^0.185.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
