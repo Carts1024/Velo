@@ -7,75 +7,75 @@ import {
   CreditCard,
   Fingerprint,
   LayoutDashboard,
-  Link2,
+  Network,
   WalletCards,
 } from "lucide-react";
 
 const features = [
   {
-    icon: Link2,
-    title: "Stablecoin Payment Links",
+    icon: Fingerprint,
+    title: "Project Infrastructure",
     description:
-      "Generate shareable checkout URLs for fixed USDC or test-asset payments tied to a TalaKit project.",
-    badge: "Alpha",
-  },
-  {
-    icon: WalletCards,
-    title: "Hosted Checkout",
-    description:
-      "Give customers a focused payment page with wallet connection, payment status, success, and failure states.",
-    badge: "Coming Soon",
+      "Register projects, verify official contracts, and keep Stellar app metadata organized from one workspace.",
+    badge: "Active",
   },
   {
     icon: Code2,
-    title: "Checkout SDK",
+    title: "Developer Tooling",
     description:
-      "Create checkout sessions from app code and redirect customers with a small TypeScript helper.",
-    badge: "Coming Soon",
+      "Use typed helpers, integration snippets, and repeatable workflows instead of stitching every primitive together manually.",
+    badge: "Active",
   },
   {
-    icon: Bell,
-    title: "Payment Webhooks",
+    icon: Network,
+    title: "Stellar Operations",
     description:
-      "Send payment.succeeded and related delivery events to developer backends with visible delivery logs.",
+      "Support wallet, asset, environment, and network workflows that teams need before an app is ready to launch.",
     badge: "Alpha",
   },
   {
-    icon: LayoutDashboard,
-    title: "Payment Dashboard",
-    description:
-      "Track PaymentIntent status, recent payments, webhook deliveries, and copy integration snippets from one workspace.",
-    badge: "Coming Soon",
-  },
-  {
-    icon: Fingerprint,
-    title: "Verified Merchant Registry",
-    description:
-      "Anchor project identity on-chain so customers can see which wallet and project are behind a TalaKit Pay checkout.",
-    badge: "Supporting",
-  },
-  {
     icon: CreditCard,
-    title: "Payment Debugger",
+    title: "Transaction Debugger",
     description:
-      "Inspect payment transaction hashes, ledger results, payer and receiver details, and payment-specific failure reasons.",
-    badge: "Supporting",
+      "Inspect Testnet transactions, ledger results, fees, operation details, and failure reasons while integrating.",
+    badge: "Active",
+  },
+  {
+    icon: Bell,
+    title: "Webhook Infrastructure",
+    description:
+      "Test server callbacks, review delivery logs, and prepare reliable event notifications for backend workflows.",
+    badge: "Alpha",
   },
   {
     icon: Activity,
-    title: "Payment Event Monitor",
+    title: "Event Monitor",
     description:
-      "Watch payment and webhook activity during the Alpha demo without building a full custom indexer.",
-    badge: "Supporting",
+      "Watch contract and app activity during demos without building a custom indexer on day one.",
+    badge: "Beta",
+  },
+  {
+    icon: WalletCards,
+    title: "TalaKit Pay",
+    description:
+      "Upcoming payment infrastructure for payment links, checkout SDKs, and app-native Stellar stablecoin flows.",
+    badge: "Roadmap",
+  },
+  {
+    icon: LayoutDashboard,
+    title: "Infrastructure Console",
+    description:
+      "Bring project status, verification, debugging, webhooks, and roadmap modules into one developer surface.",
+    badge: "Active",
   },
 ];
 
 function getBadgeClassName(badge: string) {
-  if (badge === "Alpha") {
+  if (badge === "Active") {
     return "border-zinc-300 bg-zinc-900 text-zinc-100";
   }
 
-  if (badge === "Coming Soon") {
+  if (badge === "Alpha" || badge === "Beta") {
     return "border-zinc-700/50 bg-zinc-900 text-zinc-300";
   }
 
@@ -92,14 +92,14 @@ export function FeaturesSection() {
         {/* Title Block */}
         <div className="max-w-2xl mb-16">
           <h2 className="text-zinc-500 font-mono text-xs uppercase tracking-widest mb-3">
-            TalaKit Pay Alpha
+            Infrastructure Suite
           </h2>
           <h3 className="text-3xl md:text-5xl font-bold tracking-tight mb-4">
-            Payment infrastructure, previewed in one place.
+            The operating layer for Stellar builders.
           </h3>
           <p className="text-zinc-400 text-base">
-            Lead with payment acceptance, then support the integration with dashboard visibility,
-            merchant verification, and payment-focused debugging.
+            TalaKit combines project registry, developer workflows, debugging, event delivery, and
+            payment infrastructure into one practical workspace.
           </p>
         </div>
 

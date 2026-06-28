@@ -1,49 +1,49 @@
 "use client";
 
-import { BellRing, CheckCircle2, FileCode, Link2, Store, Wallet } from "lucide-react";
+import { CheckCircle2, FileCode, Rocket, Settings2, Store, Wallet } from "lucide-react";
 
 const steps = [
   {
     number: "01",
-    icon: Wallet,
-    title: "Connect Wallet",
+    icon: Store,
+    title: "Create",
     description:
-      "Connect Freighter on Stellar Testnet so TalaKit can tie payment setup to the project owner.",
+      "Start with a Stellar project workspace that can hold app metadata, official contracts, and demo-ready configuration.",
   },
   {
     number: "02",
-    icon: Store,
-    title: "Create Merchant Project",
+    icon: Settings2,
+    title: "Configure",
     description:
-      "Create a project profile with receiver wallet, accepted stablecoin, and on-chain merchant identity.",
+      "Set networks, wallets, assets, webhook endpoints, and verification details as your infrastructure baseline.",
   },
   {
     number: "03",
-    icon: Link2,
-    title: "Create Payment Link",
+    icon: FileCode,
+    title: "Integrate",
     description:
-      "Generate a hosted checkout URL from the dashboard or start the same flow through the SDK snippet.",
+      "Use snippets, helpers, and dashboard workflows to connect your app without rebuilding every Stellar primitive.",
   },
   {
     number: "04",
-    icon: FileCode,
-    title: "Customer Pays",
+    icon: Wallet,
+    title: "Operate",
     description:
-      "The customer opens checkout, connects a wallet, and submits the Stellar stablecoin payment.",
+      "Debug transactions, observe events, and confirm backend callbacks while your app moves through Testnet.",
   },
   {
     number: "05",
-    icon: BellRing,
-    title: "Webhook Fires",
+    icon: Rocket,
+    title: "Launch",
     description:
-      "TalaKit confirms the transaction, updates the PaymentIntent, and sends payment events to your backend.",
+      "Use verified project pages and infrastructure status to make your Stellar app easier to trust and demo.",
   },
   {
     number: "06",
     icon: CheckCircle2,
-    title: "Dashboard Confirms",
+    title: "Expand",
     description:
-      "Review payment status, transaction details, and webhook delivery logs from the developer workspace.",
+      "Add roadmap modules like TalaKit Pay when your app needs payment links, checkout, and payment webhooks.",
   },
 ];
 
@@ -54,14 +54,14 @@ export function HowItWorksSection() {
         {/* Title block */}
         <div className="text-center max-w-2xl mx-auto mb-20">
           <h2 className="text-zinc-500 font-mono text-xs uppercase tracking-widest mb-3">
-            Demo Flow
+            Infrastructure Flow
           </h2>
           <h3 className="text-3xl md:text-5xl font-bold tracking-tight mb-4">
-            From project setup to paid webhook.
+            From Stellar idea to working infrastructure.
           </h3>
           <p className="text-zinc-400 text-sm font-light">
-            The Alpha demo is built around one clear payment path: create a checkout, accept a
-            Testnet stablecoin payment, and prove the backend received the event.
+            TalaKit helps teams create, configure, integrate, operate, launch, and expand without
+            stitching together every tool from scratch.
           </p>
         </div>
 

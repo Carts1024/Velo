@@ -78,21 +78,21 @@ export function HeroSection() {
         {/* Micro-badge */}
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-zinc-800 bg-zinc-900/60 text-zinc-300 text-xs font-mono mb-6 tracking-wide backdrop-blur-md animate-fade-in">
           <Terminal size={14} className="text-zinc-400" />
-          <span>Payment links + SDK checkout + webhooks on Stellar Testnet</span>
+          <span>Project infrastructure + developer tooling for Stellar Testnet</span>
         </div>
 
         {/* Headings */}
         <h1 className="text-4xl md:text-7xl font-bold tracking-tight text-zinc-100 mb-6 leading-none">
-          Stablecoin checkout <br />
+          All-in-one infrastructure <br />
           <span className="text-transparent bg-clip-text bg-gradient-to-r from-white to-zinc-400">
-            for Stellar developers
+            for building on Stellar
           </span>
         </h1>
 
         {/* Tagline */}
         <p className="text-zinc-400 text-lg md:text-xl max-w-2xl mb-10 leading-relaxed font-light">
-          Create payment links, embed hosted checkout with a few lines of SDK code, and receive
-          real-time webhooks when Stellar stablecoin payments succeed.
+          Ship Stellar apps faster with hosted tools for project setup, contract verification,
+          transaction debugging, event monitoring, and upcoming payment infrastructure.
         </p>
 
         {/* Actions */}
@@ -101,21 +101,21 @@ export function HeroSection() {
             href="/dashboard"
             className="w-full sm:w-auto px-8 py-4 rounded-xl text-sm font-semibold bg-white text-zinc-950 hover:bg-zinc-200 hover:scale-[1.02] shadow-[0_0_25px_rgba(255,255,255,0.15)] transition-all flex items-center justify-center gap-2 group pointer-events-auto"
           >
-            <span>Open Dashboard</span>
+            <span>Start Building</span>
             <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
           </Link>
           <Link
             href="/debug"
             className="w-full sm:w-auto px-8 py-4 rounded-xl text-sm font-semibold bg-zinc-900 border border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100 transition-all pointer-events-auto"
           >
-            Debug a Payment
+            Debug Infrastructure
           </Link>
         </div>
       </div>
 
       {/* Alpha scope note */}
       <div className="relative z-20 text-center pb-8 text-zinc-600 font-mono text-[10px] tracking-widest uppercase pointer-events-none select-none">
-        Alpha demo focused on Testnet payment acceptance
+        Infrastructure roadmap for Stellar builders
       </div>
     </section>
   );

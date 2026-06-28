@@ -3,27 +3,27 @@
 import { CheckCircle2, Copy, Terminal } from "lucide-react";
 import { useState } from "react";
 
-const checkoutSnippet = [
-  'import { createCheckout } from "@talakit/checkout";',
+const infrastructureSnippet = [
+  'import { createProject, watchEvents } from "@talakit/sdk";',
   "",
-  "const checkout = await createCheckout({",
-  "  apiKey: process.env.TALAKIT_API_KEY!,",
-  '  amount: "10",',
-  '  asset: "USDC",',
-  '  description: "Alpha demo payment",',
-  '  customerReference: "order_123",',
-  '  successUrl: "https://example.com/success",',
-  '  cancelUrl: "https://example.com/cancel",',
+  "const project = await createProject({",
+  '  name: "Hackathon Wallet",',
+  '  network: "testnet",',
+  "  ownerWallet: wallet.publicKey,",
+  "  contractIds: [registryContractId],",
   "});",
   "",
-  "window.location.href = checkout.url;",
+  "await watchEvents({",
+  "  projectId: project.id,",
+  '  webhookUrl: "https://api.example.com/talakit",',
+  "});",
 ].join("\n");
 
 export function DeveloperSection() {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(checkoutSnippet);
+    navigator.clipboard.writeText(infrastructureSnippet);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -35,28 +35,28 @@ export function DeveloperSection() {
           {/* Text Content */}
           <div className="lg:col-span-5 flex flex-col gap-6">
             <h2 className="text-zinc-500 font-mono text-xs uppercase tracking-widest">
-              Checkout SDK Preview
+              Developer Infrastructure
             </h2>
             <h3 className="text-3xl md:text-5xl font-bold tracking-tight mb-2">
-              Accept stablecoin payments in a few lines.
+              Tools for the full Stellar app lifecycle.
             </h3>
             <p className="text-zinc-400 text-sm leading-relaxed font-light">
-              The Alpha SDK target is intentionally small: create a PaymentIntent, return a hosted
-              checkout URL, and keep the Stellar transaction details out of your app code.
+              TalaKit is the infrastructure layer around your Stellar app: typed helpers, reusable
+              workflows, project verification, observability, and payment APIs on the roadmap.
             </p>
 
             <ul className="flex flex-col gap-3 font-light text-zinc-300 text-sm mt-2">
               <li className="flex items-center gap-3">
                 <CheckCircle2 size={16} className="text-zinc-400 shrink-0" />
-                <span>Create a hosted checkout from app code</span>
+                <span>Create and verify Stellar project infrastructure</span>
               </li>
               <li className="flex items-center gap-3">
                 <CheckCircle2 size={16} className="text-zinc-400 shrink-0" />
-                <span>Redirect customers to a TalaKit Pay link</span>
+                <span>Connect event, webhook, and debugger workflows</span>
               </li>
               <li className="flex items-center gap-3">
                 <CheckCircle2 size={16} className="text-zinc-400 shrink-0" />
-                <span>Track PaymentIntent status and webhook delivery</span>
+                <span>Expand into payment APIs as the platform grows</span>
               </li>
             </ul>
           </div>
@@ -75,7 +75,7 @@ export function DeveloperSection() {
                   <div className="w-2.5 h-2.5 rounded-full bg-zinc-600 shrink-0" />
                   <span className="text-[10px] text-zinc-500 ml-3 flex items-center gap-1.5 truncate">
                     <Terminal size={12} className="text-zinc-600 shrink-0" />
-                    checkout/create-checkout.ts
+                    infrastructure/project-workflow.ts
                   </span>
                 </div>
                 <button
@@ -96,7 +96,7 @@ export function DeveloperSection() {
               {/* Code Content */}
               <div className="p-5 overflow-x-auto text-zinc-300 leading-6 max-h-[380px] select-text">
                 <pre>
-                  <code>{checkoutSnippet}</code>
+                  <code>{infrastructureSnippet}</code>
                 </pre>
               </div>
             </div>

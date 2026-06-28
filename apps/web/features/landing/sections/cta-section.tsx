@@ -17,12 +17,12 @@ export function CTASection() {
         </div>
 
         <h2 className="text-4xl md:text-6xl font-bold tracking-tight mb-6 leading-tight max-w-2xl text-zinc-100">
-          Accept your first Stellar stablecoin payment.
+          Start building Stellar infrastructure.
         </h2>
 
         <p className="text-zinc-400 text-base md:text-lg max-w-xl mb-10 font-light leading-relaxed">
-          Start from the existing dashboard, then use TalaKit Pay Alpha to create payment links,
-          test checkout flows, and watch webhook delivery as the payment features land.
+          Open the console to create project infrastructure, verify contracts, debug transactions,
+          wire webhooks, and track the TalaKit Pay roadmap as one module of the platform.
         </p>
 
         {/* Action button triggers */}
@@ -31,24 +31,24 @@ export function CTASection() {
             href="/dashboard"
             className="w-full sm:w-auto px-8 py-4 rounded-xl text-sm font-semibold bg-white text-zinc-950 hover:bg-zinc-200 hover:scale-[1.02] shadow-[0_0_20px_rgba(255,255,255,0.15)] transition-all flex items-center justify-center gap-2"
           >
-            <span>Open Dashboard</span>
+            <span>Start Building</span>
             <ArrowRight size={16} />
           </Link>
           <Link
             href="/debug"
             className="w-full sm:w-auto px-8 py-4 rounded-xl text-sm font-semibold bg-zinc-900 border border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100 transition-all"
           >
-            Debug a Payment
+            Explore Debugger
           </Link>
         </div>
 
         {/* Footnote details */}
         <div className="mt-16 text-xs text-zinc-600 font-mono flex flex-wrap items-center gap-2 justify-center select-none">
-          <span>PAYMENT LINKS</span>
+          <span>PROJECT REGISTRY</span>
           <span className="text-zinc-800">•</span>
-          <span>CHECKOUT SDK</span>
+          <span>DEV TOOLING</span>
           <span className="text-zinc-800">•</span>
-          <span>PAYMENT WEBHOOKS</span>
+          <span>PAY ROADMAP</span>
         </div>
       </div>
     </section>
