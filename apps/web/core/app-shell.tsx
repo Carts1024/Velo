@@ -3,13 +3,22 @@
 import { stellarConfig } from "@/core/config/stellar";
 import { shortenAddress } from "@/core/wallet/format";
 import { useWallet } from "@/core/wallet/wallet-provider";
+import { OnboardingDialog } from "@/features/onboarding/onboarding-dialog";
+import { useUserProfile } from "@/features/onboarding/use-user-profile";
 import { CopyButton } from "@repo/ui/components/common/copy-button";
 import { Badge } from "@repo/ui/components/ui-customs/badge";
 import { Alert, AlertDescription, AlertTitle } from "@repo/ui/components/ui/alert";
 import { Button } from "@repo/ui/components/ui/button";
-import { PlugZapIcon, PowerIcon, WalletIcon } from "lucide-react";
+import {
+  MessageSquareIcon,
+  PencilIcon,
+  PlugZapIcon,
+  PowerIcon,
+  UserIcon,
+  WalletIcon,
+} from "lucide-react";
 import Link from "next/link";
-import { ReactNode } from "react";
+import { ReactNode, useCallback, useEffect, useState } from "react";
 
 const walletStatusCopy = {
   initializing: "Loading wallet support",
@@ -26,9 +35,30 @@ const walletStatusCopy = {
 
 export function AppShell({ children }: { children: ReactNode }) {
   const wallet = useWallet();
+  const { user, isNewUser } = useUserProfile(wallet.address);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+
   const showWalletNotice = ["unavailable", "unsupported", "rejected", "stale", "error"].includes(
     wallet.status,
   );
+
+  // Show onboarding dialog for new users after wallet connection
+  useEffect(() => {
+    if (isNewUser && wallet.status === "connected") {
+      setShowOnboarding(true);
+    }
+  }, [isNewUser, wallet.status]);
+
+  const handleOnboardingComplete = useCallback(() => {
+    setShowOnboarding(false);
+    setIsEditingProfile(false);
+  }, []);
+
+  const handleEditProfile = useCallback(() => {
+    setIsEditingProfile(true);
+    setShowOnboarding(true);
+  }, []);
 
   return (
     <main className="min-h-svh bg-zinc-50 text-zinc-950">
@@ -49,6 +79,12 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Button variant="ghost" size="sm" asChild>
                 <Link href="/verify/demo">Public proof</Link>
               </Button>
+              <Button variant="ghost" size="sm" asChild>
+                <Link href="/feedback">
+                  <MessageSquareIcon className="size-4" />
+                  Feedback
+                </Link>
+              </Button>
             </nav>
           </div>
 
@@ -64,6 +100,17 @@ export function AppShell({ children }: { children: ReactNode }) {
             </Badge>
             {wallet.address ? (
               <CopyButton value={wallet.address} label="connected wallet address" />
+            ) : null}
+            {user ? (
+              <Badge variant="gray">
+                <UserIcon className="size-3" />
+                {user.name}
+              </Badge>
+            ) : null}
+            {user ? (
+              <Button variant="ghost" size="sm" onClick={handleEditProfile} title="Edit profile">
+                <PencilIcon className="size-3.5" />
+              </Button>
             ) : null}
             {wallet.address ? (
               <Button variant="outline" size="sm" onClick={wallet.disconnect}>
@@ -94,6 +141,13 @@ export function AppShell({ children }: { children: ReactNode }) {
 
         {children}
       </div>
+
+      {/* Onboarding / Profile Edit Dialog */}
+      <OnboardingDialog
+        open={showOnboarding}
+        onComplete={handleOnboardingComplete}
+        existingProfile={isEditingProfile ? user : undefined}
+      />
     </main>
   );
 }
