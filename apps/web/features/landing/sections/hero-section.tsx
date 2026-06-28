@@ -78,22 +78,21 @@ export function HeroSection() {
         {/* Micro-badge */}
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-zinc-800 bg-zinc-900/60 text-zinc-300 text-xs font-mono mb-6 tracking-wide backdrop-blur-md animate-fade-in">
           <Terminal size={14} className="text-zinc-400" />
-          <span>Verified developer operations on Stellar Testnet</span>
+          <span>Payment links + SDK checkout + webhooks on Stellar Testnet</span>
         </div>
 
         {/* Headings */}
         <h1 className="text-4xl md:text-7xl font-bold tracking-tight text-zinc-100 mb-6 leading-none">
-          The All-in-One <br />
+          Stablecoin checkout <br />
           <span className="text-transparent bg-clip-text bg-gradient-to-r from-white to-zinc-400">
-            Developer Toolkit
-          </span>{" "}
-          for Stellar
+            for Stellar developers
+          </span>
         </h1>
 
         {/* Tagline */}
         <p className="text-zinc-400 text-lg md:text-xl max-w-2xl mb-10 leading-relaxed font-light">
-          Register official Soroban contracts, debug Testnet transactions, monitor events in
-          real-time, and prove cryptographic webhook delivery from one premium workspace.
+          Create payment links, embed hosted checkout with a few lines of SDK code, and receive
+          real-time webhooks when Stellar stablecoin payments succeed.
         </p>
 
         {/* Actions */}
@@ -109,14 +108,14 @@ export function HeroSection() {
             href="/debug"
             className="w-full sm:w-auto px-8 py-4 rounded-xl text-sm font-semibold bg-zinc-900 border border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100 transition-all pointer-events-auto"
           >
-            Debug Transaction
+            Debug a Payment
           </Link>
         </div>
       </div>
 
-      {/* Subtle indicator of interactivity */}
+      {/* Alpha scope note */}
       <div className="relative z-20 text-center pb-8 text-zinc-600 font-mono text-[10px] tracking-widest uppercase pointer-events-none select-none">
-        Click or drag above to ripple the matrix
+        Alpha demo focused on Testnet payment acceptance
       </div>
     </section>
   );

@@ -3,32 +3,27 @@
 import { CheckCircle2, Copy, Terminal } from "lucide-react";
 import { useState } from "react";
 
+const checkoutSnippet = [
+  'import { createCheckout } from "@talakit/checkout";',
+  "",
+  "const checkout = await createCheckout({",
+  "  apiKey: process.env.TALAKIT_API_KEY!,",
+  '  amount: "10",',
+  '  asset: "USDC",',
+  '  description: "Alpha demo payment",',
+  '  customerReference: "order_123",',
+  '  successUrl: "https://example.com/success",',
+  '  cancelUrl: "https://example.com/cancel",',
+  "});",
+  "",
+  "window.location.href = checkout.url;",
+].join("\n");
+
 export function DeveloperSection() {
   const [copied, setCopied] = useState(false);
-  const codeString = `// Cargo.toml
-[dependencies]
-soroban-sdk = "22.0.0"
-
-// src/lib.rs
-use soroban_sdk::{contract, contractimpl, Env, Symbol};
-
-#[contract]
-pub struct TalaKitRegistry;
-
-#[contractimpl]
-impl TalaKitRegistry {
-    pub fn register_project(
-        env: Env, 
-        owner: Symbol, 
-        hash: Symbol
-    ) {
-        // Cryptographic ownership validation
-        log!(&env, "Verifying owner: {:?}", owner);
-    }
-}`;
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(codeString);
+    navigator.clipboard.writeText(checkoutSnippet);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -40,28 +35,28 @@ impl TalaKitRegistry {
           {/* Text Content */}
           <div className="lg:col-span-5 flex flex-col gap-6">
             <h2 className="text-zinc-500 font-mono text-xs uppercase tracking-widest">
-              Developer-First API
+              Checkout SDK Preview
             </h2>
             <h3 className="text-3xl md:text-5xl font-bold tracking-tight mb-2">
-              Built for the Soroban Smart Contract Engine
+              Accept stablecoin payments in a few lines.
             </h3>
             <p className="text-zinc-400 text-sm leading-relaxed font-light">
-              TalaKit integrates directly with standard Soroban SDK pipelines. Write Rust contracts,
-              verify them against registry standards, and deploy with confidence.
+              The Alpha SDK target is intentionally small: create a PaymentIntent, return a hosted
+              checkout URL, and keep the Stellar transaction details out of your app code.
             </p>
 
             <ul className="flex flex-col gap-3 font-light text-zinc-300 text-sm mt-2">
               <li className="flex items-center gap-3">
                 <CheckCircle2 size={16} className="text-zinc-400 shrink-0" />
-                <span>Strict compatibility with the latest Soroban Rust SDK</span>
+                <span>Create a hosted checkout from app code</span>
               </li>
               <li className="flex items-center gap-3">
                 <CheckCircle2 size={16} className="text-zinc-400 shrink-0" />
-                <span>One-line registration validation hooks</span>
+                <span>Redirect customers to a TalaKit Pay link</span>
               </li>
               <li className="flex items-center gap-3">
                 <CheckCircle2 size={16} className="text-zinc-400 shrink-0" />
-                <span>Exportable typescript interfaces for Freighter integration</span>
+                <span>Track PaymentIntent status and webhook delivery</span>
               </li>
             </ul>
           </div>
@@ -74,18 +69,18 @@ impl TalaKitRegistry {
             <div className="relative z-10 w-full rounded-xl bg-zinc-950 border border-zinc-800 shadow-2xl overflow-hidden font-mono text-xs">
               {/* IDE Header Bar */}
               <div className="flex items-center justify-between px-4 py-3 bg-zinc-900/60 border-b border-zinc-900 select-none">
-                <div className="flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-full bg-zinc-800" />
-                  <div className="w-2.5 h-2.5 rounded-full bg-zinc-700" />
-                  <div className="w-2.5 h-2.5 rounded-full bg-zinc-600" />
-                  <span className="text-[10px] text-zinc-500 ml-3 flex items-center gap-1.5">
-                    <Terminal size={12} className="text-zinc-600" />
-                    contracts/registry/src/lib.rs
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="w-2.5 h-2.5 rounded-full bg-zinc-800 shrink-0" />
+                  <div className="w-2.5 h-2.5 rounded-full bg-zinc-700 shrink-0" />
+                  <div className="w-2.5 h-2.5 rounded-full bg-zinc-600 shrink-0" />
+                  <span className="text-[10px] text-zinc-500 ml-3 flex items-center gap-1.5 truncate">
+                    <Terminal size={12} className="text-zinc-600 shrink-0" />
+                    checkout/create-checkout.ts
                   </span>
                 </div>
                 <button
                   onClick={handleCopy}
-                  className="p-1.5 hover:bg-zinc-800 rounded text-zinc-500 hover:text-zinc-300 transition-colors"
+                  className="p-1.5 hover:bg-zinc-800 rounded text-zinc-500 hover:text-zinc-300 transition-colors shrink-0"
                   title="Copy snippet"
                 >
                   {copied ? (
@@ -101,34 +96,7 @@ impl TalaKitRegistry {
               {/* Code Content */}
               <div className="p-5 overflow-x-auto text-zinc-300 leading-6 max-h-[380px] select-text">
                 <pre>
-                  <code>
-                    <span className="text-zinc-600">{`// Cargo.toml\n`}</span>
-                    <span className="text-zinc-400">{`[dependencies]\n`}</span>
-                    <span className="text-zinc-100">{`soroban-sdk`}</span>
-                    {` = `}
-                    <span className="text-zinc-300">{`"22.0.0"\n\n`}</span>
-
-                    <span className="text-zinc-600">{`// src/lib.rs\n`}</span>
-                    <span className="text-zinc-100">{`use`}</span>
-                    {` soroban_sdk::{contract, contractimpl, Env, Symbol};\n\n`}
-
-                    <span className="text-zinc-400">{`#[contract]\n`}</span>
-                    <span className="text-zinc-100">{`pub struct`}</span>
-                    <span className="text-zinc-400">{` TalaKitRegistry`}</span>
-                    {`;\n\n`}
-
-                    <span className="text-zinc-400">{`#[contractimpl]\n`}</span>
-                    <span className="text-zinc-100">{`impl`}</span>
-                    <span className="text-zinc-400">{` TalaKitRegistry`}</span>
-                    {` {\n`}
-                    <span className="text-zinc-100">{`    pub fn`}</span>
-                    <span className="text-zinc-300">{` register_project`}</span>
-                    {`(\n        env: Env, \n        owner: Symbol, \n        hash: Symbol\n    ) {\n`}
-                    <span className="text-zinc-600">{`        // Cryptographic ownership validation\n`}</span>
-                    {`        log!(&env, `}
-                    <span className="text-zinc-300">{`"Verifying owner: {:?}"`}</span>
-                    {`, owner);\n    }\n}`}
-                  </code>
+                  <code>{checkoutSnippet}</code>
                 </pre>
               </div>
             </div>

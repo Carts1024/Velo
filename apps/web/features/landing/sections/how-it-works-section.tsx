@@ -1,6 +1,6 @@
 "use client";
 
-import { Wallet, FileCode, Search } from "lucide-react";
+import { BellRing, CheckCircle2, FileCode, Link2, Store, Wallet } from "lucide-react";
 
 const steps = [
   {
@@ -8,21 +8,42 @@ const steps = [
     icon: Wallet,
     title: "Connect Wallet",
     description:
-      "Hook up Freighter or any Wallet Standard compatible client to create your owner workspace in seconds.",
+      "Connect Freighter on Stellar Testnet so TalaKit can tie payment setup to the project owner.",
   },
   {
     number: "02",
-    icon: FileCode,
-    title: "Register Contracts",
+    icon: Store,
+    title: "Create Merchant Project",
     description:
-      "Provide your Soroban contract ID or draft details. Verify owners and sign configurations cryptographically.",
+      "Create a project profile with receiver wallet, accepted stablecoin, and on-chain merchant identity.",
   },
   {
     number: "03",
-    icon: Search,
-    title: "Debug & Monitor",
+    icon: Link2,
+    title: "Create Payment Link",
     description:
-      "Triage transaction failures, trace ledgers, stream contract events, and view real-time operations dashboards.",
+      "Generate a hosted checkout URL from the dashboard or start the same flow through the SDK snippet.",
+  },
+  {
+    number: "04",
+    icon: FileCode,
+    title: "Customer Pays",
+    description:
+      "The customer opens checkout, connects a wallet, and submits the Stellar stablecoin payment.",
+  },
+  {
+    number: "05",
+    icon: BellRing,
+    title: "Webhook Fires",
+    description:
+      "TalaKit confirms the transaction, updates the PaymentIntent, and sends payment events to your backend.",
+  },
+  {
+    number: "06",
+    icon: CheckCircle2,
+    title: "Dashboard Confirms",
+    description:
+      "Review payment status, transaction details, and webhook delivery logs from the developer workspace.",
   },
 ];
 
@@ -33,19 +54,19 @@ export function HowItWorksSection() {
         {/* Title block */}
         <div className="text-center max-w-2xl mx-auto mb-20">
           <h2 className="text-zinc-500 font-mono text-xs uppercase tracking-widest mb-3">
-            Workflow Setup
+            Demo Flow
           </h2>
           <h3 className="text-3xl md:text-5xl font-bold tracking-tight mb-4">
-            Zero configuration. Full power.
+            From project setup to paid webhook.
           </h3>
           <p className="text-zinc-400 text-sm font-light">
-            Skip the infrastructure boilerplate and get straight to ledger operations. Here is how
-            simple it is to verify and scale.
+            The Alpha demo is built around one clear payment path: create a checkout, accept a
+            Testnet stablecoin payment, and prove the backend received the event.
           </p>
         </div>
 
         {/* Steps display */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 relative">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12 relative">
           {/* Connector Line (Desktop) */}
           <div className="hidden lg:block absolute top-16 left-[15%] right-[15%] h-[1px] bg-gradient-to-r from-zinc-800 via-zinc-700/50 to-zinc-800 z-0 border-t border-dashed border-zinc-800" />
 

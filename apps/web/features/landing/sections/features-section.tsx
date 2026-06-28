@@ -1,37 +1,86 @@
 "use client";
 
-import { Fingerprint, Cpu, Bell, ShieldCheck } from "lucide-react";
+import {
+  Activity,
+  Bell,
+  Code2,
+  CreditCard,
+  Fingerprint,
+  LayoutDashboard,
+  Link2,
+  WalletCards,
+} from "lucide-react";
 
 const features = [
   {
-    icon: Fingerprint,
-    title: "Contract Registry",
+    icon: Link2,
+    title: "Stablecoin Payment Links",
     description:
-      "Register, organize, and verify official Soroban smart contracts. Instantly associate identities with contract hashes and access verifiable configurations.",
-    badge: "Active",
+      "Generate shareable checkout URLs for fixed USDC or test-asset payments tied to a TalaKit project.",
+    badge: "Alpha",
   },
   {
-    icon: Cpu,
-    title: "Transaction Debugger",
+    icon: WalletCards,
+    title: "Hosted Checkout",
     description:
-      "Inspect, decode, and troubleshoot complex Testnet transactions. Drill down into execution details, XDR values, and exact operation errors.",
-    badge: "Active",
+      "Give customers a focused payment page with wallet connection, payment status, success, and failure states.",
+    badge: "Coming Soon",
+  },
+  {
+    icon: Code2,
+    title: "Checkout SDK",
+    description:
+      "Create checkout sessions from app code and redirect customers with a small TypeScript helper.",
+    badge: "Coming Soon",
   },
   {
     icon: Bell,
-    title: "Event Monitor",
+    title: "Payment Webhooks",
     description:
-      "Stream Soroban smart contract events in real-time. Set up triggers and watch logs as transactions land on the Stellar Testnet ledger.",
-    badge: "Beta",
+      "Send payment.succeeded and related delivery events to developer backends with visible delivery logs.",
+    badge: "Alpha",
   },
   {
-    icon: ShieldCheck,
-    title: "Webhook Delivery Proofs",
+    icon: LayoutDashboard,
+    title: "Payment Dashboard",
     description:
-      "Secure webhook payloads with cryptographic signatures. Verifiable proof ensures secure, verified notifications for your server handlers.",
-    badge: "Upcoming",
+      "Track PaymentIntent status, recent payments, webhook deliveries, and copy integration snippets from one workspace.",
+    badge: "Coming Soon",
+  },
+  {
+    icon: Fingerprint,
+    title: "Verified Merchant Registry",
+    description:
+      "Anchor project identity on-chain so customers can see which wallet and project are behind a TalaKit Pay checkout.",
+    badge: "Supporting",
+  },
+  {
+    icon: CreditCard,
+    title: "Payment Debugger",
+    description:
+      "Inspect payment transaction hashes, ledger results, payer and receiver details, and payment-specific failure reasons.",
+    badge: "Supporting",
+  },
+  {
+    icon: Activity,
+    title: "Payment Event Monitor",
+    description:
+      "Watch payment and webhook activity during the Alpha demo without building a full custom indexer.",
+    badge: "Supporting",
   },
 ];
+
+function getBadgeClassName(badge: string) {
+  if (badge === "Alpha") {
+    return "border-zinc-300 bg-zinc-900 text-zinc-100";
+  }
+
+  if (badge === "Coming Soon") {
+    return "border-zinc-700/50 bg-zinc-900 text-zinc-300";
+  }
+
+  return "border-zinc-800 bg-zinc-900 text-zinc-500";
+}
 
 export function FeaturesSection() {
   return (
@@ -43,14 +92,14 @@ export function FeaturesSection() {
         {/* Title Block */}
         <div className="max-w-2xl mb-16">
           <h2 className="text-zinc-500 font-mono text-xs uppercase tracking-widest mb-3">
-            Core Capabilities
+            TalaKit Pay Alpha
           </h2>
           <h3 className="text-3xl md:text-5xl font-bold tracking-tight mb-4">
-            Designed for Stellar developers who ship.
+            Payment infrastructure, previewed in one place.
           </h3>
           <p className="text-zinc-400 text-base">
-            No more hunting through block explorers or writing custom indexers. TalaKit consolidates
-            the critical tools you need to build, audit, and debug.
+            Lead with payment acceptance, then support the integration with dashboard visibility,
+            merchant verification, and payment-focused debugging.
           </p>
         </div>
 
@@ -66,18 +115,15 @@ export function FeaturesSection() {
                 {/* Glow outline decoration */}
                 <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-white/0 to-zinc-400/0 group-hover:from-white/5 group-hover:to-zinc-400/5 transition-all duration-300 pointer-events-none" />
 
-                <div className="flex items-start justify-between mb-6">
-                  <div className="w-12 h-12 rounded-xl bg-zinc-900 border border-zinc-800 group-hover:border-zinc-500/50 group-hover:bg-zinc-900/60 text-zinc-400 group-hover:text-zinc-100 flex items-center justify-center transition-all duration-300">
+                <div className="flex items-start justify-between mb-6 gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-zinc-900 border border-zinc-800 group-hover:border-zinc-500/50 group-hover:bg-zinc-900/60 text-zinc-400 group-hover:text-zinc-100 flex items-center justify-center transition-all duration-300 shrink-0">
                     <Icon size={24} />
                   </div>
                   <span
-                    className={`text-[10px] font-mono px-2 py-0.5 rounded-full border ${
-                      item.badge === "Active"
-                        ? "border-zinc-300 bg-zinc-900 text-zinc-100"
-                        : item.badge === "Beta"
-                          ? "border-zinc-700/50 bg-zinc-900 text-zinc-300"
-                          : "border-zinc-800 bg-zinc-900 text-zinc-500"
-                    }`}
+                    className={
+                      "text-[10px] font-mono px-2 py-0.5 rounded-full border text-right " +
+                      getBadgeClassName(item.badge)
+                    }
                   >
                     {item.badge}
                   </span>

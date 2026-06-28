@@ -18,7 +18,7 @@ export function FooterSection() {
 
         {/* copyright metadata */}
         <div className="text-xs font-light text-zinc-600">
-          &copy; {currentYear} TalaKit. All rights reserved. Built for the Stellar community.
+          &copy; {currentYear} TalaKit. All rights reserved. Built for Stellar Pay builders.
         </div>
 
         {/* minimal resource links */}

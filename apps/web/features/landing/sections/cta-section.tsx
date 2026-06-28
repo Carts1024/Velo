@@ -17,12 +17,12 @@ export function CTASection() {
         </div>
 
         <h2 className="text-4xl md:text-6xl font-bold tracking-tight mb-6 leading-tight max-w-2xl text-zinc-100">
-          Ready to verify your contract operations?
+          Accept your first Stellar stablecoin payment.
         </h2>
 
         <p className="text-zinc-400 text-base md:text-lg max-w-xl mb-10 font-light leading-relaxed">
-          Unlock transaction debugging and event tracing natively on Testnet today. Connect your
-          wallet to create a project workspace.
+          Start from the existing dashboard, then use TalaKit Pay Alpha to create payment links,
+          test checkout flows, and watch webhook delivery as the payment features land.
         </p>
 
         {/* Action button triggers */}
@@ -31,24 +31,24 @@ export function CTASection() {
             href="/dashboard"
             className="w-full sm:w-auto px-8 py-4 rounded-xl text-sm font-semibold bg-white text-zinc-950 hover:bg-zinc-200 hover:scale-[1.02] shadow-[0_0_20px_rgba(255,255,255,0.15)] transition-all flex items-center justify-center gap-2"
           >
-            <span>Get Started Free</span>
+            <span>Open Dashboard</span>
             <ArrowRight size={16} />
           </Link>
           <Link
             href="/debug"
             className="w-full sm:w-auto px-8 py-4 rounded-xl text-sm font-semibold bg-zinc-900 border border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100 transition-all"
           >
-            Debug Transaction
+            Debug a Payment
           </Link>
         </div>
 
         {/* Footnote details */}
-        <div className="mt-16 text-xs text-zinc-600 font-mono flex items-center gap-2 justify-center select-none">
-          <span>SECURE WEBHOOKS</span>
+        <div className="mt-16 text-xs text-zinc-600 font-mono flex flex-wrap items-center gap-2 justify-center select-none">
+          <span>PAYMENT LINKS</span>
           <span className="text-zinc-800">•</span>
-          <span>DASHBOARD ANALYTICS</span>
+          <span>CHECKOUT SDK</span>
           <span className="text-zinc-800">•</span>
-          <span>FREIGHTER INTEGRATION</span>
+          <span>PAYMENT WEBHOOKS</span>
         </div>
       </div>
     </section>
