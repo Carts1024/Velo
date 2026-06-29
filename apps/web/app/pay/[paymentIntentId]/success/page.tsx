@@ -1,4 +1,5 @@
 import { SuccessClient } from "@/features/checkout/success-client";
+
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {

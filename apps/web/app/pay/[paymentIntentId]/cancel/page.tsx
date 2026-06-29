@@ -1,4 +1,5 @@
 import { CancelClient } from "@/features/checkout/cancel-client";
+
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {

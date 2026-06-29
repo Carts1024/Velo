@@ -38,4 +38,3 @@ const validateEnv = () => {
 };
 
 export const env = validateEnv();
-

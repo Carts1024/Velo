@@ -22,4 +22,3 @@ export const stellarConfig = {
   webhookSigning: "deferred",
   webhookRetries: "deferred",
 } as const;
-

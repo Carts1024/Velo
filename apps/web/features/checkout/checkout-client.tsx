@@ -3,10 +3,7 @@
 import { stellarConfig, STELLAR_TESTNET_NETWORK_PASSPHRASE } from "@/core/config/stellar";
 import { useWallet } from "@/core/wallet/wallet-provider";
 import { api } from "@repo/backend/convex/_generated/api";
-import {
-  buildCheckoutPaymentTransaction,
-  submitCheckoutTransaction,
-} from "@repo/stellar";
+import { buildCheckoutPaymentTransaction, submitCheckoutTransaction } from "@repo/stellar";
 import { Badge } from "@repo/ui/components/ui-customs/badge";
 import { Alert, AlertDescription, AlertTitle } from "@repo/ui/components/ui/alert";
 import { Button } from "@repo/ui/components/ui/button";
@@ -23,7 +20,6 @@ import { Spinner } from "@repo/ui/components/ui/spinner";
 import { useMutation, useQuery } from "convex/react";
 import {
   AlertCircleIcon,
-  CheckCircle2Icon,
   ClockIcon,
   CreditCardIcon,
   ShieldCheckIcon,
@@ -221,9 +217,7 @@ export function CheckoutClient({ paymentIntentId }: CheckoutClientProps) {
               <XCircleIcon className="h-7 w-7 text-destructive" />
             </div>
             <CardTitle className="text-xl font-bold">Payment Not Found</CardTitle>
-            <CardDescription>
-              This payment link is invalid or has been removed.
-            </CardDescription>
+            <CardDescription>This payment link is invalid or has been removed.</CardDescription>
           </CardHeader>
         </Card>
       </CheckoutShell>
@@ -283,7 +277,10 @@ export function CheckoutClient({ paymentIntentId }: CheckoutClientProps) {
                 maximumFractionDigits: 7,
               })}
             </p>
-            <Badge variant="secondary" className="mt-2 text-xs px-2.5 py-0.5 rounded-full font-bold">
+            <Badge
+              variant="secondary"
+              className="mt-2 text-xs px-2.5 py-0.5 rounded-full font-bold"
+            >
               {assetLabel}
             </Badge>
           </div>

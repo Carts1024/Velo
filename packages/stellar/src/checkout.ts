@@ -1,10 +1,4 @@
-import {
-  Horizon,
-  Networks,
-  Operation,
-  TransactionBuilder,
-  Asset,
-} from "@stellar/stellar-sdk";
+import { Horizon, Networks, Operation, TransactionBuilder, Asset } from "@stellar/stellar-sdk";
 
 export type CheckoutPaymentParams = {
   payerAddress: string;

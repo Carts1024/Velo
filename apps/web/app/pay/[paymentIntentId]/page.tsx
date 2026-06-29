@@ -1,4 +1,5 @@
 import { CheckoutClient } from "@/features/checkout/checkout-client";
+
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {

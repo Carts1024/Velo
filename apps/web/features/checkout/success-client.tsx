@@ -148,7 +148,9 @@ export function SuccessClient({ paymentIntentId }: SuccessClientProps) {
             )}
             <div className="flex items-center justify-between text-xs sm:text-sm">
               <span className="text-muted-foreground font-medium">Status</span>
-              <Badge variant="success" className="rounded-full px-2 py-0.5 font-bold">Paid</Badge>
+              <Badge variant="success" className="rounded-full px-2 py-0.5 font-bold">
+                Paid
+              </Badge>
             </div>
             <div className="flex items-center justify-between text-xs sm:text-sm">
               <span className="text-muted-foreground font-medium">Network</span>
@@ -159,7 +161,7 @@ export function SuccessClient({ paymentIntentId }: SuccessClientProps) {
           {/* Auto-redirect Timer message */}
           {intent.successUrl && timeLeft > 0 && (
             <div className="flex items-center justify-center gap-2 text-xs font-medium text-muted-foreground bg-muted/40 rounded-lg py-2 px-3">
-              <ClockIcon className="h-3.5 w-3.5 animate-spin" style={{ animationDuration: '4s' }} />
+              <ClockIcon className="h-3.5 w-3.5 animate-spin" style={{ animationDuration: "4s" }} />
               <span>Redirecting to merchant's site in {timeLeft}s...</span>
             </div>
           )}
@@ -167,7 +169,10 @@ export function SuccessClient({ paymentIntentId }: SuccessClientProps) {
 
         <CardFooter className="flex-col gap-3 border-t border-border/50 pt-4">
           {intent.successUrl ? (
-            <Button className="w-full h-11 text-sm font-bold bg-primary hover:bg-primary/95 text-primary-foreground shadow-md rounded-xl cursor-pointer" asChild>
+            <Button
+              className="w-full h-11 text-sm font-bold bg-primary hover:bg-primary/95 text-primary-foreground shadow-md rounded-xl cursor-pointer"
+              asChild
+            >
               <a href={intent.successUrl}>Return to Merchant Immediately</a>
             </Button>
           ) : (

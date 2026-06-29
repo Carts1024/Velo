@@ -30,10 +30,7 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json(
-      { error: "Bad Request: Invalid JSON body." },
-      { status: 400 },
-    );
+    return NextResponse.json({ error: "Bad Request: Invalid JSON body." }, { status: 400 });
   }
 
   if (!body.amount || Number.parseFloat(body.amount) <= 0) {
@@ -75,9 +72,6 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     const message = error instanceof Error ? error.message : "Internal Server Error";
     console.error("Payment intent creation failed:", message);
-    return NextResponse.json(
-      { error: `Internal Server Error: ${message}` },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: `Internal Server Error: ${message}` }, { status: 500 });
   }
 }

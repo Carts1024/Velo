@@ -11,7 +11,7 @@ import {
   CardTitle,
 } from "@repo/ui/components/ui/card";
 import { Skeleton } from "@repo/ui/components/ui/skeleton";
-import { useMutation, useQuery } from "convex/react";
+import { useQuery } from "convex/react";
 import { AlertCircleIcon, ArrowRightIcon, RefreshCwIcon, ClockIcon } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -72,9 +72,7 @@ export function FailedClient({ paymentIntentId }: FailedClientProps) {
         <Card className="w-full max-w-md border-destructive/30 bg-card/90 backdrop-blur-md">
           <CardHeader className="text-center">
             <CardTitle className="text-lg font-bold">Payment Not Found</CardTitle>
-            <CardDescription>
-              This payment link is invalid or has been removed.
-            </CardDescription>
+            <CardDescription>This payment link is invalid or has been removed.</CardDescription>
           </CardHeader>
         </Card>
       </Shell>
@@ -100,7 +98,8 @@ export function FailedClient({ paymentIntentId }: FailedClientProps) {
               })}{" "}
               {intent.asset === "native" ? "XLM" : intent.asset.split(":")[0]}
             </span>{" "}
-            to <span className="font-semibold text-foreground">{intent.merchantName}</span> could not be processed.
+            to <span className="font-semibold text-foreground">{intent.merchantName}</span> could
+            not be processed.
           </CardDescription>
         </CardHeader>
 
@@ -108,7 +107,7 @@ export function FailedClient({ paymentIntentId }: FailedClientProps) {
           {/* Auto-redirect Timer message */}
           {intent.cancelUrl && timeLeft > 0 && (
             <div className="flex items-center justify-center gap-2 text-xs font-medium text-muted-foreground bg-muted/40 rounded-lg py-2 px-3">
-              <ClockIcon className="h-3.5 w-3.5 animate-spin" style={{ animationDuration: '4s' }} />
+              <ClockIcon className="h-3.5 w-3.5 animate-spin" style={{ animationDuration: "4s" }} />
               <span>Redirecting to merchant's site in {timeLeft}s...</span>
             </div>
           )}
@@ -116,7 +115,10 @@ export function FailedClient({ paymentIntentId }: FailedClientProps) {
 
         <CardFooter className="flex-col gap-3 border-t border-border/50 pt-4">
           {/* Retry payment button */}
-          <Button className="w-full h-11 text-sm font-bold bg-primary hover:bg-primary/95 text-primary-foreground shadow-md rounded-xl cursor-pointer" asChild>
+          <Button
+            className="w-full h-11 text-sm font-bold bg-primary hover:bg-primary/95 text-primary-foreground shadow-md rounded-xl cursor-pointer"
+            asChild
+          >
             <Link href={`/pay/${paymentIntentId}`}>
               <RefreshCwIcon className="mr-2 h-4 w-4" />
               Retry Checkout Session
@@ -124,7 +126,11 @@ export function FailedClient({ paymentIntentId }: FailedClientProps) {
           </Button>
 
           {intent.cancelUrl ? (
-            <Button variant="outline" className="w-full h-11 text-sm font-bold rounded-xl cursor-pointer" asChild>
+            <Button
+              variant="outline"
+              className="w-full h-11 text-sm font-bold rounded-xl cursor-pointer"
+              asChild
+            >
               <a href={intent.cancelUrl}>
                 Return to Merchant Immediately
                 <ArrowRightIcon className="ml-2 h-4 w-4" />

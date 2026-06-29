@@ -1,5 +1,6 @@
 import { v } from "convex/values";
-import { internalMutation, mutation } from "../_generated/server";
+
+import { mutation } from "../_generated/server";
 import { PAYMENT_INTENT_EXPIRY_MS, STATUS_TRANSITIONS } from "./helpers";
 
 /**
@@ -87,10 +88,7 @@ export const updateStatus = mutation({
     const now = Date.now();
 
     // Check expiry for non-terminal transitions
-    if (
-      (args.status === "pending" || args.status === "paid") &&
-      now > intent.expiresAt
-    ) {
+    if ((args.status === "pending" || args.status === "paid") && now > intent.expiresAt) {
       await ctx.db.patch(args.paymentIntentId, {
         status: "expired",
         updatedAt: now,
@@ -101,9 +99,7 @@ export const updateStatus = mutation({
     // Validate state machine transition
     const allowedTransitions = STATUS_TRANSITIONS[intent.status];
     if (!allowedTransitions || !allowedTransitions.has(args.status)) {
-      throw new Error(
-        `Invalid status transition: ${intent.status} → ${args.status}`,
-      );
+      throw new Error(`Invalid status transition: ${intent.status} → ${args.status}`);
     }
 
     const patch: Record<string, unknown> = {

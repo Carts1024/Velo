@@ -242,4 +242,3 @@ export const verifyApiKeyAndGetProject = query({
     };
   },
 });
-

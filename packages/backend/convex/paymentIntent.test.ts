@@ -2,7 +2,7 @@
 import { convexTest } from "convex-test";
 import { expect, test } from "vitest";
 
-import { api, internal } from "./_generated/api";
+import { api } from "./_generated/api";
 import schema from "./schema";
 
 const modules = import.meta.glob("./**/*.ts");
@@ -57,20 +57,15 @@ test("payment intent lifecycle", async () => {
   expect(verification.project?.name).toBe("Merchant Store");
   expect(verification.project?.paymentAccessActive).toBe(true);
 
-  // Create a payment intent using the internal mutation
-  const paymentIntentId = await t.mutation(
-    internal.payment_intents.mutations.createPaymentIntent,
-    {
-      projectId,
-      amount: "150.50",
-      asset: "native",
-      receiverAddress: ownerAddress,
-      merchantName: "Merchant Store",
-      description: "Order #44591",
-      successUrl: "https://merchant.xyz/success",
-      cancelUrl: "https://merchant.xyz/cancel",
-    },
-  );
+  // Create a payment intent using the public mutation
+  const paymentIntentId = await t.mutation(api.payment_intents.mutations.createPaymentIntent, {
+    apiKeyHash,
+    amount: "150.50",
+    asset: "native",
+    description: "Order #44591",
+    successUrl: "https://merchant.xyz/success",
+    cancelUrl: "https://merchant.xyz/cancel",
+  });
 
   // Retrieve the payment intent
   let intent = await t.query(api.payment_intents.queries.getPaymentIntent, {
