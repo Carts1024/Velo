@@ -96,65 +96,6 @@ jobs:
         if: env.HAS_CONVEX_DEPLOY_KEY != 'true'
         run: echo "CONVEX_DEPLOY_KEY is not configured; skipping Convex deploy."
 
-  deploy-frontend:
-    name: Deploy Frontend to Vercel
-    needs: [test-js, deploy-convex]
-    # Run even if deploy-convex is skipped because it's not configured
-    if: always() && github.ref == 'refs/heads/main' && (needs.deploy-convex.result == 'success' || needs.deploy-convex.result == 'skipped')
-    runs-on: ubuntu-latest
-    env:
-      HAS_VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN != '' }}
-    steps:
-      - name: Checkout Code
-        if: env.HAS_VERCEL_TOKEN == 'true'
-        uses: actions/checkout@v4
-
-      - name: Setup pnpm
-        if: env.HAS_VERCEL_TOKEN == 'true'
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10.25.0
-
-      - name: Setup Node.js
-        if: env.HAS_VERCEL_TOKEN == 'true'
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-
-      - name: Install Dependencies
-        if: env.HAS_VERCEL_TOKEN == 'true'
-        run: pnpm install --frozen-lockfile
-
-      - name: Install Vercel CLI
-        if: env.HAS_VERCEL_TOKEN == 'true'
-        run: pnpm add -g vercel
-
-      - name: Pull Vercel Environment Information
-        if: env.HAS_VERCEL_TOKEN == 'true'
-        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
-        env:
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-
-      - name: Build Project Artifacts
-        if: env.HAS_VERCEL_TOKEN == 'true'
-        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
-        env:
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-
-      - name: Deploy Project Artifacts to Vercel
-        if: env.HAS_VERCEL_TOKEN == 'true'
-        run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
-        env:
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-
-      - name: Skip Vercel Deploy
-        if: env.HAS_VERCEL_TOKEN != 'true'
-        run: echo "VERCEL_TOKEN is not configured; skipping Vercel deploy."
-
   deploy-contracts:
     name: Deploy Smart Contracts
     needs: test-rust
