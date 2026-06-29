@@ -16,6 +16,7 @@ import type * as contract_events_types from "../contract_events/types.js";
 import type * as crons from "../crons.js";
 import type * as feedback_mutation from "../feedback/mutation.js";
 import type * as feedback_query from "../feedback/query.js";
+import type * as payAccessSync from "../payAccessSync.js";
 import type * as poller_state_helpers from "../poller_state/helpers.js";
 import type * as poller_state_mutation from "../poller_state/mutation.js";
 import type * as poller_state_query from "../poller_state/query.js";
@@ -61,6 +62,7 @@ declare const fullApi: ApiFromModules<{
   crons: typeof crons;
   "feedback/mutation": typeof feedback_mutation;
   "feedback/query": typeof feedback_query;
+  payAccessSync: typeof payAccessSync;
   "poller_state/helpers": typeof poller_state_helpers;
   "poller_state/mutation": typeof poller_state_mutation;
   "poller_state/query": typeof poller_state_query;

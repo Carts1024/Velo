@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 
 import { internal } from "../_generated/api";
-import { mutation } from "../_generated/server";
+import { internalMutation, mutation } from "../_generated/server";
 import {
   draftProjectArgs,
   normalizeAddress,
@@ -188,6 +188,7 @@ export const generateApiKey = mutation({
   args: {
     id: v.id("projects"),
     ownerAddress: v.string(),
+    label: v.string(),
   },
   handler: async (ctx, args) => {
     await requireOwnerProject(ctx, args.id, args.ownerAddress);
@@ -208,10 +209,17 @@ export const generateApiKey = mutation({
     const apiKeyHash = hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
 
     const now = Date.now();
+    await ctx.db.insert("apiKeys", {
+      projectId: args.id,
+      keyHash: apiKeyHash,
+      prefix: `tk_live_${token.slice(0, 4)}...${token.slice(-4)}`,
+      label: args.label.trim() || "Default Key",
+      createdAt: now,
+      requestCount: 0,
+      revoked: false,
+    });
+
     await ctx.db.patch(args.id, {
-      apiKeyHash,
-      apiKeyPrefix: `tk_live_${token.slice(0, 4)}...${token.slice(-4)}`,
-      apiKeyCreatedAt: now,
       updatedAt: now,
     });
 
@@ -221,6 +229,69 @@ export const generateApiKey = mutation({
 
 export const revokeApiKey = mutation({
   args: {
+    keyId: v.id("apiKeys"),
+    projectId: v.id("projects"),
+    ownerAddress: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await requireOwnerProject(ctx, args.projectId, args.ownerAddress);
+
+    const now = Date.now();
+    const key = await ctx.db.get(args.keyId);
+    if (!key || key.projectId !== args.projectId) {
+      throw new Error("API Key not found for this project");
+    }
+
+    await ctx.db.patch(args.keyId, {
+      revoked: true,
+    });
+
+    await ctx.db.patch(args.projectId, {
+      updatedAt: now,
+    });
+  },
+});
+
+export const recordKeyUsage = internalMutation({
+  args: {
+    keyHash: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const key = await ctx.db
+      .query("apiKeys")
+      .withIndex("by_key_hash", (q) => q.eq("keyHash", args.keyHash))
+      .unique();
+
+    if (key) {
+      await ctx.db.patch(key._id, {
+        lastUsedAt: Date.now(),
+        requestCount: key.requestCount + 1,
+      });
+    }
+  },
+});
+
+export const markPaymentAccessActive = mutation({
+  args: {
+    id: v.id("projects"),
+    ownerAddress: v.string(),
+    checkoutCredits: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    await requireOwnerProject(ctx, args.id, args.ownerAddress);
+
+    const now = Date.now();
+    await ctx.db.patch(args.id, {
+      paymentAccessActive: true,
+      checkoutCredits: args.checkoutCredits ?? 100,
+      paymentAccessLastSyncAt: now,
+      updatedAt: now,
+    });
+  },
+});
+
+export const markPaymentAccessInactive = mutation({
+  args: {
     id: v.id("projects"),
     ownerAddress: v.string(),
   },
@@ -229,9 +300,8 @@ export const revokeApiKey = mutation({
 
     const now = Date.now();
     await ctx.db.patch(args.id, {
-      apiKeyHash: undefined,
-      apiKeyPrefix: undefined,
-      apiKeyCreatedAt: undefined,
+      paymentAccessActive: false,
+      paymentAccessLastSyncAt: now,
       updatedAt: now,
     });
   },

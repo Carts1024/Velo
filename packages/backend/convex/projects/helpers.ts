@@ -54,7 +54,11 @@ export async function requireUniqueSlug(ctx: MutationCtx, slug: string) {
   }
 }
 
-export async function requireOwnerProject(ctx: MutationCtx, id: ProjectId, ownerAddress: string) {
+export async function requireOwnerProject(
+  ctx: QueryCtx | MutationCtx,
+  id: ProjectId,
+  ownerAddress: string,
+) {
   const project = await ctx.db.get(id);
 
   if (!project) {

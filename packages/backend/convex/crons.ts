@@ -11,4 +11,11 @@ crons.interval(
   {},
 );
 
+crons.interval(
+  "poll pay access events",
+  { minutes: 1 },
+  internal.payAccessSync.syncPayAccessEvents,
+  {},
+);
+
 export default crons;

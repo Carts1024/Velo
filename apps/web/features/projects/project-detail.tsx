@@ -8,6 +8,8 @@ import {
   buildRegisterProjectTransaction,
   confirmRegistration,
   submitSignedTransaction,
+  buildActivatePaymentsTransaction,
+  confirmActivatePayments,
 } from "@repo/stellar";
 import { CopyButton } from "@repo/ui/components/common/copy-button";
 import { Badge } from "@repo/ui/components/ui-customs/badge";
@@ -155,12 +157,25 @@ export function ProjectDetail({ projectId }: ProjectDetailProps) {
   const markError = useMutation(api.projects.mutation.markRegistrationError);
   const generateApiKey = useMutation(api.projects.mutation.generateApiKey);
   const revokeApiKey = useMutation(api.projects.mutation.revokeApiKey);
+  const markPaymentAccessActive = useMutation(api.projects.mutation.markPaymentAccessActive);
+
+  const apiKeys = useQuery(
+    api.projects.query.listApiKeys,
+    wallet.address
+      ? {
+          projectId: projectId as Id<"projects">,
+          ownerAddress: wallet.address,
+        }
+      : "skip",
+  );
 
   const [isRegistering, setIsRegistering] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isGeneratingKey, setIsGeneratingKey] = useState(false);
   const [isRevokingKey, setIsRevokingKey] = useState(false);
+  const [isActivatingPayments, setIsActivatingPayments] = useState(false);
   const [newRawKey, setNewRawKey] = useState<string | null>(null);
+  const [apiKeyLabel, setApiKeyLabel] = useState("");
   const [localError, setLocalError] = useState<string | null>(null);
 
   if (!wallet.address) {
@@ -329,8 +344,12 @@ export function ProjectDetail({ projectId }: ProjectDetailProps) {
     }
   }
 
-  async function handleGenerateKey() {
+  async function handleGenerateKey(label: string) {
     if (!wallet.address) return;
+    if (!label.trim()) {
+      setLocalError("Please provide a label for the API Key.");
+      return;
+    }
     setIsGeneratingKey(true);
     setNewRawKey(null);
     setLocalError(null);
@@ -338,8 +357,10 @@ export function ProjectDetail({ projectId }: ProjectDetailProps) {
       const result = await generateApiKey({
         id: currentProject._id,
         ownerAddress: wallet.address,
+        label: label.trim(),
       });
       setNewRawKey(result.rawKey);
+      setApiKeyLabel("");
     } catch (err) {
       console.error(err);
       setLocalError("Failed to generate API Key.");
@@ -348,7 +369,7 @@ export function ProjectDetail({ projectId }: ProjectDetailProps) {
     }
   }
 
-  async function handleRevokeKey() {
+  async function handleRevokeKey(keyId: Id<"apiKeys">) {
     if (!wallet.address) return;
     if (
       !window.confirm(
@@ -361,7 +382,8 @@ export function ProjectDetail({ projectId }: ProjectDetailProps) {
     setLocalError(null);
     try {
       await revokeApiKey({
-        id: currentProject._id,
+        keyId,
+        projectId: currentProject._id,
         ownerAddress: wallet.address,
       });
       setNewRawKey(null);
@@ -370,6 +392,60 @@ export function ProjectDetail({ projectId }: ProjectDetailProps) {
       setLocalError("Failed to revoke API Key.");
     } finally {
       setIsRevokingKey(false);
+    }
+  }
+
+  async function handleActivatePayments() {
+    if (!wallet.address) {
+      setLocalError("Connect your wallet before activating Velo Pay.");
+      return;
+    }
+    if (!currentProject.registryProjectId) {
+      setLocalError("Register the project on-chain first.");
+      return;
+    }
+    if (!stellarConfig.payAccessContractId) {
+      setLocalError("Set NEXT_PUBLIC_VELO_PAY_ACCESS_CONTRACT_ID before activation.");
+      return;
+    }
+
+    setIsActivatingPayments(true);
+    setLocalError(null);
+
+    try {
+      const transactionXdr = await buildActivatePaymentsTransaction({
+        rpcUrl: stellarConfig.rpcUrl,
+        networkPassphrase: stellarConfig.networkPassphrase,
+        payAccessContractId: stellarConfig.payAccessContractId,
+        sourcePublicKey: wallet.address,
+        registryProjectId: currentProject.registryProjectId,
+      });
+
+      const signedXdr = await wallet.signTransaction(transactionXdr);
+      const transactionHash = await submitSignedTransaction({
+        rpcUrl: stellarConfig.rpcUrl,
+        networkPassphrase: stellarConfig.networkPassphrase,
+        signedXdr,
+      });
+
+      const confirmation = await confirmActivatePayments({
+        rpcUrl: stellarConfig.rpcUrl,
+        transactionHash,
+      });
+
+      if (confirmation.status === "error") {
+        setLocalError(`Activation failed: ${confirmation.message}`);
+        return;
+      }
+
+      await markPaymentAccessActive({
+        id: currentProject._id,
+        ownerAddress: wallet.address,
+      });
+    } catch (error) {
+      setLocalError(`Activation error: ${errorMessage(error)}`);
+    } finally {
+      setIsActivatingPayments(false);
     }
   }
 
@@ -678,55 +754,90 @@ export function ProjectDetail({ projectId }: ProjectDetailProps) {
         )}
       </div>
 
-      {/* API Key Access Section */}
+      {/* Velo Pay Access Card */}
       <div className="rounded-lg border border-zinc-200 bg-white shadow-sm hover:shadow duration-200">
         <div className="flex flex-col gap-2 border-b border-zinc-200 p-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="text-base font-semibold tracking-normal flex items-center gap-1.5">
-                <KeyIcon className="size-4.5 text-zinc-500" />
-                API key
+                <SendIcon className="size-4.5 text-zinc-500" />
+                Velo Pay Access
               </h2>
-              <Badge variant={currentProject.apiKeyHash ? "success" : "gray"}>
-                {currentProject.apiKeyHash ? "active" : "inactive"}
+              <Badge variant={currentProject.paymentAccessActive ? "success" : "gray"}>
+                {currentProject.paymentAccessActive ? "active" : "inactive"}
               </Badge>
             </div>
             <p className="mt-1 text-sm text-zinc-600">
-              {currentProject.apiKeyPrefix
-                ? `Key prefix: ${currentProject.apiKeyPrefix} • Generated ${formatTimestamp(currentProject.apiKeyCreatedAt)}`
-                : "Generate a Project API Key to access Velo services programmatically."}
+              {currentProject.paymentAccessActive
+                ? `Payment access is active on-chain • ${currentProject.checkoutCredits ?? 100} checkout credits remaining`
+                : "Activate on-chain payment access to enable hosted checkout pages and payment processing."}
             </p>
           </div>
           <div className="flex gap-2">
-            {currentProject.apiKeyHash ? (
-              <>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleGenerateKey}
-                  disabled={isGeneratingKey}
-                >
-                  <RefreshCwIcon
-                    className={`mr-1.5 size-4 ${isGeneratingKey ? "animate-spin" : ""}`}
-                  />
-                  Regenerate
-                </Button>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={handleRevokeKey}
-                  disabled={isRevokingKey}
-                >
-                  <Trash2Icon className="mr-1.5 size-4" />
-                  {isRevokingKey ? "Revoking..." : "Revoke"}
-                </Button>
-              </>
+            {currentProject.status !== "registered" ? (
+              <span className="text-xs text-zinc-400 self-center">Register project first</span>
+            ) : currentProject.paymentAccessActive ? (
+              <span className="text-xs text-emerald-600 font-medium self-center flex items-center gap-1">
+                <CheckCircle2Icon className="size-4" /> Ready to process payments
+              </span>
             ) : (
-              <Button size="sm" onClick={handleGenerateKey} disabled={isGeneratingKey}>
-                <KeyIcon className="mr-1.5 size-4" />
-                {isGeneratingKey ? "Generating..." : "Generate API key"}
+              <Button
+                size="sm"
+                onClick={handleActivatePayments}
+                disabled={isActivatingPayments}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              >
+                {isActivatingPayments ? (
+                  <>
+                    <RefreshCwIcon className="mr-1.5 size-4 animate-spin" />
+                    Activating...
+                  </>
+                ) : (
+                  <>
+                    <SendIcon className="mr-1.5 size-4" />
+                    Activate Velo Pay
+                  </>
+                )}
               </Button>
             )}
+          </div>
+        </div>
+      </div>
+
+      {/* API Key Access Section */}
+      <div className="rounded-lg border border-zinc-200 bg-white shadow-sm hover:shadow duration-200">
+        <div className="p-4 border-b border-zinc-200">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h2 className="text-base font-semibold tracking-normal flex items-center gap-1.5">
+                <KeyIcon className="size-4.5 text-zinc-500" />
+                API keys
+              </h2>
+              <p className="mt-1 text-sm text-zinc-600">
+                Generate and manage API keys to access Velo services programmatically.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 max-w-md w-full sm:w-auto">
+              <input
+                type="text"
+                placeholder="Key label (e.g. Production)"
+                value={apiKeyLabel}
+                onChange={(e) => setApiKeyLabel(e.target.value)}
+                className="flex h-9 w-full rounded-md border border-zinc-200 bg-transparent px-3 py-1.5 text-sm shadow-sm transition-colors placeholder:text-zinc-400 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-950 disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={isGeneratingKey}
+                aria-label="API key label"
+              />
+              <Button
+                size="sm"
+                onClick={() => handleGenerateKey(apiKeyLabel)}
+                disabled={isGeneratingKey || !apiKeyLabel.trim()}
+                className="whitespace-nowrap"
+              >
+                <KeyIcon className="mr-1.5 size-4" />
+                {isGeneratingKey ? "Generating..." : "Generate key"}
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -758,8 +869,70 @@ export function ProjectDetail({ projectId }: ProjectDetailProps) {
           </div>
         )}
 
-        {currentProject.apiKeyHash && (
-          <div className="p-4 bg-zinc-50/40">
+        {/* List of keys */}
+        <div className="p-0 overflow-x-auto">
+          {apiKeys === undefined ? (
+            <div className="p-4 text-center text-sm text-zinc-500">Loading keys...</div>
+          ) : apiKeys.length === 0 ? (
+            <div className="p-6 text-center text-sm text-zinc-500">
+              No API keys generated yet. Use the form above to create your first key.
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Label</TableHead>
+                  <TableHead>Prefix</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Created</TableHead>
+                  <TableHead>Usage</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {apiKeys.map((key) => (
+                  <TableRow key={key._id}>
+                    <TableCell className="font-medium text-sm">{key.label}</TableCell>
+                    <TableCell className="font-mono text-xs text-zinc-500">{key.prefix}</TableCell>
+                    <TableCell>
+                      <Badge variant={key.revoked ? "gray" : "success"}>
+                        {key.revoked ? "revoked" : "active"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-xs text-zinc-500">
+                      {formatTimestamp(key.createdAt)}
+                    </TableCell>
+                    <TableCell className="text-xs text-zinc-500">
+                      <div>{key.requestCount} requests</div>
+                      {key.lastUsedAt && (
+                        <div className="text-[10px] text-zinc-400 mt-0.5">
+                          Last used {formatTimestamp(key.lastUsedAt)}
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {!key.revoked && (
+                        <Button
+                          variant="destructive"
+                          size="xs"
+                          onClick={() => handleRevokeKey(key._id)}
+                          disabled={isRevokingKey}
+                        >
+                          <Trash2Icon className="mr-1 size-3" />
+                          Revoke
+                        </Button>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </div>
+
+        {/* Available endpoints list */}
+        {apiKeys && apiKeys.some((k) => !k.revoked) && (
+          <div className="p-4 bg-zinc-50/40 border-t border-zinc-200">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-3">
               Available API endpoints
             </h3>
@@ -836,11 +1009,27 @@ export function ProjectDetail({ projectId }: ProjectDetailProps) {
             Events
           </Link>
         </Button>
-        <Button variant="outline" asChild>
-          <Link href={`/projects/${currentProject._id}/webhooks`}>
-            <WebhookIcon />
-            Webhooks
-          </Link>
+        <Button
+          variant="outline"
+          asChild={currentProject.paymentAccessActive ? true : undefined}
+          className={!currentProject.paymentAccessActive ? "opacity-50 cursor-not-allowed" : ""}
+          onClick={
+            !currentProject.paymentAccessActive
+              ? () => setLocalError("Activate Velo Pay to configure Webhooks.")
+              : undefined
+          }
+        >
+          {currentProject.paymentAccessActive ? (
+            <Link href={`/projects/${currentProject._id}/webhooks`}>
+              <WebhookIcon />
+              Webhooks
+            </Link>
+          ) : (
+            <span className="flex items-center gap-2">
+              <WebhookIcon className="opacity-50" />
+              Webhooks (Inactive)
+            </span>
+          )}
         </Button>
         <Button variant="outline" asChild>
           <Link href={`/verify/${currentProject.slug}`}>

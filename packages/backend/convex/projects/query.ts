@@ -6,6 +6,7 @@ import {
   METADATA_HASH_PATTERN,
   normalizeAddress,
   ownerProjectOrNull,
+  requireOwnerProject,
   safeWebsite,
 } from "./helpers";
 
@@ -87,11 +88,16 @@ export const verifyApiKeyAndGetEvents = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const project = await ctx.db
-      .query("projects")
-      .withIndex("by_api_key_hash", (q) => q.eq("apiKeyHash", args.apiKeyHash))
+    const apiKey = await ctx.db
+      .query("apiKeys")
+      .withIndex("by_key_hash", (q) => q.eq("keyHash", args.apiKeyHash))
       .unique();
 
+    if (!apiKey || apiKey.revoked) {
+      return { authorized: false };
+    }
+
+    const project = await ctx.db.get(apiKey.projectId);
     if (!project) {
       return { authorized: false };
     }
@@ -121,11 +127,16 @@ export const verifyApiKeyAndGetTransaction = query({
     hash: v.string(),
   },
   handler: async (ctx, args) => {
-    const project = await ctx.db
-      .query("projects")
-      .withIndex("by_api_key_hash", (q) => q.eq("apiKeyHash", args.apiKeyHash))
+    const apiKey = await ctx.db
+      .query("apiKeys")
+      .withIndex("by_key_hash", (q) => q.eq("keyHash", args.apiKeyHash))
       .unique();
 
+    if (!apiKey || apiKey.revoked) {
+      return { authorized: false };
+    }
+
+    const project = await ctx.db.get(apiKey.projectId);
     if (!project) {
       return { authorized: false };
     }
@@ -148,11 +159,16 @@ export const verifyApiKeyAndGetWebhookDeliveries = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const project = await ctx.db
-      .query("projects")
-      .withIndex("by_api_key_hash", (q) => q.eq("apiKeyHash", args.apiKeyHash))
+    const apiKey = await ctx.db
+      .query("apiKeys")
+      .withIndex("by_key_hash", (q) => q.eq("keyHash", args.apiKeyHash))
       .unique();
 
+    if (!apiKey || apiKey.revoked) {
+      return { authorized: false };
+    }
+
+    const project = await ctx.db.get(apiKey.projectId);
     if (!project) {
       return { authorized: false };
     }
@@ -168,5 +184,21 @@ export const verifyApiKeyAndGetWebhookDeliveries = query({
       authorized: true,
       deliveries,
     };
+  },
+});
+
+export const listApiKeys = query({
+  args: {
+    projectId: v.id("projects"),
+    ownerAddress: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await requireOwnerProject(ctx, args.projectId, args.ownerAddress);
+
+    return await ctx.db
+      .query("apiKeys")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .order("desc")
+      .collect();
   },
 });

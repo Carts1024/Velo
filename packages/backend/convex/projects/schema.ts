@@ -24,6 +24,9 @@ export default defineTable({
   apiKeyHash: v.optional(v.string()),
   apiKeyPrefix: v.optional(v.string()),
   apiKeyCreatedAt: v.optional(v.number()),
+  paymentAccessActive: v.optional(v.boolean()),
+  checkoutCredits: v.optional(v.number()),
+  paymentAccessLastSyncAt: v.optional(v.number()),
   createdAt: v.number(),
   updatedAt: v.number(),
 })
