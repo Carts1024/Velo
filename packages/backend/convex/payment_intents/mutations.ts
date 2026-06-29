@@ -1,4 +1,4 @@
-import { v } from "convex/values";
+import { v, ConvexError } from "convex/values";
 
 import { mutation } from "../_generated/server";
 import { PAYMENT_INTENT_EXPIRY_MS, STATUS_TRANSITIONS } from "./helpers";
@@ -23,16 +23,16 @@ export const createPaymentIntent = mutation({
       .unique();
 
     if (!apiKey || apiKey.revoked) {
-      throw new Error("Unauthorized: Invalid API key.");
+      throw new ConvexError("Unauthorized: Invalid API key.");
     }
 
     const project = await ctx.db.get(apiKey.projectId);
     if (!project) {
-      throw new Error("Unauthorized: Project not found.");
+      throw new ConvexError("Unauthorized: Project not found.");
     }
 
     if (!project.paymentAccessActive) {
-      throw new Error("Unauthorized: Payment access is not activated for this project.");
+      throw new ConvexError("Unauthorized: Payment access is not activated for this project.");
     }
 
     const now = Date.now();
@@ -44,10 +44,10 @@ export const createPaymentIntent = mutation({
       asset: args.asset,
       receiverAddress: project.ownerAddress,
       merchantName: project.name,
-      description: args.description,
+      ...(args.description !== undefined ? { description: args.description } : {}),
       status: "created",
-      successUrl: args.successUrl,
-      cancelUrl: args.cancelUrl,
+      ...(args.successUrl !== undefined ? { successUrl: args.successUrl } : {}),
+      ...(args.cancelUrl !== undefined ? { cancelUrl: args.cancelUrl } : {}),
       expiresAt: now + PAYMENT_INTENT_EXPIRY_MS,
       createdAt: now,
       updatedAt: now,
@@ -82,7 +82,7 @@ export const updateStatus = mutation({
   handler: async (ctx, args) => {
     const intent = await ctx.db.get(args.paymentIntentId);
     if (!intent) {
-      throw new Error("Payment intent not found");
+      throw new ConvexError("Payment intent not found");
     }
 
     const now = Date.now();
@@ -93,13 +93,13 @@ export const updateStatus = mutation({
         status: "expired",
         updatedAt: now,
       });
-      throw new Error("Payment intent has expired");
+      throw new ConvexError("Payment intent has expired");
     }
 
     // Validate state machine transition
     const allowedTransitions = STATUS_TRANSITIONS[intent.status];
     if (!allowedTransitions || !allowedTransitions.has(args.status)) {
-      throw new Error(`Invalid status transition: ${intent.status} → ${args.status}`);
+      throw new ConvexError(`Invalid status transition: ${intent.status} → ${args.status}`);
     }
 
     const patch: Record<string, unknown> = {

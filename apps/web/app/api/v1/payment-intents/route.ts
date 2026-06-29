@@ -51,9 +51,9 @@ export async function POST(request: NextRequest) {
         apiKeyHash,
         amount: body.amount,
         asset: body.asset || stellarConfig.checkoutAsset,
-        description: body.description,
-        successUrl: body.successUrl,
-        cancelUrl: body.cancelUrl,
+        ...(body.description !== undefined ? { description: body.description } : {}),
+        ...(body.successUrl !== undefined ? { successUrl: body.successUrl } : {}),
+        ...(body.cancelUrl !== undefined ? { cancelUrl: body.cancelUrl } : {}),
       },
     );
 

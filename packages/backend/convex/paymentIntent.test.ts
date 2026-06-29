@@ -113,3 +113,50 @@ test("payment intent lifecycle", async () => {
   expect(intentsList.length).toBe(1);
   expect(intentsList[0]._id).toBe(paymentIntentId);
 });
+
+test("payment intent creation allows omitted redirect urls", async () => {
+  const t = convexTest(schema, modules);
+
+  const ownerAddress = "GD7O2C226SF2677PFFUVD6O2ICFOBNCWPI5Z46N43ZSFQGLM65U3I2SP";
+  const projectId = await t.mutation(api.projects.mutation.createDraft, {
+    name: "Merchant Store",
+    slug: "merchant-store-no-urls",
+    description: "Accepting USDC on Stellar",
+    metadataJson: "{}",
+    metadataHash: "0000000000000000000000000000000000000000000000000000000000000000",
+    ownerAddress,
+  });
+
+  await t.mutation(api.projects.mutation.markPaymentAccessActive, {
+    id: projectId,
+    ownerAddress,
+    checkoutCredits: 100,
+  });
+
+  const { rawKey } = await t.mutation(api.projects.mutation.generateApiKey, {
+    id: projectId,
+    ownerAddress,
+    label: "Main API Key",
+  });
+
+  const encoder = new TextEncoder();
+  const data = encoder.encode(rawKey);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const apiKeyHash = hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+
+  const paymentIntentId = await t.mutation(api.payment_intents.mutations.createPaymentIntent, {
+    apiKeyHash,
+    amount: "10.00",
+    asset: "native",
+    description: "Test payment",
+  });
+
+  const intent = await t.query(api.payment_intents.queries.getPaymentIntent, {
+    paymentIntentId,
+  });
+  expect(intent?.amount).toBe("10.00");
+  expect(intent?.description).toBe("Test payment");
+  expect(intent?.successUrl).toBeUndefined();
+  expect(intent?.cancelUrl).toBeUndefined();
+});

@@ -110,16 +110,10 @@ export function CheckoutClient({ paymentIntentId }: CheckoutClientProps) {
 
     setError(null);
     setStep("submitting");
+    let markedPending = false;
 
     try {
-      // 1. Transition to pending state in database
-      await updateStatus({
-        paymentIntentId: intentId,
-        status: "pending",
-        payerAddress: wallet.address,
-      });
-
-      // 2. Build the payment transaction
+      // 1. Build the payment transaction and fail early before changing intent state.
       const unsignedXdr = await buildCheckoutPaymentTransaction({
         payerAddress: wallet.address,
         receiverAddress: intent.receiverAddress,
@@ -129,8 +123,16 @@ export function CheckoutClient({ paymentIntentId }: CheckoutClientProps) {
         horizonUrl: stellarConfig.horizonUrl,
       });
 
-      // 3. Request signature from connected wallet
+      // 2. Request signature from connected wallet
       const signedXdr = await wallet.signTransaction(unsignedXdr);
+
+      // 3. Transition to pending once the transaction is ready to submit.
+      await updateStatus({
+        paymentIntentId: intentId,
+        status: "pending",
+        payerAddress: wallet.address,
+      });
+      markedPending = true;
 
       // 4. Submit signed XDR to Stellar network
       const result = await submitCheckoutTransaction({
@@ -161,23 +163,17 @@ export function CheckoutClient({ paymentIntentId }: CheckoutClientProps) {
       if (/reject|denied|cancel/i.test(message)) {
         setStep("review");
         setError("Transaction signing was rejected.");
-        // Revert status to created if user rejects transaction
-        try {
-          await updateStatus({
-            paymentIntentId: intentId,
-            status: "failed", // transition to failed first, or handle failed screen
-          });
-          router.push(`/pay/${paymentIntentId}/failed`);
-        } catch {
-          // ignore status update failures
-        }
         return;
       }
 
       setError(message);
       setStep("review");
 
-      // Update intent status to failed in database
+      if (!markedPending) {
+        return;
+      }
+
+      // Update intent status to failed in database after a submitted transaction fails.
       try {
         await updateStatus({
           paymentIntentId: intentId,

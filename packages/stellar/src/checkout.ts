@@ -16,6 +16,26 @@ export type CheckoutSubmitParams = {
 
 const DEFAULT_TESTNET_HORIZON = "https://horizon-testnet.stellar.org";
 
+type HorizonErrorPayload = {
+  title?: string;
+  detail?: string;
+  extras?: {
+    result_codes?: {
+      transaction?: string;
+      operations?: string[];
+    };
+    result_xdr?: string;
+  };
+};
+
+type AxiosLikeError = {
+  response?: {
+    status?: number;
+    data?: HorizonErrorPayload;
+  };
+  message?: string;
+};
+
 /**
  * Parses an asset string into a Stellar Asset object.
  * Supports "native" or "CODE:ISSUER" format.
@@ -31,6 +51,59 @@ function parseAsset(assetStr: string): Asset {
   }
 
   return new Asset(parts[0], parts[1]);
+}
+
+function isCreditBalance(
+  balance: Horizon.AccountResponse["balances"][number],
+): balance is
+  | Horizon.HorizonApi.BalanceLineAsset<"credit_alphanum4">
+  | Horizon.HorizonApi.BalanceLineAsset<"credit_alphanum12"> {
+  return balance.asset_type === "credit_alphanum4" || balance.asset_type === "credit_alphanum12";
+}
+
+function hasAssetTrustline(account: Horizon.AccountResponse, asset: Asset) {
+  if (asset.isNative()) {
+    return true;
+  }
+
+  return account.balances.some(
+    (balance) =>
+      isCreditBalance(balance) &&
+      balance.asset_code === asset.getCode() &&
+      balance.asset_issuer === asset.getIssuer(),
+  );
+}
+
+function assetBalance(account: Horizon.AccountResponse, asset: Asset) {
+  if (asset.isNative()) {
+    const nativeBalance = account.balances.find((balance) => balance.asset_type === "native");
+    return nativeBalance ? Number.parseFloat(nativeBalance.balance) : 0;
+  }
+
+  const balance = account.balances.find(
+    (entry) =>
+      isCreditBalance(entry) &&
+      entry.asset_code === asset.getCode() &&
+      entry.asset_issuer === asset.getIssuer(),
+  );
+
+  return balance ? Number.parseFloat(balance.balance) : 0;
+}
+
+function describeHorizonError(error: unknown): string {
+  const axiosError = error as AxiosLikeError;
+  const payload = axiosError.response?.data;
+  const resultCodes = payload?.extras?.result_codes;
+  const operationCodes = resultCodes?.operations?.filter(Boolean) ?? [];
+  const codes = [resultCodes?.transaction, ...operationCodes].filter(Boolean).join(", ");
+
+  if (codes) {
+    return `${payload?.title ?? "Stellar transaction rejected"} (${codes})${
+      payload?.detail ? `: ${payload.detail}` : ""
+    }`;
+  }
+
+  return payload?.detail ?? payload?.title ?? axiosError.message ?? "Stellar transaction failed";
 }
 
 /**
@@ -60,7 +133,27 @@ export async function buildCheckoutPaymentTransaction(
 
   const server = new Horizon.Server(horizonUrl);
   const account = await server.loadAccount(payerAddress);
+  const receiverAccount = await server.loadAccount(receiverAddress);
   const stellarAsset = parseAsset(assetStr);
+  const paymentAmount = Number.parseFloat(amount);
+
+  if (!hasAssetTrustline(receiverAccount, stellarAsset)) {
+    throw new Error(
+      `Receiver account does not have a trustline for ${stellarAsset.getCode()}. Use asset "native" for XLM payments or add the ${stellarAsset.getCode()} trustline to the receiver first.`,
+    );
+  }
+
+  if (!hasAssetTrustline(account, stellarAsset)) {
+    throw new Error(
+      `Connected wallet does not have a trustline for ${stellarAsset.getCode()}. Use asset "native" for XLM payments or add the ${stellarAsset.getCode()} trustline to your wallet first.`,
+    );
+  }
+
+  if (assetBalance(account, stellarAsset) < paymentAmount) {
+    throw new Error(
+      `Connected wallet does not have enough ${stellarAsset.getCode()} balance for this payment.`,
+    );
+  }
 
   const transaction = new TransactionBuilder(account, {
     fee: "10000", // Standard maximum base fee (0.0001 XLM / operation limit)
@@ -98,7 +191,8 @@ export async function submitCheckoutTransaction(
       successful: result.successful,
     };
   } catch (error) {
-    console.error("Stellar Horizon submission error:", error);
-    throw error;
+    const message = describeHorizonError(error);
+    console.error("Stellar Horizon submission error:", message, error);
+    throw new Error(message);
   }
 }
