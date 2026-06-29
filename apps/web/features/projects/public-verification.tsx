@@ -153,33 +153,35 @@ export function PublicVerification({ slug }: PublicVerificationProps) {
         ) : null}
 
         <div className="rounded-lg border border-zinc-200 bg-white">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Official contract IDs</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {proof.officialContractIds.length === 0 ? (
+          <div className="overflow-x-auto w-full">
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell className="py-8 text-center text-sm text-zinc-600">
-                    No active official contracts confirmed.
-                  </TableCell>
+                  <TableHead>Official contract IDs</TableHead>
                 </TableRow>
-              ) : (
-                proof.officialContractIds.map((contractId) => (
-                  <TableRow key={contractId}>
-                    <TableCell className="font-mono text-xs break-all">
-                      <div className="flex items-start gap-1">
-                        <span className="min-w-0 flex-1">{contractId}</span>
-                        <CopyButton value={contractId} label="contract ID" />
-                      </div>
+              </TableHeader>
+              <TableBody>
+                {proof.officialContractIds.length === 0 ? (
+                  <TableRow>
+                    <TableCell className="py-8 text-center text-sm text-zinc-600">
+                      No active official contracts confirmed.
                     </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+                ) : (
+                  proof.officialContractIds.map((contractId) => (
+                    <TableRow key={contractId}>
+                      <TableCell className="font-mono text-xs break-all">
+                        <div className="flex items-start gap-1">
+                          <span className="min-w-0 flex-1">{contractId}</span>
+                          <CopyButton value={contractId} label="contract ID" />
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </div>
 
         <div className="rounded-lg border border-zinc-200 bg-white">

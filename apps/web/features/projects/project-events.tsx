@@ -366,68 +366,72 @@ export function ProjectEvents({ projectId }: ProjectEventsProps) {
             Last poll: {formatTimestamp(activity?.poller.lastRunAt)}
           </span>
         </div>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Event/topic</TableHead>
-              <TableHead>Contract</TableHead>
-              <TableHead>Transaction</TableHead>
-              <TableHead>Ledger</TableHead>
-              <TableHead>Observed</TableHead>
-              <TableHead className="text-right">Data</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredEvents.length === 0 ? (
+        <div className="overflow-x-auto w-full">
+          <Table>
+            <TableHeader>
               <TableRow>
-                <TableCell colSpan={6} className="py-10 text-center text-sm text-zinc-600">
-                  {activity?.events.length
-                    ? "No events match the current filters."
-                    : "No events found in the recent ledger window."}
-                </TableCell>
+                <TableHead>Event/topic</TableHead>
+                <TableHead>Contract</TableHead>
+                <TableHead>Transaction</TableHead>
+                <TableHead>Ledger</TableHead>
+                <TableHead>Observed</TableHead>
+                <TableHead className="text-right">Data</TableHead>
               </TableRow>
-            ) : (
-              filteredEvents.map((event) => (
-                <TableRow key={event._id}>
-                  <TableCell>
-                    <div className="grid gap-1">
-                      <span className="font-medium">{displayTopic(event.topic)}</span>
-                      <Badge variant="gray" className="w-fit">
-                        {event.type}
-                      </Badge>
-                    </div>
-                  </TableCell>
-                  <TableCell className="font-mono text-xs">
-                    <div className="flex items-center gap-1">
-                      <span title={event.contractId}>{shortValue(event.contractId)}</span>
-                      <CopyButton value={event.contractId} label="contract ID" />
-                    </div>
-                  </TableCell>
-                  <TableCell className="font-mono text-xs">
-                    <div className="flex items-center gap-1">
-                      <span title={event.transactionHash}>{shortValue(event.transactionHash)}</span>
-                      <CopyButton value={event.transactionHash} label="transaction hash" />
-                    </div>
-                  </TableCell>
-                  <TableCell className="font-mono text-xs">{event.ledger}</TableCell>
-                  <TableCell className="text-sm text-zinc-600">
-                    {formatTimestamp(event.timestamp ?? event.observedAt)}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Sheet>
-                      <SheetTrigger asChild>
-                        <Button variant="outline" size="sm">
-                          View
-                        </Button>
-                      </SheetTrigger>
-                      <EventDetail event={event} />
-                    </Sheet>
+            </TableHeader>
+            <TableBody>
+              {filteredEvents.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="py-10 text-center text-sm text-zinc-600">
+                    {activity?.events.length
+                      ? "No events match the current filters."
+                      : "No events found in the recent ledger window."}
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+              ) : (
+                filteredEvents.map((event) => (
+                  <TableRow key={event._id}>
+                    <TableCell>
+                      <div className="grid gap-1">
+                        <span className="font-medium">{displayTopic(event.topic)}</span>
+                        <Badge variant="gray" className="w-fit">
+                          {event.type}
+                        </Badge>
+                      </div>
+                    </TableCell>
+                    <TableCell className="font-mono text-xs">
+                      <div className="flex items-center gap-1">
+                        <span title={event.contractId}>{shortValue(event.contractId)}</span>
+                        <CopyButton value={event.contractId} label="contract ID" />
+                      </div>
+                    </TableCell>
+                    <TableCell className="font-mono text-xs">
+                      <div className="flex items-center gap-1">
+                        <span title={event.transactionHash}>
+                          {shortValue(event.transactionHash)}
+                        </span>
+                        <CopyButton value={event.transactionHash} label="transaction hash" />
+                      </div>
+                    </TableCell>
+                    <TableCell className="font-mono text-xs">{event.ledger}</TableCell>
+                    <TableCell className="text-sm text-zinc-600">
+                      {formatTimestamp(event.timestamp ?? event.observedAt)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Sheet>
+                        <SheetTrigger asChild>
+                          <Button variant="outline" size="sm">
+                            View
+                          </Button>
+                        </SheetTrigger>
+                        <EventDetail event={event} />
+                      </Sheet>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </div>
     </section>
   );

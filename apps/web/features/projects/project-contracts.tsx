@@ -372,86 +372,88 @@ export function ProjectContracts({ projectId }: ProjectContractsProps) {
       </form>
 
       <div className="rounded-lg border border-zinc-200 bg-white">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Contract ID</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Transaction</TableHead>
-              <TableHead>Last sync</TableHead>
-              <TableHead className="text-right">Action</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {currentContracts.length === 0 ? (
+        <div className="overflow-x-auto w-full">
+          <Table>
+            <TableHeader>
               <TableRow>
-                <TableCell colSpan={5} className="py-8 text-center text-sm text-zinc-600">
-                  No official contracts linked.
-                </TableCell>
+                <TableHead>Contract ID</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Transaction</TableHead>
+                <TableHead>Last sync</TableHead>
+                <TableHead className="text-right">Action</TableHead>
               </TableRow>
-            ) : (
-              currentContracts.map((link) => (
-                <TableRow key={link._id}>
-                  <TableCell className="max-w-[18rem] break-all font-mono text-xs">
-                    <div className="flex items-start gap-1">
-                      <span className="min-w-0 flex-1">{link.contractId}</span>
-                      <CopyButton value={link.contractId} label="contract ID" />
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={statusVariant[link.status]}>{statusLabel[link.status]}</Badge>
-                  </TableCell>
-                  <TableCell className="font-mono text-xs">
-                    <div className="flex items-center gap-1">
-                      <span>
-                        {(link.removeTxHash ?? link.addTxHash)?.slice(0, 16) ?? "Not submitted"}
-                        {(link.removeTxHash ?? link.addTxHash) ? "..." : ""}
-                      </span>
-                      {(link.removeTxHash ?? link.addTxHash) ? (
-                        <CopyButton
-                          value={(link.removeTxHash ?? link.addTxHash)!}
-                          label="transaction hash"
-                        />
-                      ) : null}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-sm text-zinc-600">
-                    {formatTimestamp(link.lastSyncAt)}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={!canManage || link.status !== "active" || busyId === link._id}
-                        >
-                          <Trash2Icon />
-                          Remove
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Remove official contract?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            This submits a Testnet transaction to remove {link.contractId} from the
-                            public proof.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => removeContract(link)}>
-                            Confirm remove
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
+            </TableHeader>
+            <TableBody>
+              {currentContracts.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="py-8 text-center text-sm text-zinc-600">
+                    No official contracts linked.
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+              ) : (
+                currentContracts.map((link) => (
+                  <TableRow key={link._id}>
+                    <TableCell className="max-w-[18rem] break-all font-mono text-xs">
+                      <div className="flex items-start gap-1">
+                        <span className="min-w-0 flex-1">{link.contractId}</span>
+                        <CopyButton value={link.contractId} label="contract ID" />
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={statusVariant[link.status]}>{statusLabel[link.status]}</Badge>
+                    </TableCell>
+                    <TableCell className="font-mono text-xs">
+                      <div className="flex items-center gap-1">
+                        <span>
+                          {(link.removeTxHash ?? link.addTxHash)?.slice(0, 16) ?? "Not submitted"}
+                          {(link.removeTxHash ?? link.addTxHash) ? "..." : ""}
+                        </span>
+                        {(link.removeTxHash ?? link.addTxHash) ? (
+                          <CopyButton
+                            value={(link.removeTxHash ?? link.addTxHash)!}
+                            label="transaction hash"
+                          />
+                        ) : null}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-sm text-zinc-600">
+                      {formatTimestamp(link.lastSyncAt)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            disabled={!canManage || link.status !== "active" || busyId === link._id}
+                          >
+                            <Trash2Icon />
+                            Remove
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Remove official contract?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              This submits a Testnet transaction to remove {link.contractId} from
+                              the public proof.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => removeContract(link)}>
+                              Confirm remove
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </div>
 
       <div className="flex items-center gap-2 text-sm text-zinc-600">

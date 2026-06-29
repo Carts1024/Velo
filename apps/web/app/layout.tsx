@@ -1,4 +1,5 @@
 import { ConvexClientProvider } from "@/core/providers/convex-provider";
+import { PwaProvider } from "@/core/providers/pwa-provider";
 import { WalletProvider } from "@/core/wallet/wallet-provider";
 import UiProviders from "@repo/ui/ui-providers";
 import localFont from "next/font/local";
@@ -6,7 +7,6 @@ import localFont from "next/font/local";
 import type { Metadata } from "next";
 
 import "./globals.css";
-
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
   variable: "--font-geist-sans",
@@ -46,7 +46,9 @@ export default function RootLayout({
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
         <ConvexClientProvider>
           <WalletProvider>
-            <UiProviders>{children}</UiProviders>
+            <UiProviders>
+              <PwaProvider>{children}</PwaProvider>
+            </UiProviders>
           </WalletProvider>
         </ConvexClientProvider>
       </body>

@@ -123,43 +123,45 @@ export function ProjectDashboard() {
             </EmptyContent>
           </Empty>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Slug</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Metadata hash</TableHead>
-                <TableHead className="text-right">Updated</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {projects.map((project) => (
-                <TableRow key={project._id}>
-                  <TableCell className="font-medium">
-                    <Link
-                      className="underline-offset-4 hover:underline"
-                      href={`/projects/${project._id}`}
-                    >
-                      {project.name}
-                    </Link>
-                  </TableCell>
-                  <TableCell>{project.slug}</TableCell>
-                  <TableCell>
-                    <Badge variant={statusVariant[project.status]}>
-                      {statusLabel[project.status]}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="font-mono text-xs">
-                    {project.metadataHash.slice(0, 16)}...
-                  </TableCell>
-                  <TableCell className="text-right text-sm text-zinc-600">
-                    {new Date(project.updatedAt).toLocaleDateString()}
-                  </TableCell>
+          <div className="overflow-x-auto w-full">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Slug</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Metadata hash</TableHead>
+                  <TableHead className="text-right">Updated</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {projects.map((project) => (
+                  <TableRow key={project._id}>
+                    <TableCell className="font-medium">
+                      <Link
+                        className="underline-offset-4 hover:underline"
+                        href={`/projects/${project._id}`}
+                      >
+                        {project.name}
+                      </Link>
+                    </TableCell>
+                    <TableCell>{project.slug}</TableCell>
+                    <TableCell>
+                      <Badge variant={statusVariant[project.status]}>
+                        {statusLabel[project.status]}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="font-mono text-xs">
+                      {project.metadataHash.slice(0, 16)}...
+                    </TableCell>
+                    <TableCell className="text-right text-sm text-zinc-600">
+                      {new Date(project.updatedAt).toLocaleDateString()}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         )}
       </div>
 

@@ -547,43 +547,45 @@ export function ProjectDetail({ projectId }: ProjectDetailProps) {
             <Skeleton className="h-12 w-full" />
           </div>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Contract ID</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Last sync</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {contracts.length === 0 ? (
+          <div className="overflow-x-auto w-full">
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={3} className="py-8 text-center text-sm text-zinc-600">
-                    No official contracts linked.
-                  </TableCell>
+                  <TableHead>Contract ID</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Last sync</TableHead>
                 </TableRow>
-              ) : (
-                contracts.map((contract) => (
-                  <TableRow key={contract._id}>
-                    <TableCell className="max-w-[20rem] font-mono text-xs break-all">
-                      <div className="flex items-start gap-1">
-                        <span className="min-w-0 flex-1">{contract.contractId}</span>
-                        <CopyButton value={contract.contractId} label="contract ID" />
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={contractStatusVariant[contract.status]}>
-                        {contractStatusLabel[contract.status]}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right text-sm text-zinc-600">
-                      {formatTimestamp(contract.lastSyncAt)}
+              </TableHeader>
+              <TableBody>
+                {contracts.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={3} className="py-8 text-center text-sm text-zinc-600">
+                      No official contracts linked.
                     </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+                ) : (
+                  contracts.map((contract) => (
+                    <TableRow key={contract._id}>
+                      <TableCell className="max-w-[20rem] font-mono text-xs break-all">
+                        <div className="flex items-start gap-1">
+                          <span className="min-w-0 flex-1">{contract.contractId}</span>
+                          <CopyButton value={contract.contractId} label="contract ID" />
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={contractStatusVariant[contract.status]}>
+                          {contractStatusLabel[contract.status]}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right text-sm text-zinc-600">
+                        {formatTimestamp(contract.lastSyncAt)}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
         )}
       </div>
 

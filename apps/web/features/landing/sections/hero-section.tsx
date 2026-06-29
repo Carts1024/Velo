@@ -35,22 +35,22 @@ export function HeroSection() {
           </div>
         </div>
 
-        <nav className="flex items-center gap-6">
+        <nav className="flex items-center gap-4 sm:gap-6">
           <Link
             href="/dashboard"
-            className="text-sm font-medium text-zinc-400 transition-colors hover:text-zinc-100"
+            className="hidden sm:inline-block text-sm font-medium text-zinc-400 transition-colors hover:text-zinc-100"
           >
             Dashboard
           </Link>
           <Link
             href="/debug"
-            className="text-sm font-medium text-zinc-400 transition-colors hover:text-zinc-100"
+            className="hidden sm:inline-block text-sm font-medium text-zinc-400 transition-colors hover:text-zinc-100"
           >
             Debugger
           </Link>
           <Link
             href="/dashboard"
-            className="rounded-full border border-zinc-800 bg-zinc-900 px-4 py-1.5 text-xs font-semibold text-zinc-300 transition-all hover:bg-zinc-800"
+            className="rounded-full border border-zinc-800 bg-zinc-900 px-3 py-1 sm:px-4 sm:py-1.5 text-xs font-semibold text-zinc-300 transition-all hover:bg-zinc-800"
           >
             Launch Console
           </Link>

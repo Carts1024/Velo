@@ -479,55 +479,61 @@ export function ProjectWebhooks({ projectId }: { projectId: string }) {
           <h2 className="font-semibold">Delivery logs</h2>
           <p className="text-xs text-zinc-500">Showing the latest 50 bounded attempts.</p>
         </div>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Time</TableHead>
-              <TableHead>Event type</TableHead>
-              <TableHead>Destination</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>HTTP</TableHead>
-              <TableHead>Attempts</TableHead>
-              <TableHead className="text-right">Payload</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {!deliveries?.length ? (
+        <div className="overflow-x-auto w-full">
+          <Table>
+            <TableHeader>
               <TableRow>
-                <TableCell colSpan={7} className="py-10 text-center text-sm text-zinc-600">
-                  {wallet.address
-                    ? "No webhook delivery attempts yet."
-                    : "Connect the owner wallet to view private delivery logs."}
-                </TableCell>
+                <TableHead>Time</TableHead>
+                <TableHead>Event type</TableHead>
+                <TableHead>Destination</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>HTTP</TableHead>
+                <TableHead>Attempts</TableHead>
+                <TableHead className="text-right">Payload</TableHead>
               </TableRow>
-            ) : (
-              deliveries.map((delivery) => (
-                <TableRow key={delivery._id}>
-                  <TableCell className="text-sm">
-                    {formatTimestamp(delivery.lastAttemptAt)}
-                  </TableCell>
-                  <TableCell className="font-mono text-xs">{delivery.eventType}</TableCell>
-                  <TableCell>{delivery.destinationHost}</TableCell>
-                  <TableCell>
-                    <Badge variant={deliveryVariant[delivery.status]}>{delivery.status}</Badge>
-                  </TableCell>
-                  <TableCell>{delivery.httpStatus ?? "-"}</TableCell>
-                  <TableCell>{delivery.attemptCount}</TableCell>
-                  <TableCell className="text-right">
-                    <Sheet>
-                      <SheetTrigger asChild>
-                        <Button variant="outline" size="sm">
-                          View
-                        </Button>
-                      </SheetTrigger>
-                      <DeliveryDetail delivery={delivery} />
-                    </Sheet>
+            </TableHeader>
+            <TableBody>
+              {!deliveries?.length ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="py-10 text-center text-sm text-zinc-600">
+                    {wallet.address
+                      ? "No webhook delivery attempts yet."
+                      : "Connect the owner wallet to view private delivery logs."}
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+              ) : (
+                deliveries.map((delivery) => (
+                  <TableRow key={delivery._id}>
+                    <TableCell className="text-sm">
+                      {formatTimestamp(delivery.lastAttemptAt)}
+                    </TableCell>
+                    <TableCell className="font-mono text-xs">{delivery.eventType}</TableCell>
+                    <TableCell className="max-w-64 font-mono text-xs truncate break-all">
+                      <span title={delivery.destinationHost}>{delivery.destinationHost}</span>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={deliveryVariant[delivery.status]}>{delivery.status}</Badge>
+                    </TableCell>
+                    <TableCell className="font-mono text-xs">
+                      {delivery.httpStatus ?? "-"}
+                    </TableCell>
+                    <TableCell className="font-mono text-xs">{delivery.attemptCount}</TableCell>
+                    <TableCell className="text-right">
+                      <Sheet>
+                        <SheetTrigger asChild>
+                          <Button variant="outline" size="sm">
+                            View
+                          </Button>
+                        </SheetTrigger>
+                        <DeliveryDetail delivery={delivery} />
+                      </Sheet>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </div>
 
       <Alert>
