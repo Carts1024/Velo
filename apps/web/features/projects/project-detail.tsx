@@ -39,6 +39,7 @@ import {
   WebhookIcon,
   KeyIcon,
   Trash2Icon,
+  CodeIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
@@ -1030,6 +1031,12 @@ export function ProjectDetail({ projectId }: ProjectDetailProps) {
               Webhooks (Inactive)
             </span>
           )}
+        </Button>
+        <Button variant="outline" asChild>
+          <Link href={`/projects/${currentProject._id}/integration`}>
+            <CodeIcon className="mr-1.5 size-4" />
+            Integration
+          </Link>
         </Button>
         <Button variant="outline" asChild>
           <Link href={`/verify/${currentProject.slug}`}>

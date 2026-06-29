@@ -196,3 +196,57 @@ export async function submitCheckoutTransaction(
     throw new Error(message);
   }
 }
+
+export type CreatePaymentIntentParams = {
+  apiKey: string;
+  amount: string;
+  asset?: string;
+  description?: string;
+  successUrl?: string;
+  cancelUrl?: string;
+  baseUrl?: string;
+};
+
+export type CreatePaymentIntentResult = {
+  paymentIntentId: string;
+  checkoutUrl: string;
+  expiresIn: number;
+};
+
+/**
+ * Initiates a payment session by creating a Velo Pay payment intent on the backend.
+ * Returns the session details including the hosted checkout URL.
+ */
+export async function createCheckoutSession(
+  params: CreatePaymentIntentParams,
+): Promise<CreatePaymentIntentResult> {
+  const { apiKey, baseUrl = "http://localhost:3000", ...body } = params;
+
+  if (!apiKey) {
+    throw new Error("API key is required");
+  }
+
+  const response = await fetch(`${baseUrl}/api/v1/payment-intents`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    let errorJson;
+    try {
+      errorJson = JSON.parse(errorText);
+    } catch {
+      // ignore
+    }
+    throw new Error(
+      errorJson?.error || `Failed to create checkout session: ${response.statusText}`,
+    );
+  }
+
+  return response.json();
+}
