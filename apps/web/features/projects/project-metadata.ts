@@ -23,7 +23,7 @@ export function buildProjectMetadata(input: ProjectMetadataInput) {
     website: input.website.trim() || null,
     ownerAddress: input.ownerAddress.trim().toUpperCase(),
     network: "testnet",
-    schema: "talakit.project.v1",
+    schema: "velo.project.v1",
   };
 }
 

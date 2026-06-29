@@ -3,7 +3,7 @@ title: "Sprint 0 Readiness Decisions"
 status: accepted
 created: 2026-06-13
 updated: 2026-06-13
-project_name: TalaKit
+project_name: Velo
 ---
 
 # Sprint 0 Readiness Decisions
@@ -14,7 +14,7 @@ These decisions close the implementation blockers for Phase 1 Sprint 0. They can
 
 | Decision | Sprint 0 Default | Rationale |
 | --- | --- | --- |
-| Public product name | TalaKit | Matches repo name and current planning artifacts. |
+| Public product name | Velo | Matches repo name and current planning artifacts. |
 | First wallet target | Freighter | Narrowest path for Stellar/Soroban hackathon MVP. |
 | Network | Stellar Testnet only | Keeps deployment, RPC, and UX states bounded. |
 | Transaction debugger input | Transaction hash required; XDR deferred | Hash lookup is enough for Phase 1 acceptance. |
@@ -36,9 +36,9 @@ Optional or defaulted for Sprint 0:
 - `NEXT_PUBLIC_CONVEX_SITE_URL`
 - `NEXT_PUBLIC_STELLAR_NETWORK=testnet`
 - `NEXT_PUBLIC_STELLAR_RPC_URL=https://soroban-testnet.stellar.org`
-- `NEXT_PUBLIC_TALAKIT_REGISTRY_CONTRACT_ID`
+- `NEXT_PUBLIC_VELO_REGISTRY_CONTRACT_ID`
 
-`NEXT_PUBLIC_TALAKIT_REGISTRY_CONTRACT_ID` stays optional until the registry contract is deployed during Sprint 1.
+`NEXT_PUBLIC_VELO_REGISTRY_CONTRACT_ID` stays optional until the registry contract is deployed during Sprint 1.
 
 ## Route Contract
 
@@ -68,4 +68,4 @@ import { Table } from "@repo/ui/components/ui/table";
 import { Badge } from "@repo/ui/components/ui-customs/badge";
 ```
 
-TalaKit-specific compositions should live under `apps/web/features/*`.
+Velo-specific compositions should live under `apps/web/features/*`.

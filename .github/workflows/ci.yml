@@ -10,6 +10,8 @@ jobs:
   test-js:
     name: Frontend, Packages & Backend Tests
     runs-on: ubuntu-latest
+    env:
+      NEXT_PUBLIC_CONVEX_URL: https://dummy.convex.cloud
 
     steps:
       - name: Checkout Code

@@ -1,12 +1,12 @@
-# TalaKit Project Status Report
+# Velo Project Status Report
 
 Generated: 2026-06-29  
-Scope: current local worktree under `/home/carts/Documents/Personal/TalaKit`  
+Scope: current local worktree under `/home/carts/Documents/Personal/Velo`  
 Audience: product owner, implementation agents, and developers preparing the Alpha phase
 
 ## 1. Executive Summary
 
-TalaKit has moved beyond placeholder planning into a working Phase 1 MVP foundation. The current codebase already implements most of the original **Verify + Debug** loop:
+Velo has moved beyond placeholder planning into a working Phase 1 MVP foundation. The current codebase already implements most of the original **Verify + Debug** loop:
 
 1. Wallet connection through Stellar Wallets Kit on Testnet.
 2. Off-chain project creation in Convex.
@@ -19,9 +19,9 @@ TalaKit has moved beyond placeholder planning into a working Phase 1 MVP foundat
 9. Project API key generation and read-only developer API routes for events, cached transactions, and webhook deliveries.
 10. DemoPay readiness checklist and copy/share affordances.
 
-The codebase is **not yet Alpha-complete** against `docs/prds/prd-talakit02026-06-26/talakit-alpha-spec.md`. The main missing Alpha requirements are:
+The codebase is **not yet Alpha-complete** against `docs/prds/prd-velo02026-06-26/velo-alpha-spec.md`. The main missing Alpha requirements are:
 
-- second Soroban contract `TalaKitAccessPass`;
+- second Soroban contract `VeloAccessPass`;
 - meaningful inter-contract call from AccessPass into Registry;
 - full RPC gateway that forwards JSON-RPC methods;
 - API key usage tracking, last-used timestamp, request count, revocation metadata, and rate limiting;
@@ -35,9 +35,9 @@ Overall status: **Phase 1 MVP is substantially implemented; Alpha is planned and
 Primary sources reviewed:
 
 - `README.md`
-- `docs/prds/prd-talakit-2026-06-13/prd.md`
-- `docs/prds/prd-talakit-2026-06-13/phase-1-sprint-plan.md`
-- `docs/prds/prd-talakit02026-06-26/talakit-alpha-spec.md`
+- `docs/prds/prd-velo-2026-06-13/prd.md`
+- `docs/prds/prd-velo-2026-06-13/phase-1-sprint-plan.md`
+- `docs/prds/prd-velo02026-06-26/velo-alpha-spec.md`
 - `apps/web`
 - `packages/backend/convex`
 - `packages/stellar/src`
@@ -282,7 +282,7 @@ Deferred:
 
 ### 4.8 Contract Event Indexer and Monitor
 
-Status: **Implemented as bounded poller for linked contracts**
+Status: **Implemented as Bounded Poller for Linked Contracts**
 
 Implemented in:
 
@@ -409,7 +409,7 @@ Status: **Not implemented as Alpha requires**
 Current code has developer API routes and direct Stellar RPC calls from helpers/actions, but no endpoint like:
 
 ```txt
-https://rpc.talakit.xyz/testnet/YOUR_API_KEY
+https://rpc.velo.xyz/testnet/YOUR_API_KEY
 ```
 
 Missing Alpha gateway behavior:
@@ -473,7 +473,7 @@ Phase 1 overall: **near MVP-complete, pending environment/deployment/live-flow v
 | Mobile responsive UI | Partial | Components use responsive layouts; needs viewport QA |
 | Proper loading states | Mostly implemented | Main flows include skeleton/empty/loading states |
 | Proper error handling | Mostly implemented | Main flows include failure states; live edge cases remain |
-| Inter-contract calls with 2+ contracts | Not implemented | Only `TalaKitRegistry` exists |
+| Inter-contract calls with 2+ contracts | Not implemented | Only `VeloRegistry` exists |
 | Working RPC gateway | Not implemented | API routes exist, not JSON-RPC gateway |
 | Working contract event indexer | Implemented, needs live validation | Bounded poller exists |
 | Working transaction debugger | Implemented | Hash-only; XDR deferred |
@@ -483,7 +483,7 @@ Phase 1 overall: **near MVP-complete, pending environment/deployment/live-flow v
 
 ### Priority 1: Smart Contract Alpha Gap
 
-Build `TalaKitAccessPass` contract.
+Build `VeloAccessPass` contract.
 
 Required:
 
@@ -492,7 +492,7 @@ Required:
 - `get_access_status(project_id)`
 - `get_project_credits(project_id)`
 - `deactivate_access(project_id)`
-- Inter-contract call to `TalaKitRegistry.get_project(project_id)`.
+- Inter-contract call to `VeloRegistry.get_project(project_id)`.
 - Check project exists and active.
 - Enforce owner activation.
 - Tests for active/inactive/missing project paths.
@@ -565,7 +565,7 @@ Needed:
 
 ## 9. Recommended Next Implementation Order
 
-1. Build and test `TalaKitAccessPass`.
+1. Build and test `VeloAccessPass`.
 2. Deploy Registry and AccessPass to Testnet; record contract IDs.
 3. Wire AccessPass activation into project dashboard and readiness checklist.
 4. Implement minimal RPC gateway with API key auth, allowlist, and request logs.
@@ -579,7 +579,7 @@ Needed:
 
 ```mermaid
 mindmap
-  root((TalaKit))
+  root((Velo))
     Implemented
       Wallet connection
       Draft projects
@@ -609,7 +609,7 @@ mindmap
 
 ## 11. Bottom Line
 
-TalaKit already has a coherent and runnable Phase 1 MVP architecture. The implementation covers the original Verify + Debug product loop at code level. The new Alpha phase should not restart the project; it should extend the current foundation with the mandatory Alpha platform pieces:
+Velo already has a coherent and runnable Phase 1 MVP architecture. The implementation covers the original Verify + Debug product loop at code level. The new Alpha phase should not restart the project; it should extend the current foundation with the mandatory Alpha platform pieces:
 
 - second contract and inter-contract verification;
 - real RPC gateway;

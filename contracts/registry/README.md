@@ -1,6 +1,6 @@
-# TalaKit Registry Contract
+# Velo Registry Contract
 
-Soroban registry contract for TalaKit project verification on Stellar Testnet.
+Soroban registry contract for Velo project verification on Stellar Testnet.
 
 ## Public Interface
 
@@ -32,7 +32,7 @@ cargo build --target wasm32v1-none --release
 The optimized WASM is emitted at:
 
 ```txt
-target/wasm32v1-none/release/talakit_registry.wasm
+target/wasm32v1-none/release/velo_registry.wasm
 ```
 
 If using Stellar CLI from the monorepo root, the equivalent command is:
@@ -53,7 +53,7 @@ Deploy:
 
 ```bash
 stellar contract deploy \
-  --wasm target/wasm32v1-none/release/talakit_registry.wasm \
+  --wasm target/wasm32v1-none/release/velo_registry.wasm \
   --source-account <SOURCE_ACCOUNT> \
   --network testnet
 ```
@@ -61,7 +61,7 @@ stellar contract deploy \
 After deployment, copy the returned contract ID into the web app environment:
 
 ```bash
-NEXT_PUBLIC_TALAKIT_REGISTRY_CONTRACT_ID=<DEPLOYED_CONTRACT_ID>
+NEXT_PUBLIC_VELO_REGISTRY_CONTRACT_ID=<DEPLOYED_CONTRACT_ID>
 ```
 
 Current Testnet registry contract ID:

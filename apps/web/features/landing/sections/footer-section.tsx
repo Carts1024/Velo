@@ -10,15 +10,13 @@ export function FooterSection() {
       <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-6 md:flex-row">
         {/* Logo label */}
         <div className="flex items-center gap-2.5">
-          <img src="/iconv2.png" alt="TalaKit Logo" className="h-6 w-6 rounded-md object-contain" />
-          <span className="font-sans text-sm font-semibold tracking-tight text-zinc-400">
-            TalaKit
-          </span>
+          <img src="/iconv2.png" alt="Velo Logo" className="h-6 w-6 rounded-md object-contain" />
+          <span className="font-sans text-sm font-semibold tracking-tight text-zinc-400">Velo</span>
         </div>
 
         {/* copyright metadata */}
         <div className="text-xs font-light text-zinc-600">
-          &copy; {currentYear} TalaKit. All rights reserved. Built for Stellar infrastructure teams.
+          &copy; {currentYear} Velo. All rights reserved. Built for Stellar infrastructure teams.
         </div>
 
         {/* minimal resource links */}

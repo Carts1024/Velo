@@ -4,7 +4,7 @@ import { CheckCircle2, Copy, Terminal } from "lucide-react";
 import { useState } from "react";
 
 const infrastructureSnippet = [
-  'import { createProject, watchEvents } from "@talakit/sdk";',
+  'import { createProject, watchEvents } from "@velo/sdk";',
   "",
   "const project = await createProject({",
   '  name: "Hackathon Wallet",',
@@ -13,9 +13,9 @@ const infrastructureSnippet = [
   "  contractIds: [registryContractId],",
   "});",
   "",
-  "await watchEvents({",
+  "const watchResult = await watchEvents({",
   "  projectId: project.id,",
-  '  webhookUrl: "https://api.example.com/talakit",',
+  '  webhookUrl: "https://api.example.com/velo",',
   "});",
 ].join("\n");
 
@@ -41,7 +41,7 @@ export function DeveloperSection() {
               Tools for the full Stellar app lifecycle.
             </h3>
             <p className="text-zinc-400 text-sm leading-relaxed font-light">
-              TalaKit is the infrastructure layer around your Stellar app: typed helpers, reusable
+              Velo is the infrastructure layer around your Stellar app: typed helpers, reusable
               workflows, project verification, observability, and payment APIs on the roadmap.
             </p>
 

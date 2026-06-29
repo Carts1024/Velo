@@ -1,4 +1,4 @@
-# PRD Addendum: TalaKit Verify + Debug
+# PRD Addendum: Velo Verify + Debug
 
 ## Source Context
 

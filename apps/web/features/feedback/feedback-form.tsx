@@ -96,7 +96,7 @@ export function FeedbackForm() {
     <form onSubmit={handleSubmit} className="rounded-lg border border-zinc-200 bg-white p-5">
       <div className="grid gap-5">
         <div className="grid gap-2">
-          <Label htmlFor="feedback-rating">How would you rate TalaKit?</Label>
+          <Label htmlFor="feedback-rating">How would you rate Velo?</Label>
           <StarRating value={rating} onChange={setRating} disabled={isSaving} size="lg" />
         </div>
 
@@ -111,7 +111,7 @@ export function FeedbackForm() {
             id="feedback-comment"
             value={comment}
             onChange={(e) => setComment(e.target.value)}
-            placeholder="Tell us what you think about TalaKit — what's working well, what could be improved..."
+            placeholder="Tell us what you think about Velo — what's working well, what could be improved..."
             maxLength={COMMENT_MAX}
             className="min-h-32"
             required

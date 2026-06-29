@@ -363,7 +363,7 @@ export function ProjectWebhooks({ projectId }: { projectId: string }) {
               id="webhook-url"
               value={url}
               onChange={(event) => setUrl(event.target.value)}
-              placeholder="https://api.example.com/webhooks/talakit"
+              placeholder="https://api.example.com/webhooks/velo"
               disabled={!ownerMatches}
             />
           </div>

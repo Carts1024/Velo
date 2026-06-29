@@ -1,18 +1,18 @@
 ---
-title: "Phase 1 Sprint Plan: TalaKit Verify + Debug"
+title: "Phase 1 Sprint Plan: Velo Verify + Debug"
 status: draft
 created: 2026-06-13
 updated: 2026-06-13
-project_name: TalaKit
+project_name: Velo
 inputDocuments:
-  - docs/prds/prd-talakit-2026-06-13/prd.md
-  - docs/prds/prd-talakit-2026-06-13/architecture.md
-  - docs/prds/prd-talakit-2026-06-13/ux-design-specification.md
+  - docs/prds/prd-velo-2026-06-13/prd.md
+  - docs/prds/prd-velo-2026-06-13/architecture.md
+  - docs/prds/prd-velo-2026-06-13/ux-design-specification.md
   - contracts/registry/src/lib.rs
   - contracts/registry/tests/registry.rs
 ---
 
-# Phase 1 Sprint Plan: TalaKit Verify + Debug
+# Phase 1 Sprint Plan: Velo Verify + Debug
 
 ## 1. Planning Intent
 
@@ -38,7 +38,7 @@ Connect wallet
 - Keep Stellar Testnet as the only Phase 1 network.
 - Treat on-chain registry data as authoritative for project owner, active status, metadata hash, and official contract IDs.
 - Keep API keys, RPC gateway, request logs, advanced filters, retries, billing, and team projects out of the Phase 1 critical path.
-- Use `packages/ui/src` for UI primitives and compose TalaKit-specific components in `apps/web/features/*`.
+- Use `packages/ui/src` for UI primitives and compose Velo-specific components in `apps/web/features/*`.
 - Every sprint must include loading, empty, failed, and stale states for the user-facing flows it touches.
 
 ## 3. Sprint Overview
@@ -65,7 +65,7 @@ Goal: remove avoidable ambiguity before implementation work accelerates.
 
 Scope:
 
-- Confirm customer-facing name for Phase 1 UI: `TalaKit` unless explicitly changed.
+- Confirm customer-facing name for Phase 1 UI: `Velo` unless explicitly changed.
 - Confirm Stellar Wallets Kit as the wallet integration layer, with Freighter as the first validated wallet target.
 - Confirm transaction hash lookup is required; XDR paste remains optional unless capacity allows.
 - Confirm public route format: `/verify/[slug]`.
@@ -83,7 +83,7 @@ Acceptance criteria:
 
 Outputs:
 
-- `docs/prds/prd-talakit-2026-06-13/sprint-0-readiness-decisions.md`
+- `docs/prds/prd-velo-2026-06-13/sprint-0-readiness-decisions.md`
 - `apps/web/core/config/stellar.ts`
 - Placeholder routes under `apps/web/app`
 - Shared UI import verification through `apps/web/features/readiness/placeholder-page.tsx`

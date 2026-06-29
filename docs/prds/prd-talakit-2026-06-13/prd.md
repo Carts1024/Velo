@@ -1,5 +1,5 @@
 ---
-title: "PRD: TalaKit Verify + Debug"
+title: "PRD: Velo Verify + Debug"
 status: draft
 created: 2026-06-13
 updated: 2026-06-13
@@ -8,13 +8,13 @@ source_inputs:
   - FOLDER_STRUCTURE.md
 ---
 
-# PRD: TalaKit Verify + Debug
+# PRD: Velo Verify + Debug
 
 ## 1. Summary
 
-TalaKit is a developer operations platform for Stellar and Soroban applications. The hackathon MVP focuses on **Verify + Debug**: a workflow that lets Soroban builders register official project contracts, publish a verified project page, inspect transaction activity, monitor contract events, and demonstrate webhook delivery from a single dashboard.
+Velo is a developer operations platform for Stellar and Soroban applications. The hackathon MVP focuses on **Verify + Debug**: a workflow that lets Soroban builders register official project contracts, publish a verified project page, inspect transaction activity, monitor contract events, and demonstrate webhook delivery from a single dashboard.
 
-The product addresses the gap between raw Stellar infrastructure and the operational tooling developers need after deployment. Stellar already provides SDKs, RPC endpoints, explorers, and documentation; TalaKit packages verification, debugging, event visibility, and webhook evidence into an approachable developer workflow.
+The product addresses the gap between raw Stellar infrastructure and the operational tooling developers need after deployment. Stellar already provides SDKs, RPC endpoints, explorers, and documentation; Velo packages verification, debugging, event visibility, and webhook evidence into an approachable developer workflow.
 
 ## 2. Goals
 
@@ -61,7 +61,7 @@ Today, teams commonly solve these questions by combining RPC calls, explorers, s
 
 ## 5. MVP Scope
 
-The MVP is **TalaKit Verify + Debug** for Stellar Testnet and Soroban apps.
+The MVP is **Velo Verify + Debug** for Stellar Testnet and Soroban apps.
 
 ### In Scope
 
@@ -88,28 +88,28 @@ The MVP is **TalaKit Verify + Debug** for Stellar Testnet and Soroban apps.
 
 ### UJ-1: Register and Verify a Project
 
-1. Developer opens TalaKit.
+1. Developer opens Velo.
 2. Developer connects a wallet.
 3. Developer creates a project with a name and metadata.
 4. Developer submits an on-chain registration transaction.
-5. TalaKit confirms registration and stores off-chain dashboard data.
+5. Velo confirms registration and stores off-chain dashboard data.
 6. Developer adds one or more official Soroban contract IDs.
-7. TalaKit publishes a verified project page showing ownership, status, and contract IDs.
+7. Velo publishes a verified project page showing ownership, status, and contract IDs.
 
 ### UJ-2: Debug a Transaction
 
 1. Developer opens the transaction debugger.
 2. Developer pastes a transaction hash or XDR.
-3. TalaKit fetches and parses available transaction data.
+3. Velo fetches and parses available transaction data.
 4. Developer sees transaction status, operation breakdown, contract calls, events, fees, resource usage, and failure reason when available.
 5. Developer uses the result to understand what happened without writing a custom script.
 
 ### UJ-3: Monitor Events and Webhook Delivery
 
 1. Developer opens a registered project dashboard.
-2. TalaKit shows recent events for linked contract IDs.
+2. Velo shows recent events for linked contract IDs.
 3. Developer configures a webhook URL for project activity.
-4. TalaKit sends a webhook when a supported event is observed.
+4. Velo sends a webhook when a supported event is observed.
 5. Developer checks the delivery log to confirm payload, status, timestamp, and failure details when relevant.
 
 ### UJ-4: Hackathon Demo
@@ -118,10 +118,10 @@ The MVP is **TalaKit Verify + Debug** for Stellar Testnet and Soroban apps.
 2. Developer connects a Stellar wallet.
 3. Developer registers the project through the Soroban registry.
 4. Developer adds the official `DemoPay` contract ID.
-5. TalaKit shows a public verified project page.
+5. Velo shows a public verified project page.
 6. Developer looks up a sample transaction.
-7. TalaKit displays transaction status and emitted events.
-8. TalaKit sends a webhook notification to a developer backend.
+7. Velo displays transaction status and emitted events.
+8. Velo sends a webhook notification to a developer backend.
 9. Dashboard shows the webhook delivery log.
 
 ## 7. Functional Requirements
@@ -135,7 +135,7 @@ The MVP is **TalaKit Verify + Debug** for Stellar Testnet and Soroban apps.
 
 ### F2. Project Creation and Dashboard
 
-- **FR-005:** The app must let a developer create a TalaKit project with at least a project name.
+- **FR-005:** The app must let a developer create a Velo project with at least a project name.
 - **FR-006:** The app must store off-chain project details needed by the dashboard.
 - **FR-007:** The app must show a project dashboard after creation.
 - **FR-008:** The dashboard must show project name, owner wallet, on-chain registration status, linked contract IDs, recent activity, and webhook delivery status.
@@ -195,9 +195,9 @@ The MVP is **TalaKit Verify + Debug** for Stellar Testnet and Soroban apps.
 ### F8. Webhooks
 
 - **FR-046:** A developer must be able to configure a webhook URL for a project.
-- **FR-047:** TalaKit must support webhook event types `contract.event`, `transaction.succeeded`, `transaction.failed`, `project.registered`, and `project.updated`.
-- **FR-048:** TalaKit must send webhook payloads containing type, project ID, contract ID when relevant, transaction hash when relevant, ledger, and event data.
-- **FR-049:** TalaKit must show webhook delivery logs with timestamp, event type, destination URL, HTTP status or failure reason, and payload summary.
+- **FR-047:** Velo must support webhook event types `contract.event`, `transaction.succeeded`, `transaction.failed`, `project.registered`, and `project.updated`.
+- **FR-048:** Velo must send webhook payloads containing type, project ID, contract ID when relevant, transaction hash when relevant, ledger, and event data.
+- **FR-049:** Velo must show webhook delivery logs with timestamp, event type, destination URL, HTTP status or failure reason, and payload summary.
 - **FR-050:** The MVP must support a demoable webhook delivery path even if retry logic is limited.
 - **FR-051:** The app must avoid exposing webhook secrets or sensitive URL components on public pages.
 
@@ -297,11 +297,11 @@ The MVP is **TalaKit Verify + Debug** for Stellar Testnet and Soroban apps.
 - **Scope risk:** API keys, RPC gateway, and rich filtering can distract from Verify + Debug. Mitigation: keep them optional until the core demo is complete.
 - **Trust risk:** Off-chain data could diverge from on-chain registry state. Mitigation: treat on-chain data as authoritative and label stale sync states.
 - **Webhook demo risk:** External endpoints may fail. Mitigation: record every attempt and show delivery status clearly.
-- **Naming risk:** Repo name, README title, and product copy currently mix TalaKit and StellarKit. Mitigation: choose one public name before UX design and docs polish.
+- **Naming risk:** Repo name, README title, and product copy currently mix Velo and StellarKit. Mitigation: choose one public name before UX design and docs polish.
 
 ## 13. Open Questions
 
-- Should the customer-facing product name be TalaKit or StellarKit?
+- Should the customer-facing product name be Velo or StellarKit?
 - Which wallet is the required first wallet for the hackathon demo: Freighter only, or a wallet-kit abstraction?
 - Is XDR paste required for MVP, or is transaction hash lookup enough?
 - What is the acceptable recent-event history window for MVP?

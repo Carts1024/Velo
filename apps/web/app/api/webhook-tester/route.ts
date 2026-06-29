@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(request: NextRequest) {
   return NextResponse.json({
-    name: "TalaKit temporary webhook tester",
+    name: "Velo temporary webhook tester",
     endpoint: new URL("/api/webhook-tester", request.url).toString(),
     method: "POST",
     options: {
@@ -30,17 +30,17 @@ export async function POST(request: NextRequest) {
     await new Promise((resolve) => setTimeout(resolve, delay));
   }
 
-  console.info("TalaKit temporary webhook tester received", {
-    event: request.headers.get("x-talakit-event"),
-    delivery: request.headers.get("x-talakit-delivery"),
+  console.info("Velo temporary webhook tester received", {
+    event: request.headers.get("x-velo-event"),
+    delivery: request.headers.get("x-velo-delivery"),
     payload,
   });
 
   return NextResponse.json(
     {
       received: true,
-      event: request.headers.get("x-talakit-event"),
-      delivery: request.headers.get("x-talakit-delivery"),
+      event: request.headers.get("x-velo-event"),
+      delivery: request.headers.get("x-velo-delivery"),
       receivedAt: new Date().toISOString(),
     },
     { status },

@@ -43,7 +43,7 @@ const steps = [
     icon: CheckCircle2,
     title: "Expand",
     description:
-      "Add roadmap modules like TalaKit Pay when your app needs payment links, checkout, and payment webhooks.",
+      "Add roadmap modules like Velo Pay when your app needs payment links, checkout, and payment webhooks.",
   },
 ];
 
@@ -60,7 +60,7 @@ export function HowItWorksSection() {
             From Stellar idea to working infrastructure.
           </h3>
           <p className="text-zinc-400 text-sm font-light">
-            TalaKit helps teams create, configure, integrate, operate, launch, and expand without
+            Velo helps teams create, configure, integrate, operate, launch, and expand without
             stitching together every tool from scratch.
           </p>
         </div>

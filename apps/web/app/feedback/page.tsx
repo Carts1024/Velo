@@ -5,8 +5,8 @@ import { FeedbackList } from "@/features/feedback/feedback-list";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Feedback — TalaKit",
-  description: "Share your feedback about TalaKit. Rate your experience and help us improve.",
+  title: "Feedback — Velo",
+  description: "Share your feedback about Velo. Rate your experience and help us improve.",
 };
 
 export default function FeedbackPage() {
@@ -16,7 +16,7 @@ export default function FeedbackPage() {
         <div>
           <h1 className="text-3xl font-semibold tracking-normal">Feedback</h1>
           <p className="mt-1 max-w-2xl text-sm text-zinc-600">
-            Help us improve TalaKit by sharing your experience. Rate and leave your comments below.
+            Help us improve Velo by sharing your experience. Rate and leave your comments below.
           </p>
         </div>
 

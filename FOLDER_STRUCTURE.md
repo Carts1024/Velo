@@ -1,6 +1,6 @@
-# TalaKit Folder Structure
+# Velo Folder Structure
 
-This document provides an overview of the TalaKit project folder structure, explaining the purpose and organization of each directory.
+This document provides an overview of the Velo project folder structure, explaining the purpose and organization of each directory.
 
 ## Root Level
 
@@ -19,11 +19,11 @@ The root directory contains monorepo configuration and workspace-level files:
 
 ## `/apps` - Applications
 
-Contains consumer-facing applications built on the TalaKit platform.
+Contains consumer-facing applications built on the Velo platform.
 
 ### `/apps/web`
 
-**Next.js 15+ frontend application** for the StellarKit developer dashboard.
+**Next.js 15+ frontend application** for the Velo developer dashboard.
 
 ```
 web/
@@ -56,7 +56,7 @@ web/
 └── package.json           # App-level dependencies
 ```
 
-**Purpose:** Main web application for StellarKit dashboard, providing developer access to project verification, transaction debugging, event monitoring, and webhook configuration.
+**Purpose:** Main web application for Velo dashboard, providing developer access to project verification, transaction debugging, event monitoring, and webhook configuration.
 
 **Key Features:**
 - Server-side rendering with Next.js
@@ -70,7 +70,7 @@ Contains reusable, shared packages used across applications.
 
 ### `/packages/backend`
 
-**Convex backend** - Real-time database and backend logic for the StellarKit platform.
+**Convex backend** - Real-time database and backend logic for the Velo platform.
 
 ```
 backend/
@@ -188,12 +188,6 @@ The project uses **pnpm workspaces** and **Turbo** for efficient builds and task
 - **Build pipeline** in `turbo.json` ensures correct build order
 - **Shared configs** in `packages/typescript-config` are referenced by all packages
 - **UI components** are imported by the web app as an internal dependency
-
-### Environment Configuration
-
-- **`apps/web/.env.local`** - Frontend environment variables
-- **`packages/backend/.env.local`** - Convex backend secrets and API keys
-- Root `.env*` files are loaded by turbo build tasks
 
 ## File Organization Best Practices
 

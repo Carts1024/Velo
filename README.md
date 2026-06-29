@@ -1,12 +1,12 @@
-# TalaKit
+# Velo
 
 **Verified developer infrastructure for Stellar and Soroban apps.**
 
-StellarKit is a developer tooling platform that helps Stellar builders register, verify, monitor, and debug Soroban-powered applications.
+Velo is a developer tooling platform that helps Stellar builders register, verify, monitor, and debug Soroban-powered applications.
 
 It combines an on-chain Soroban project registry with an off-chain developer dashboard for transaction debugging, contract event monitoring, webhook delivery, and project verification.
 
-> Free Stellar tools help developers access the network. StellarKit helps teams operate, monitor, and trust their Stellar apps.
+> Free Stellar tools help developers access the network. Velo helps teams operate, monitor, and trust their Stellar apps.
 
 ---
 
@@ -26,15 +26,15 @@ Developers often need to answer questions like:
 
 Today, teams often stitch together RPC calls, explorers, custom event indexers, databases, webhook workers, and debugging scripts.
 
-StellarKit packages these missing workflow pieces into one developer platform.
+Velo packages these missing workflow pieces into one developer platform.
 
 ---
 
 ## Solution
 
-StellarKit provides a simple workflow for Soroban developers:
+Velo provides a simple workflow for Soroban developers:
 
-1. Create a StellarKit project.
+1. Create a Velo project.
 2. Register the project on-chain through a Soroban registry contract.
 3. Add official Soroban contract IDs to the project.
 4. Monitor recent transactions and contract events.
@@ -50,7 +50,7 @@ The goal is to make building on Stellar feel easier, safer, and more production-
 
 ### 1. Soroban Project Registry
 
-StellarKit includes a Soroban smart contract that acts as an on-chain registry for Stellar projects.
+Velo includes a Soroban smart contract that acts as an on-chain registry for Stellar projects.
 
 Developers can register project metadata and official contract IDs so users and other developers can verify which contracts belong to a project.
 
@@ -95,7 +95,7 @@ The debugger displays:
 
 ### 4. Contract Event Monitor
 
-StellarKit watches registered contracts and shows recent events in a readable dashboard.
+Velo watches registered contracts and shows recent events in a readable dashboard.
 
 Developers can filter events by:
 
@@ -136,7 +136,7 @@ Example payload:
 
 ### 6. RPC Request Logs
 
-StellarKit can act as a lightweight RPC gateway or request logger for selected Stellar RPC calls.
+Velo can act as a lightweight RPC gateway or request logger for selected Stellar RPC calls.
 
 The dashboard can show:
 
@@ -152,13 +152,13 @@ This gives developers more visibility into how their app interacts with Stellar.
 
 ---
 
-## Why StellarKit?
+## Why Velo?
 
-Stellar already has excellent free tools, SDKs, RPC endpoints, and documentation. StellarKit is not meant to replace them.
+Stellar already has excellent free tools, SDKs, RPC endpoints, and documentation. Velo is not meant to replace them.
 
-Instead, StellarKit focuses on the workflow layer developers usually need after the basics:
+Instead, Velo focuses on the workflow layer developers usually need after the basics:
 
-| Need                                | Free Tools     | StellarKit           |
+| Need                                | Free Tools     | Velo                 |
 | ----------------------------------- | -------------- | -------------------- |
 | Send transactions                   | Yes            | Yes                  |
 | Read raw transaction data           | Yes            | Yes                  |
@@ -171,7 +171,7 @@ Instead, StellarKit focuses on the workflow layer developers usually need after 
 | Project-level request logs          | Build yourself | Built-in             |
 | Developer operations workflow       | Manual         | Built-in             |
 
-StellarKit helps developers spend less time building internal infrastructure and more time building their actual product.
+Velo helps developers spend less time building internal infrastructure and more time building their actual product.
 
 ---
 
@@ -201,7 +201,7 @@ Create audit-friendly logs for transaction activity, event delivery, and registe
 
 ## Hackathon MVP Scope
 
-For the Rise In x Stellar APAC Hackathon, the MVP focuses on **StellarKit Verify + Debug**.
+For the Rise In x Stellar APAC Hackathon, the MVP focuses on **Velo Verify + Debug**.
 
 ### Smart Contract
 
@@ -243,7 +243,7 @@ For the Rise In x Stellar APAC Hackathon, the MVP focuses on **StellarKit Verify
 Developer
    |
    v
-Creates StellarKit project
+Creates Velo project
    |
    v
 Registers project through Soroban Registry Contract
@@ -252,7 +252,7 @@ Registers project through Soroban Registry Contract
 Adds official Soroban contract IDs
    |
    v
-StellarKit monitors transactions and events
+Velo monitors transactions and events
    |
    v
 Dashboard shows debugging, events, and webhook logs
@@ -271,6 +271,7 @@ Frontend Dashboard
    v
 Backend API / Worker
    |
+   v
    +--> Soroban Registry Contract
    |
    +--> Stellar RPC / Testnet RPC
@@ -337,7 +338,7 @@ For future production:
 Contract name:
 
 ```txt
-stellar_kit_registry
+velo_registry
 ```
 
 Core functions:
@@ -376,17 +377,15 @@ The hackathon demo follows a simple developer journey:
 2. The developer connects a Stellar wallet.
 3. The project is registered on-chain through the Soroban registry.
 4. The developer adds the official `DemoPay` contract ID.
-5. StellarKit shows a public verified project page.
+5. Velo shows a public verified project page.
 6. A sample transaction is submitted or looked up.
-7. StellarKit displays the transaction status and emitted events.
+7. Velo displays the transaction status and emitted events.
 8. A webhook notification is delivered to the developer backend.
 9. The dashboard shows the webhook delivery log.
 
 ---
 
 ## Local Development
-
-> Setup instructions will be updated as the project implementation progresses.
 
 ### Prerequisites
 
@@ -418,7 +417,7 @@ stellar contract build --manifest-path contracts/registry/Cargo.toml
 
 ```bash
 stellar contract deploy \
-  --wasm contracts/registry/target/wasm32v1-none/release/talakit_registry.wasm \
+  --wasm contracts/registry/target/wasm32v1-none/release/velo_registry.wasm \
   --source-account <SOURCE_ACCOUNT> \
   --network testnet
 ```
@@ -462,7 +461,7 @@ stellar contract deploy \
 
 ## Positioning
 
-StellarKit is not a replacement for Stellar SDKs, Stellar Laboratory, or public RPC endpoints.
+Velo is not a replacement for Stellar SDKs, Stellar Laboratory, or public RPC endpoints.
 
 It is the developer operations layer for Stellar apps.
 
@@ -484,9 +483,8 @@ MIT
 
 Built for the Rise In x Stellar APAC Hackathon.
 
-Project name: **StellarKit**
+Project name: **Velo**
 
 Tagline: **Verified developer infrastructure for Stellar apps.**
-
 
 CBSR5LFHR5Q2X3PO3HSMGXI43YEUYGFTHUPGNVGW6XH2VNOQUEUHIEJR

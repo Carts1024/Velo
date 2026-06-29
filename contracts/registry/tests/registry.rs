@@ -2,14 +2,14 @@ use soroban_sdk::{
     testutils::{Address as _, Events as _, MockAuth, MockAuthInvoke},
     Address, BytesN, Env, Event, IntoVal, String,
 };
-use talakit_registry::{
+use velo_registry::{
     ContractAdded, ContractRemoved, OwnershipTransferred, Project, ProjectDeactivated,
-    ProjectRegistered, ProjectUpdated, RegistryError, TalaKitRegistry, TalaKitRegistryClient,
+    ProjectRegistered, ProjectUpdated, RegistryError, VeloRegistry, VeloRegistryClient,
 };
 
 fn setup() -> (
     Env,
-    TalaKitRegistryClient<'static>,
+    VeloRegistryClient<'static>,
     Address,
     Address,
     BytesN<32>,
@@ -17,8 +17,8 @@ fn setup() -> (
     let env = Env::default();
     env.mock_all_auths();
 
-    let contract_id = env.register(TalaKitRegistry, ());
-    let client = TalaKitRegistryClient::new(&env, &contract_id);
+    let contract_id = env.register(VeloRegistry, ());
+    let client = VeloRegistryClient::new(&env, &contract_id);
     let owner = Address::generate(&env);
     let metadata_hash = BytesN::from_array(&env, &[7; 32]);
 
@@ -27,7 +27,7 @@ fn setup() -> (
 
 fn register_demo_project(
     env: &Env,
-    client: &TalaKitRegistryClient,
+    client: &VeloRegistryClient,
     owner: &Address,
     metadata_hash: &BytesN<32>,
 ) -> u64 {
@@ -258,8 +258,8 @@ fn registry_mutations_emit_observable_events() {
 #[test]
 fn non_owner_auth_cannot_mutate_project_contracts() {
     let env = Env::default();
-    let contract_id = env.register(TalaKitRegistry, ());
-    let client = TalaKitRegistryClient::new(&env, &contract_id);
+    let contract_id = env.register(VeloRegistry, ());
+    let client = VeloRegistryClient::new(&env, &contract_id);
     let owner = Address::generate(&env);
     let non_owner = Address::generate(&env);
     let metadata_hash = BytesN::from_array(&env, &[7; 32]);

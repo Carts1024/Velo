@@ -1,4 +1,4 @@
-# TalaKit Alpha Specification — Pay-Prioritized Revision
+# Velo Alpha Specification — Pay-Prioritized Revision
 
 Generated: 2026-06-29  
 Status: Revised Alpha plan focused on **Stablecoin Payment Links + Checkout SDK + Webhooks**  
@@ -8,9 +8,9 @@ Primary goal: Demo-ready hackathon Alpha, not full production-grade infrastructu
 
 ## 1. Product Overview
 
-**TalaKit Alpha** is a developer-first stablecoin payment infrastructure layer for Stellar builders.
+**Velo Alpha** is a developer-first stablecoin payment infrastructure layer for Stellar builders.
 
-Instead of positioning the Alpha as a broad “all-in-one developer operations platform,” this revision focuses the Alpha around **TalaKit Pay**:
+Instead of positioning the Alpha as a broad “all-in-one developer operations platform,” this revision focuses the Alpha around **Velo Pay**:
 
 - Stablecoin payment links
 - Hosted checkout page
@@ -23,7 +23,7 @@ Instead of positioning the Alpha as a broad “all-in-one developer operations p
 
 ### One-line pitch
 
-> TalaKit Pay lets Stellar developers accept stablecoin payments with a payment link, a few lines of SDK code, and real-time webhooks when payments succeed.
+> Velo Pay lets Stellar developers accept stablecoin payments with a payment link, a few lines of SDK code, and real-time webhooks when payments succeed.
 
 ### Alpha goal
 
@@ -48,7 +48,7 @@ The previous Alpha plan prioritized RPC gateway, event indexer, transaction debu
 
 ### Deferred or reduced scope
 
-These are not removed from TalaKit forever, but they should not block the hackathon Alpha:
+These are not removed from Velo forever, but they should not block the hackathon Alpha:
 
 - Full RPC gateway
 - Advanced request logging
@@ -65,7 +65,7 @@ These are not removed from TalaKit forever, but they should not block the hackat
 
 ## 3. Mandatory Requirements for This Alpha
 
-For this revised Alpha, TalaKit must satisfy:
+For this revised Alpha, Velo must satisfy:
 
 - Functional demo of stablecoin payment link creation
 - Functional hosted checkout/payment page
@@ -88,7 +88,7 @@ Because the hackathon does not require production readiness, production-grade SL
 
 ## 4. Target Users
 
-TalaKit Alpha is for:
+Velo Alpha is for:
 
 - Developers building Stellar payment apps
 - Hackathon teams that want to accept stablecoin payments
@@ -105,27 +105,27 @@ TalaKit Alpha is for:
 ```txt
 Developer connects wallet
     ↓
-Creates a TalaKit project / merchant profile
+Creates a Velo project / merchant profile
     ↓
-Registers the project on-chain using TalaKitRegistry
+Registers the project on-chain using VeloRegistry
     ↓
-Activates payment access using TalaKitPayAccess
+Activates payment access using VeloPayAccess
     ↓
-TalaKitPayAccess calls TalaKitRegistry to verify the project exists and is active
+VeloPayAccess calls VeloRegistry to verify the project exists and is active
     ↓
 Developer configures receiver wallet, accepted asset, and webhook URL
     ↓
 Developer creates a PaymentIntent or uses the Checkout SDK
     ↓
-TalaKit generates a hosted payment link
+Velo generates a hosted payment link
     ↓
 Customer opens the payment link and connects wallet
     ↓
 Customer sends stablecoin payment on Stellar Testnet
     ↓
-TalaKit tracks the transaction and marks the PaymentIntent as paid
+Velo tracks the transaction and marks the PaymentIntent as paid
     ↓
-TalaKit sends a payment.succeeded webhook to the developer backend
+Velo sends a payment.succeeded webhook to the developer backend
     ↓
 Developer views payment status and webhook delivery logs in the dashboard
 ```
@@ -162,7 +162,7 @@ Required UI behavior:
 
 ## 6.2 Project / Merchant Dashboard
 
-Developers must be able to create and manage a TalaKit project that acts as a merchant profile for accepting stablecoin payments.
+Developers must be able to create and manage a Velo project that acts as a merchant profile for accepting stablecoin payments.
 
 Project fields:
 
@@ -218,7 +218,7 @@ Payment Links let developers or merchants create a shareable checkout URL for a 
 Example:
 
 ```txt
-https://pay.talakit.xyz/pay/pi_123
+https://pay.velo.xyz/pay/pi_123
 ```
 
 ### Required behavior
@@ -280,7 +280,7 @@ The hosted payment page should show:
 
 ### Purpose
 
-The Checkout SDK makes TalaKit Pay easy to integrate with a few lines of code.
+The Checkout SDK makes Velo Pay easy to integrate with a few lines of code.
 
 ### Developer-facing API
 
@@ -289,7 +289,7 @@ For the Alpha, the SDK can be a small TypeScript package or a copy-paste helper 
 Example:
 
 ```ts
-import { createCheckout } from "@talakit/checkout";
+import { createCheckout } from "@velo/checkout";
 
 const checkout = await createCheckout({
   apiKey: "tk_test_...",
@@ -306,7 +306,7 @@ window.location.href = checkout.url;
 
 ### SDK responsibilities
 
-- Call TalaKit API to create a PaymentIntent
+- Call Velo API to create a PaymentIntent
 - Return hosted checkout URL
 - Optionally return PaymentIntent ID
 - Optionally provide a helper to verify webhook signatures
@@ -406,9 +406,9 @@ payment_access.activated
 ### Recommended webhook headers
 
 ```txt
-x-talakit-event: payment.succeeded
-x-talakit-delivery-id: whd_123
-x-talakit-signature: hmac_sha256_signature
+x-velo-event: payment.succeeded
+x-velo-delivery-id: whd_123
+x-velo-signature: hmac_sha256_signature
 ```
 
 ### Example payment.succeeded payload
@@ -468,14 +468,14 @@ The Alpha should keep the 2-contract requirement but make it payment-relevant.
 
 Recommended contracts:
 
-1. `TalaKitRegistry`
-2. `TalaKitPayAccess`
+1. `VeloRegistry`
+2. `VeloPayAccess`
 
-### Contract 1: TalaKitRegistry
+### Contract 1: VeloRegistry
 
 Purpose:
 
-The Registry contract stores the verified project/merchant identity for TalaKit Pay.
+The Registry contract stores the verified project/merchant identity for Velo Pay.
 
 It proves:
 
@@ -501,13 +501,13 @@ is_project_active(project_id)
 
 Alpha note:
 
-The current `TalaKitRegistry` can remain mostly unchanged. The payment-specific data such as receiver wallet and accepted asset can live off-chain in Convex for demo speed, while the metadata hash anchors the project identity on-chain.
+The current `VeloRegistry` can remain mostly unchanged. The payment-specific data such as receiver wallet and accepted asset can live off-chain in Convex for demo speed, while the metadata hash anchors the project identity on-chain.
 
-### Contract 2: TalaKitPayAccess
+### Contract 2: VeloPayAccess
 
 Purpose:
 
-`TalaKitPayAccess` activates payment access for a verified project and satisfies the inter-contract call requirement in a useful way.
+`VeloPayAccess` activates payment access for a verified project and satisfies the inter-contract call requirement in a useful way.
 
 Core functions:
 
@@ -522,9 +522,9 @@ get_checkout_credits(project_id)
 Required inter-contract behavior:
 
 ```txt
-User calls TalaKitPayAccess.activate_payments(project_id)
+User calls VeloPayAccess.activate_payments(project_id)
     ↓
-TalaKitPayAccess calls TalaKitRegistry.get_project(project_id)
+VeloPayAccess calls VeloRegistry.get_project(project_id)
     ↓
 Registry returns project data
     ↓
@@ -650,7 +650,7 @@ The payment monitor confirms that a payment transaction was submitted and succee
 
 ### Alpha simplification
 
-Do not build a full universal indexer yet. For the demo, only track transactions created from TalaKit checkout.
+Do not build a full universal indexer yet. For the demo, only track transactions created from Velo checkout.
 
 ---
 
@@ -748,10 +748,10 @@ It should show:
 Example snippet:
 
 ```ts
-import { createCheckout } from "@talakit/checkout";
+import { createCheckout } from "@velo/checkout";
 
 const checkout = await createCheckout({
-  apiKey: process.env.TALAKIT_API_KEY!,
+  apiKey: process.env.VELO_API_KEY!,
   amount: "10",
   asset: "USDC",
   description: "Demo payment",
@@ -1009,7 +1009,7 @@ Build:
 - Webhook delivery logs
 - Test webhook button
 - Basic webhook signature if time allows
-- `@talakit/checkout` SDK helper or copy-paste client helper
+- `@velo/checkout` SDK helper or copy-paste client helper
 - Integration snippet page
 
 Deliverable:
@@ -1024,8 +1024,8 @@ Developer can create checkout with a few lines of code and receive a webhook whe
 
 Build:
 
-- Keep existing `TalaKitRegistry`
-- Build `TalaKitPayAccess` or adapt `TalaKitAccessPass`
+- Keep existing `VeloRegistry`
+- Build `VeloPayAccess` or adapt `VeloAccessPass`
 - Inter-contract call from PayAccess to Registry
 - Payment access activation UI
 - Testnet deployment IDs
@@ -1059,23 +1059,23 @@ Only build these if the core demo is already stable:
 The Alpha is complete when this demo works end-to-end:
 
 ```txt
-1. Developer opens TalaKit.
+1. Developer opens Velo.
 2. Developer connects Freighter wallet on Testnet.
-3. Developer creates a TalaKit project / merchant profile.
-4. Developer registers the project on-chain using TalaKitRegistry.
-5. Developer activates payment access using TalaKitPayAccess.
-6. TalaKitPayAccess calls TalaKitRegistry to verify the project exists and is active.
+3. Developer creates a Velo project / merchant profile.
+4. Developer registers the project on-chain using VeloRegistry.
+5. Developer activates payment access using VeloPayAccess.
+6. VeloPayAccess calls VeloRegistry to verify the project exists and is active.
 7. Developer configures receiver wallet and accepted stablecoin/test asset.
 8. Developer generates an API key.
 9. Developer creates a PaymentIntent from the dashboard or SDK.
-10. TalaKit generates a hosted payment link.
+10. Velo generates a hosted payment link.
 11. Customer opens the payment link.
 12. Customer connects wallet and submits stablecoin payment.
-13. TalaKit confirms the transaction and marks the PaymentIntent as paid.
-14. TalaKit sends a payment.succeeded webhook.
+13. Velo confirms the transaction and marks the PaymentIntent as paid.
+14. Velo sends a payment.succeeded webhook.
 15. Developer sees payment status and webhook delivery logs in the dashboard.
 16. Developer copies a Checkout SDK snippet showing the same flow in a few lines of code.
-17. Public verify page shows the project as a verified TalaKit Pay merchant.
+17. Public verify page shows the project as a verified Velo Pay merchant.
 ```
 
 ---
@@ -1105,7 +1105,7 @@ Do not include these in the hackathon Alpha unless all core payment features are
 
 Use this as the revised product description:
 
-> TalaKit Pay is a developer-first stablecoin payment layer for Stellar. It lets builders create payment links, embed checkout with a few lines of code, and receive real-time webhooks when payments succeed, while TalaKit handles transaction tracking, project verification, and payment observability.
+> Velo Pay is a developer-first stablecoin payment layer for Stellar. It lets builders create payment links, embed checkout with a few lines of code, and receive real-time webhooks when payments succeed, while Velo handles transaction tracking, project verification, and payment observability.
 
 ---
 
@@ -1139,7 +1139,7 @@ If time is limited, prioritize in this order:
 ```txt
 Demo Part 1: Developer setup
 - Connect Freighter
-- Create TalaKit Pay project
+- Create Velo Pay project
 - Register project on-chain
 - Activate payment access
 - Configure receiver wallet
@@ -1165,7 +1165,7 @@ Demo Part 3: Developer observability
 
 ## 16. Agent Implementation Notes
 
-The existing TalaKit codebase should not be rewritten. Extend the current Phase 1 MVP by adding payment-specific tables, routes, UI pages, and webhook event types.
+The existing Velo codebase should not be rewritten. Extend the current Phase 1 MVP by adding payment-specific tables, routes, UI pages, and webhook event types.
 
 Suggested implementation order for coding agents:
 

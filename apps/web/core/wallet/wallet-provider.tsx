@@ -44,7 +44,7 @@ type WalletState = {
 
 const WalletContext = createContext<WalletState | null>(null);
 
-const LAST_SESSION_KEY = "talakit:last-wallet-session";
+const LAST_SESSION_KEY = "velo:last-wallet-session";
 
 function getErrorMessage(error: unknown) {
   if (error instanceof Error) {

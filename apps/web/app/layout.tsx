@@ -17,19 +17,19 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://talakit.local"),
-  title: "TalaKit",
+  metadataBase: new URL("https://velo.local"),
+  title: "Velo",
   description: "Verified developer infrastructure for Stellar apps",
   keywords: ["stellar", "soroban", "developer tools", "verification", "debugging"],
   openGraph: {
-    siteName: "TalaKit",
-    title: "TalaKit",
+    siteName: "Velo",
+    title: "Velo",
     description: "Verified developer infrastructure for Stellar apps",
     images: "/banner.png",
     type: "website",
   },
   twitter: {
-    title: "TalaKit",
+    title: "Velo",
     description: "Verified developer infrastructure for Stellar apps",
     images: "/banner.png",
     card: "summary_large_image",

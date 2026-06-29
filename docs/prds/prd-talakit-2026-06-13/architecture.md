@@ -1,24 +1,24 @@
 ---
-title: "Architecture: TalaKit Verify + Debug"
+title: "Architecture: Velo Verify + Debug"
 status: draft
 created: 2026-06-13
 updated: 2026-06-13
 workflowType: architecture
-project_name: TalaKit
+project_name: Velo
 stepsCompleted: [1, 2, 3, 4, 5, 6, 7, 8]
 inputDocuments:
-  - docs/prds/prd-talakit-2026-06-13/prd.md
-  - docs/prds/prd-talakit-2026-06-13/addendum.md
-  - docs/prds/prd-talakit-2026-06-13/.decision-log.md
+  - docs/prds/prd-velo-2026-06-13/prd.md
+  - docs/prds/prd-velo-2026-06-13/addendum.md
+  - docs/prds/prd-velo-2026-06-13/.decision-log.md
   - README.md
   - FOLDER_STRUCTURE.md
 ---
 
-# Architecture: TalaKit Verify + Debug
+# Architecture: Velo Verify + Debug
 
 ## 1. Architecture Summary
 
-TalaKit is a full-stack developer operations app for Stellar Testnet and Soroban projects. The hackathon MVP should use the existing monorepo shape:
+Velo is a full-stack developer operations app for Stellar Testnet and Soroban projects. The hackathon MVP should use the existing monorepo shape:
 
 - `apps/web`: Next.js dashboard and public verification pages.
 - `packages/backend`: Convex database, server functions, scheduled jobs, and action wrappers around Stellar RPC and webhook delivery.
@@ -163,7 +163,7 @@ Responsibilities:
 
 - Validate Stellar public keys, contract IDs, transaction hashes, and network config.
 - Build registry contract invocation transactions.
-- Parse transaction responses into TalaKit debugger models.
+- Parse transaction responses into Velo debugger models.
 - Normalize contract events into dashboard-safe records.
 - Provide shared event type constants and payload builders.
 
@@ -485,7 +485,7 @@ Observability:
 
 - Add `contracts/registry` Soroban contract.
 - Add `packages/stellar` shared package.
-- Replace Convex todo schema with TalaKit schema.
+- Replace Convex todo schema with Velo schema.
 - Add environment config for Testnet RPC and registry contract ID.
 
 ### Phase 2: Verify
@@ -515,7 +515,7 @@ Observability:
 - Add empty, pending, stale, and error states.
 - Add demo seed guidance and sample contract notes.
 - Validate accessibility for keyboard navigation and status text.
-- Decide public name: TalaKit or StellarKit.
+- Decide public name: Velo or StellarKit.
 
 ## 10. Future Architecture Path
 
@@ -537,7 +537,7 @@ Production:
 
 ## 11. Open Architecture Questions
 
-- Product name: use TalaKit publicly, or rename to StellarKit throughout.
+- Product name: use Velo publicly, or rename to StellarKit throughout.
 - Wallet strategy: Freighter-only for MVP, or wallet-kit abstraction.
 - Public route: `/verify/[slug]` is recommended, but final UX may choose `/p/[slug]` or `/projects/[slug]`.
 - Event window: choose a concrete recent ledger window for polling.

@@ -1,22 +1,22 @@
 ---
-title: "UX Design Specification: TalaKit Phase 1"
+title: "UX Design Specification: Velo Phase 1"
 status: draft
 created: 2026-06-13
 updated: 2026-06-13
 workflowType: ux-design
-project_name: TalaKit
+project_name: Velo
 stepsCompleted: [1]
 inputDocuments:
-  - docs/prds/prd-talakit-2026-06-13/prd.md
-  - docs/prds/prd-talakit-2026-06-13/architecture.md
+  - docs/prds/prd-velo-2026-06-13/prd.md
+  - docs/prds/prd-velo-2026-06-13/architecture.md
   - README.md
 ---
 
-# UX Design Specification: TalaKit Phase 1
+# UX Design Specification: Velo Phase 1
 
 ## 1. Design Intent
 
-TalaKit Phase 1 should feel like a developer operations cockpit for Stellar and Soroban apps: calm, information-dense, precise, and credible. The user is not browsing marketing copy; they are trying to prove ownership, debug failures, inspect activity, and show evidence during a hackathon demo.
+Velo Phase 1 should feel like a developer operations cockpit for Stellar and Soroban apps: calm, information-dense, precise, and credible. The user is not browsing marketing copy; they are trying to prove ownership, debug failures, inspect activity, and show evidence during a hackathon demo.
 
 The UI should optimize for this promise:
 
@@ -89,7 +89,7 @@ Project-level navigation:
 
 Desktop header:
 
-- Product mark: `TalaKit`
+- Product mark: `Velo`
 - Network badge: `Testnet`
 - Sync health: `RPC OK`, `RPC slow`, or `RPC unavailable`
 - Wallet button: connected address or `Connect wallet`
@@ -104,7 +104,7 @@ Mobile header:
 
 ### Existing UI Library
 
-TalaKit should use the reusable component system in `packages/ui/src` as the base UI kit. Do not create a second design system inside `apps/web` for Phase 1.
+Velo should use the reusable component system in `packages/ui/src` as the base UI kit. Do not create a second design system inside `apps/web` for Phase 1.
 
 Available component groups:
 
@@ -120,7 +120,7 @@ Import guidance:
 - The package is named `@repo/ui`.
 - It exports files by source path pattern, so implementation should import concrete files such as `@repo/ui/components/ui/button`, `@repo/ui/components/ui/table`, and `@repo/ui/components/ui-customs/badge`.
 - Prefer existing UI files over adding local copies under `apps/web`.
-- Create TalaKit-specific composed components in `apps/web/features/*` only when they combine multiple primitives into a domain pattern, such as `CopyableHash`, `RegistryStatusBadge`, or `WebhookDeliveryTable`.
+- Create Velo-specific composed components in `apps/web/features/*` only when they combine multiple primitives into a domain pattern, such as `CopyableHash`, `RegistryStatusBadge`, or `WebhookDeliveryTable`.
 
 ### Tone
 
@@ -173,7 +173,7 @@ Avoid crypto-dashboard spectacle: no glowing gradients, no oversized token chart
 
 ### Component Reuse Map
 
-| UX Need | Existing Component(s) | TalaKit Composition |
+| UX Need | Existing Component(s) | Velo Composition |
 | --- | --- | --- |
 | Dashboard shell | `components/ui/sidebar.tsx`, `components/ui/breadcrumb.tsx`, `components/ui/separator.tsx` | `AppShell`, `ProjectShell` |
 | Mobile navigation | `components/ui/sheet.tsx`, `components/ui/sidebar.tsx` | Collapsible sidebar using existing mobile sheet behavior |
@@ -199,7 +199,7 @@ Purpose: get the developer into the product quickly while making the value obvio
 
 Primary layout:
 
-- Header with `TalaKit`, `Debugger`, `Verify`, and wallet button.
+- Header with `Velo`, `Debugger`, `Verify`, and wallet button.
 - First viewport should show:
   - H1: `Verified developer infrastructure for Stellar apps`
   - Supporting copy: register official contracts, debug transactions, monitor events, and prove webhook delivery.
@@ -571,7 +571,7 @@ Component notes:
 
 ### 6.10 Webhook Settings Screen
 
-Purpose: configure where TalaKit sends project activity.
+Purpose: configure where Velo sends project activity.
 
 Layout:
 
@@ -697,7 +697,7 @@ Mobile:
 
 ## 10. Open UX Decisions
 
-- Confirm public product name: TalaKit vs StellarKit.
+- Confirm public product name: Velo vs StellarKit.
 - Decide whether XDR paste is required in Phase 1 or hidden behind an advanced control.
 - Decide if public verification lookup by contract ID is required in Phase 1.
 - Decide whether the demo checklist is visible only in project dashboard or globally during demo mode.
@@ -710,7 +710,7 @@ Mobile:
 - Use lucide icons for actions such as copy, external link, refresh, alert, check, activity, wallet, webhook, and search.
 - Keep route components thin; screen-specific forms and tables should live in feature modules matching the architecture.
 - Use stable empty, loading, pending, failed, stale, and verified states before adding visual polish.
-- Add TalaKit domain components in `apps/web/features/*` only when they wrap shared UI primitives with product logic. Recommended first set:
+- Add Velo domain components in `apps/web/features/*` only when they wrap shared UI primitives with product logic. Recommended first set:
   - `AppShell`
   - `PageHeader`
   - `StatusBadge`
@@ -723,4 +723,4 @@ Mobile:
   - `WebhookDeliveryTable`
   - `JsonPayloadViewer`
   - `WalletAccountMenu`
-- Keep reusable generic components in `packages/ui` only if they are product-agnostic enough to serve future apps. TalaKit-specific chain concepts should stay in `apps/web/features`.
+- Keep reusable generic components in `packages/ui` only if they are product-agnostic enough to serve future apps. Velo-specific chain concepts should stay in `apps/web/features`.

@@ -99,7 +99,7 @@ export function OnboardingDialog({ open, onComplete, existingProfile }: Onboardi
         name: name.trim(),
         email: email.trim(),
       });
-      toast.success(isEditing ? "Profile updated" : "Welcome to TalaKit!");
+      toast.success(isEditing ? "Profile updated" : "Welcome to Velo!");
       onComplete();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to save profile");
@@ -119,7 +119,7 @@ export function OnboardingDialog({ open, onComplete, existingProfile }: Onboardi
           <DialogDescription>
             {isEditing
               ? "Update your name and email."
-              : "Tell us a bit about yourself to get started with TalaKit."}
+              : "Tell us a bit about yourself to get started with Velo."}
           </DialogDescription>
         </DialogHeader>
 

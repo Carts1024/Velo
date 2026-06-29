@@ -66,7 +66,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <header className="flex flex-col gap-4 border-b border-zinc-200 pb-5 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-6">
             <Link href="/dashboard" className="w-fit">
-              <div className="text-xl font-semibold tracking-normal">TalaKit</div>
+              <div className="text-xl font-semibold tracking-normal">Velo</div>
               <div className="text-sm text-zinc-600">Verify + Debug on Stellar Testnet</div>
             </Link>
             <nav className="flex flex-wrap items-center gap-2 text-sm">

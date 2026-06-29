@@ -27,13 +27,11 @@ export function HeroSection() {
         <div className="flex items-center gap-3">
           <img
             src="/iconv2.png"
-            alt="TalaKit Logo"
+            alt="Velo Logo"
             className="h-8 w-8 rounded-lg object-contain shadow-[0_0_15px_rgba(167,139,250,0.3)]"
           />
           <div>
-            <span className="font-sans text-lg font-bold tracking-tight text-zinc-100">
-              TalaKit
-            </span>
+            <span className="font-sans text-lg font-bold tracking-tight text-zinc-100">Velo</span>
           </div>
         </div>
 

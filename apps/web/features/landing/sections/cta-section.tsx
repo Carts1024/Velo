@@ -22,7 +22,7 @@ export function CTASection() {
 
         <p className="text-zinc-400 text-base md:text-lg max-w-xl mb-10 font-light leading-relaxed">
           Open the console to create project infrastructure, verify contracts, debug transactions,
-          wire webhooks, and track the TalaKit Pay roadmap as one module of the platform.
+          wire webhooks, and track the Velo Pay roadmap as one module of the platform.
         </p>
 
         {/* Action button triggers */}

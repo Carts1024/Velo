@@ -1,8 +1,8 @@
-# TalaKit Alpha Specification
+# Velo Alpha Specification
 
 ## 1. Product Overview
 
-**TalaKit Alpha** is an all-in-one developer operations platform for Stellar smart contract developers and builders.
+**Velo Alpha** is an all-in-one developer operations platform for Stellar smart contract developers and builders.
 
 It provides:
 
@@ -16,11 +16,11 @@ It provides:
 
 ### One-line pitch
 
-> TalaKit is the all-in-one developer platform for Stellar builders: verified project registry, RPC gateway, contract event indexer, transaction debugger, and webhooks in one place.
+> Velo is the all-in-one developer platform for Stellar builders: verified project registry, RPC gateway, contract event indexer, transaction debugger, and webhooks in one place.
 
 ### Alpha goal
 
-The alpha version should move TalaKit from a hackathon MVP into a production-ready MVP that smart contract developers can actually use to manage, monitor, and debug their Stellar applications.
+The alpha version should move Velo from a hackathon MVP into a production-ready MVP that smart contract developers can actually use to manage, monitor, and debug their Stellar applications.
 
 ---
 
@@ -44,7 +44,7 @@ The alpha version must satisfy the following requirements:
 
 ## 3. Target Users
 
-TalaKit Alpha is for:
+Velo Alpha is for:
 
 - Stellar smart contract developers
 - Soroban builders
@@ -61,11 +61,11 @@ TalaKit Alpha is for:
 ```txt
 Developer connects wallet
     ↓
-Creates a TalaKit project
+Creates a Velo project
     ↓
-Registers the project on-chain using the TalaKit Registry contract
+Registers the project on-chain using the Velo Registry contract
     ↓
-Activates project access using the TalaKit AccessPass contract
+Activates project access using the Velo AccessPass contract
     ↓
 AccessPass calls Registry to verify the project exists and is active
     ↓
@@ -73,13 +73,13 @@ Developer receives or generates an API key
     ↓
 Developer adds official Stellar/Soroban contract IDs
     ↓
-TalaKit indexes events from those registered contracts
+Velo indexes events from those registered contracts
     ↓
 Developer views events and transaction details in the dashboard
     ↓
 Developer configures webhooks
     ↓
-TalaKit sends webhook notifications when contract or transaction events happen
+Velo sends webhook notifications when contract or transaction events happen
 ```
 
 ---
@@ -114,7 +114,7 @@ Required UI behavior:
 
 ## 5.2 Project Dashboard
 
-Developers must be able to create and manage TalaKit projects.
+Developers must be able to create and manage Velo projects.
 
 Project fields:
 
@@ -157,21 +157,21 @@ The alpha must include at least 2 smart contracts with inter-contract calls.
 
 Recommended contracts:
 
-1. `TalaKitRegistry`
-2. `TalaKitAccessPass`
+1. `VeloRegistry`
+2. `VeloAccessPass`
 
 The inter-contract call must be meaningful and related to the product.
 
 ### Inter-contract requirement
 
-`TalaKitAccessPass` must call `TalaKitRegistry` to verify that a project exists and is active before activating access for the project.
+`VeloAccessPass` must call `VeloRegistry` to verify that a project exists and is active before activating access for the project.
 
 Example flow:
 
 ```txt
-User calls TalaKitAccessPass.activate_access(project_id)
+User calls VeloAccessPass.activate_access(project_id)
     ↓
-TalaKitAccessPass calls TalaKitRegistry.get_project(project_id)
+VeloAccessPass calls VeloRegistry.get_project(project_id)
     ↓
 Registry returns project data
     ↓
@@ -182,11 +182,11 @@ AccessPass activates access for the project
 
 ---
 
-## 5.4 Smart Contract 1: TalaKitRegistry
+## 5.4 Smart Contract 1: VeloRegistry
 
 ### Purpose
 
-The Registry contract stores the on-chain identity and verification layer for TalaKit projects.
+The Registry contract stores the on-chain identity and verification layer for Velo projects.
 
 It proves:
 
@@ -243,11 +243,11 @@ ProjectContracts {
 
 ---
 
-## 5.5 Smart Contract 2: TalaKitAccessPass
+## 5.5 Smart Contract 2: VeloAccessPass
 
 ### Purpose
 
-The AccessPass contract manages access activation, developer credits, or alpha usage rights for registered TalaKit projects.
+The AccessPass contract manages access activation, developer credits, or alpha usage rights for registered Velo projects.
 
 It exists to satisfy the inter-contract call requirement in a way that is useful to the product.
 
@@ -307,7 +307,7 @@ Purpose:
 
 - Prevent contract spoofing
 - Help users identify official project contracts
-- Allow TalaKit to know which contracts to index
+- Allow Velo to know which contracts to index
 - Connect events and transactions back to a verified project
 
 Required UI:
@@ -369,12 +369,12 @@ Required states:
 
 ## 5.8 RPC Gateway Alpha
 
-TalaKit Alpha should include a working RPC gateway.
+Velo Alpha should include a working RPC gateway.
 
 Example endpoint:
 
 ```txt
-https://rpc.talakit.xyz/testnet/YOUR_API_KEY
+https://rpc.velo.xyz/testnet/YOUR_API_KEY
 ```
 
 For alpha, testnet support is enough.
@@ -472,7 +472,7 @@ For alpha, do not index the whole Stellar network.
 
 Only index:
 
-- Projects registered in TalaKit
+- Projects registered in Velo
 - Contract IDs added to those projects
 
 ### Indexer responsibilities
@@ -951,8 +951,8 @@ WebhookDelivery {
 
 Build:
 
-- `TalaKitRegistry` contract
-- `TalaKitAccessPass` contract
+- `VeloRegistry` contract
+- `VeloAccessPass` contract
 - Inter-contract call from AccessPass to Registry
 - Contract tests
 - Testnet deployment
@@ -983,7 +983,7 @@ Build:
 Deliverable:
 
 ```txt
-Developer can create and manage a verified TalaKit project.
+Developer can create and manage a verified Velo project.
 ```
 
 ---
@@ -1003,7 +1003,7 @@ Build:
 Deliverable:
 
 ```txt
-Developer can use TalaKit RPC URL and see request logs in the dashboard.
+Developer can use Velo RPC URL and see request logs in the dashboard.
 ```
 
 ---
@@ -1022,7 +1022,7 @@ Build:
 Deliverable:
 
 ```txt
-TalaKit automatically indexes events from registered Stellar contracts.
+Velo automatically indexes events from registered Stellar contracts.
 ```
 
 ---
@@ -1077,22 +1077,22 @@ Production-ready alpha with stable frontend, smart contracts, RPC gateway, index
 The alpha is complete when the following demo works end-to-end:
 
 ```txt
-1. User opens TalaKit on desktop or mobile.
+1. User opens Velo on desktop or mobile.
 2. User connects Freighter wallet.
 3. User creates a project.
-4. User registers project on-chain using TalaKitRegistry.
-5. User activates project access using TalaKitAccessPass.
-6. TalaKitAccessPass calls TalaKitRegistry to verify the project.
+4. User registers project on-chain using VeloRegistry.
+5. User activates project access using VeloAccessPass.
+6. VeloAccessPass calls VeloRegistry to verify the project.
 7. User adds an official contract ID.
 8. User generates an API key.
-9. User sends RPC requests through TalaKit RPC gateway.
-10. TalaKit logs RPC requests and displays them in the dashboard.
-11. TalaKit indexes events from the registered contract.
+9. User sends RPC requests through Velo RPC gateway.
+10. Velo logs RPC requests and displays them in the dashboard.
+11. Velo indexes events from the registered contract.
 12. User views indexed events in the dashboard.
 13. User pastes a transaction hash into the debugger.
-14. TalaKit displays transaction status, events, and basic explanation.
+14. Velo displays transaction status, events, and basic explanation.
 15. User configures a webhook.
-16. TalaKit sends a webhook when an event happens.
+16. Velo sends a webhook when an event happens.
 17. User sees webhook delivery logs.
 18. Public project page shows verified project and official contract IDs.
 ```
@@ -1120,7 +1120,7 @@ Do not include these in alpha unless all core features are already stable:
 
 Use this as the product description:
 
-> TalaKit is an all-in-one developer operations platform for Stellar smart contract builders. It provides a verified project registry, RPC gateway, contract event indexer, transaction debugger, and webhook system so teams can build, monitor, and operate Stellar apps from one place.
+> Velo is an all-in-one developer operations platform for Stellar smart contract builders. It provides a verified project registry, RPC gateway, contract event indexer, transaction debugger, and webhook system so teams can build, monitor, and operate Stellar apps from one place.
 
 ---
 

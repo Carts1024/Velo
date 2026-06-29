@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 
-TalaKit is a pnpm/Turborepo monorepo. The Next.js app lives in `apps/web`, with routes in `app`, feature code in `features`, utilities in `core`, and static assets in `public`. Shared packages are in `packages`: `backend` contains Convex functions and schema in `convex`, `ui` contains reusable React components and styles in `src`, `stellar` contains Stellar SDK helpers in `src`, and `typescript-config` holds shared TS configs. Soroban registry contract code is in `contracts/registry/src`, with Rust tests in `contracts/registry/tests` and snapshots in `contracts/registry/test_snapshots`. Product and architecture docs are under `docs/prds`.
+Velo is a pnpm/Turborepo monorepo. The Next.js app lives in `apps/web`, with routes in `app`, feature code in `features`, utilities in `core`, and static assets in `public`. Shared packages are in `packages`: `backend` contains Convex functions and schema in `convex`, `ui` contains reusable React components and styles in `src`, `stellar` contains Stellar SDK helpers in `src`, and `typescript-config` holds shared TS configs. Soroban registry contract code is in `contracts/registry/src`, with Rust tests in `contracts/registry/tests` and snapshots in `contracts/registry/test_snapshots`. Product and architecture docs are under `docs/prds`.
 
 ## Build, Test, and Development Commands
 

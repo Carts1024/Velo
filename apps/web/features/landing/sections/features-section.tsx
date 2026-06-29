@@ -56,7 +56,7 @@ const features = [
   },
   {
     icon: WalletCards,
-    title: "TalaKit Pay",
+    title: "Velo Pay",
     description:
       "Upcoming payment infrastructure for payment links, checkout SDKs, and app-native Stellar stablecoin flows.",
     badge: "Roadmap",
@@ -98,7 +98,7 @@ export function FeaturesSection() {
             The operating layer for Stellar builders.
           </h3>
           <p className="text-zinc-400 text-base">
-            TalaKit combines project registry, developer workflows, debugging, event delivery, and
+            Velo combines project registry, developer workflows, debugging, event delivery, and
             payment infrastructure into one practical workspace.
           </p>
         </div>

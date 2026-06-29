@@ -21,10 +21,10 @@ const TTL_THRESHOLD: u32 = 17_280;
 const TTL_EXTEND_TO: u32 = 518_400;
 
 #[contract]
-pub struct TalaKitRegistry;
+pub struct VeloRegistry;
 
 #[contractimpl]
-impl TalaKitRegistry {
+impl VeloRegistry {
     pub fn register_project(
         env: Env,
         owner: Address,

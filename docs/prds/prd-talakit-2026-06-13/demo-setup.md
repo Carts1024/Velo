@@ -1,4 +1,4 @@
-# TalaKit DemoPay Setup
+# Velo DemoPay Setup
 
 Use this flow before a timed hackathon demo. It requires no direct Convex database edits.
 
@@ -6,14 +6,14 @@ Use this flow before a timed hackathon demo. It requires no direct Convex databa
 
 1. Start the web and Convex development processes with the documented environment variables.
 2. Connect a funded Stellar Testnet wallet.
-3. Set `NEXT_PUBLIC_TALAKIT_REGISTRY_CONTRACT_ID` to the deployed Testnet registry contract.
+3. Set `NEXT_PUBLIC_VELO_REGISTRY_CONTRACT_ID` to the deployed Testnet registry contract.
 4. Have one DemoPay Soroban contract ID available.
 5. For webhook delivery, deploy the web app or expose port 3000 through an HTTPS tunnel. Hosted Convex cannot call localhost.
 
 ## Timed Journey
 
 1. Create a project named `DemoPay` from `/projects/new`.
-2. Register it on-chain and wait for TalaKit to sync the registry project ID.
+2. Register it on-chain and wait for Velo to sync the registry project ID.
 3. Add the DemoPay contract from the project contracts screen.
 4. Poll events after the contract has emitted at least one Testnet event.
 5. Open and copy the public proof URL. Verify it in a private browser window without a wallet.

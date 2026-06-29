@@ -71,7 +71,7 @@ export function PublicVerification({ slug }: PublicVerificationProps) {
         <div className="mx-auto grid w-full max-w-5xl gap-5 px-4 py-8 sm:px-6 lg:px-8">
           <h1 className="text-3xl font-semibold tracking-normal">Project not found</h1>
           <Button asChild className="w-fit">
-            <Link href="/dashboard">Back to TalaKit</Link>
+            <Link href="/dashboard">Back to Velo</Link>
           </Button>
         </div>
       </main>
@@ -94,7 +94,7 @@ export function PublicVerification({ slug }: PublicVerificationProps) {
           </div>
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" asChild>
-              <Link href="/dashboard">TalaKit</Link>
+              <Link href="/dashboard">Velo</Link>
             </Button>
             <CopyButton value={`/verify/${proof.slug}`} label="public proof URL" size="sm" />
           </div>

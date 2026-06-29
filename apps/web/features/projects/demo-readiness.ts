@@ -34,7 +34,7 @@ export function getDemoReadiness({
     {
       id: "project",
       label: "Create DemoPay",
-      description: "Project metadata is saved in TalaKit.",
+      description: "Project metadata is saved in Velo.",
       complete: true,
     },
     {

@@ -1,7 +1,7 @@
 "use client";
 
 import { stellarConfig } from "@/core/config/stellar";
-import { TALAKIT_APP_NAME, TALAKIT_APP_TAGLINE } from "@/core/constants";
+import { VELO_APP_NAME, VELO_APP_TAGLINE } from "@/core/constants";
 import { Badge } from "@repo/ui/components/ui-customs/badge";
 import { Alert, AlertDescription, AlertTitle } from "@repo/ui/components/ui/alert";
 import { Button } from "@repo/ui/components/ui/button";
@@ -52,8 +52,8 @@ export function PlaceholderPage({
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 py-8">
         <header className="flex flex-col gap-4 border-b border-slate-200 pb-6 md:flex-row md:items-center md:justify-between">
           <Link href="/" className="w-fit">
-            <div className="text-lg font-semibold tracking-normal">{TALAKIT_APP_NAME}</div>
-            <div className="text-sm text-slate-600">{TALAKIT_APP_TAGLINE}</div>
+            <div className="text-lg font-semibold tracking-normal">{VELO_APP_NAME}</div>
+            <div className="text-sm text-slate-600">{VELO_APP_TAGLINE}</div>
           </Link>
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="info">{stellarConfig.networkLabel}</Badge>
@@ -114,7 +114,7 @@ export function PlaceholderPage({
               <TableRow>
                 <TableCell>Public product name</TableCell>
                 <TableCell>
-                  <Badge variant="success">TalaKit</Badge>
+                  <Badge variant="success">Velo</Badge>
                 </TableCell>
               </TableRow>
               <TableRow>

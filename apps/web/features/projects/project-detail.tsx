@@ -283,7 +283,7 @@ export function ProjectDetail({ projectId }: ProjectDetailProps) {
     }
 
     if (!stellarConfig.registryContractId) {
-      setLocalError("Set NEXT_PUBLIC_TALAKIT_REGISTRY_CONTRACT_ID before registration.");
+      setLocalError("Set NEXT_PUBLIC_VELO_REGISTRY_CONTRACT_ID before registration.");
       return;
     }
 
@@ -692,7 +692,7 @@ export function ProjectDetail({ projectId }: ProjectDetailProps) {
             <p className="mt-1 text-sm text-zinc-600">
               {currentProject.apiKeyPrefix
                 ? `Key prefix: ${currentProject.apiKeyPrefix} • Generated ${formatTimestamp(currentProject.apiKeyCreatedAt)}`
-                : "Generate a Project API Key to access TalaKit services programmatically."}
+                : "Generate a Project API Key to access Velo services programmatically."}
             </p>
           </div>
           <div className="flex gap-2">
