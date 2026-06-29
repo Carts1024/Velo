@@ -202,3 +202,44 @@ export const listApiKeys = query({
       .collect();
   },
 });
+
+/**
+ * Verifies an API key and returns the project data needed for payment intent creation.
+ * Used by the POST /api/v1/payment-intents API route.
+ */
+export const verifyApiKeyAndGetProject = query({
+  args: {
+    apiKeyHash: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const apiKey = await ctx.db
+      .query("apiKeys")
+      .withIndex("by_key_hash", (q) => q.eq("keyHash", args.apiKeyHash))
+      .unique();
+
+    if (!apiKey || apiKey.revoked) {
+      return { authorized: false };
+    }
+
+    const project = await ctx.db.get(apiKey.projectId);
+    if (!project) {
+      return { authorized: false };
+    }
+
+    if (!project.paymentAccessActive) {
+      return { authorized: false, reason: "payment_access_inactive" };
+    }
+
+    return {
+      authorized: true,
+      project: {
+        _id: project._id,
+        name: project.name,
+        slug: project.slug,
+        ownerAddress: project.ownerAddress,
+        paymentAccessActive: project.paymentAccessActive,
+      },
+    };
+  },
+});
+

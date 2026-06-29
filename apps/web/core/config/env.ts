@@ -9,6 +9,8 @@ const envSchema = z.object({
   NEXT_PUBLIC_STELLAR_RPC_URL: z.string().url().default("https://soroban-testnet.stellar.org"),
   NEXT_PUBLIC_VELO_REGISTRY_CONTRACT_ID: z.string().optional(),
   NEXT_PUBLIC_VELO_PAY_ACCESS_CONTRACT_ID: z.string().optional(),
+  NEXT_PUBLIC_USDC_ISSUER: z.string().optional(),
+  NEXT_PUBLIC_APP_URL: z.string().url().default("http://localhost:3000"),
 });
 
 // This will throw an error if validation fails
@@ -20,6 +22,8 @@ const validateEnv = () => {
     NEXT_PUBLIC_STELLAR_RPC_URL: process.env.NEXT_PUBLIC_STELLAR_RPC_URL,
     NEXT_PUBLIC_VELO_REGISTRY_CONTRACT_ID: process.env.NEXT_PUBLIC_VELO_REGISTRY_CONTRACT_ID,
     NEXT_PUBLIC_VELO_PAY_ACCESS_CONTRACT_ID: process.env.NEXT_PUBLIC_VELO_PAY_ACCESS_CONTRACT_ID,
+    NEXT_PUBLIC_USDC_ISSUER: process.env.NEXT_PUBLIC_USDC_ISSUER,
+    NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
   });
 
   if (!parsed.success) {
@@ -34,3 +38,4 @@ const validateEnv = () => {
 };
 
 export const env = validateEnv();
+

@@ -1,3 +1,4 @@
+export * from "./checkout";
 export * from "./event-monitor";
 export * from "./registry";
 export * from "./transaction-debugger";

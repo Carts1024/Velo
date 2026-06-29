@@ -4,6 +4,7 @@ import { v } from "convex/values";
 import apiKeys from "./api_keys/schema";
 import contractEvents from "./contract_events/schema";
 import feedback from "./feedback/schema";
+import paymentIntents from "./payment_intents/schema";
 import pollerState from "./poller_state/schema";
 import projectContracts from "./project_contracts/schema";
 import projects from "./projects/schema";
@@ -16,6 +17,7 @@ export default defineSchema({
   apiKeys,
   contractEvents,
   feedback,
+  paymentIntents,
   pollerState,
   projectContracts,
   projects,
