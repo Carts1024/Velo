@@ -287,6 +287,11 @@ export const markPaymentAccessActive = mutation({
       paymentAccessLastSyncAt: now,
       updatedAt: now,
     });
+
+    await ctx.scheduler.runAfter(0, internal.webhookDelivery.trigger, {
+      projectId: args.id,
+      eventType: "payment_access.activated",
+    });
   },
 });
 

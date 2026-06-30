@@ -60,6 +60,7 @@ export const getDeliveryTarget = internalQuery({
     ownerAddress: v.string(),
     eventType: v.string(),
     contractEventId: v.optional(v.id("contractEvents")),
+    paymentIntentId: v.optional(v.id("paymentIntents")),
   },
   handler: async (ctx, args) => {
     const project = await requireOwnerProject(ctx, args.projectId, args.ownerAddress);
@@ -88,7 +89,13 @@ export const getDeliveryTarget = internalQuery({
       throw new Error("Observed event does not belong to this project");
     }
 
-    return { endpoint, project, contractEvent };
+    const paymentIntent = args.paymentIntentId ? await ctx.db.get(args.paymentIntentId) : undefined;
+
+    if (paymentIntent && paymentIntent.projectId !== args.projectId) {
+      throw new Error("Payment intent does not belong to this project");
+    }
+
+    return { endpoint, project, contractEvent, paymentIntent };
   },
 });
 
@@ -97,6 +104,7 @@ export const getDeliveryTargetInternal = internalQuery({
     projectId: v.id("projects"),
     eventType: v.string(),
     contractEventId: v.optional(v.id("contractEvents")),
+    paymentIntentId: v.optional(v.id("paymentIntents")),
   },
   handler: async (ctx, args) => {
     const project = await ctx.db.get(args.projectId);
@@ -120,6 +128,12 @@ export const getDeliveryTargetInternal = internalQuery({
       throw new Error("Observed event does not belong to this project");
     }
 
-    return { endpoint, project, contractEvent };
+    const paymentIntent = args.paymentIntentId ? await ctx.db.get(args.paymentIntentId) : undefined;
+
+    if (paymentIntent && paymentIntent.projectId !== args.projectId) {
+      throw new Error("Payment intent does not belong to this project");
+    }
+
+    return { endpoint, project, contractEvent, paymentIntent };
   },
 });

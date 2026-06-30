@@ -166,6 +166,14 @@ export const updateProjectAccess = internalMutation({
       updates.checkoutCredits = args.checkoutCredits;
     }
 
+    const wasActive = project.paymentAccessActive;
     await ctx.db.patch(project._id, updates);
+
+    if (args.paymentAccessActive === true && !wasActive) {
+      await ctx.scheduler.runAfter(0, internal.webhookDelivery.trigger, {
+        projectId: project._id,
+        eventType: "payment_access.activated",
+      });
+    }
   },
 });

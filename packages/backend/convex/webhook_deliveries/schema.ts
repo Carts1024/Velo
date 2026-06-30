@@ -13,6 +13,8 @@ export default defineTable({
   attemptCount: v.number(),
   lastAttemptAt: v.number(),
   createdAt: v.number(),
+  paymentIntentId: v.optional(v.id("paymentIntents")),
+  responseTimeMs: v.optional(v.number()),
 })
   .index("by_project_created_at", ["projectId", "createdAt"])
   .index("by_endpoint_created_at", ["endpointId", "createdAt"]);

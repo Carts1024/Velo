@@ -38,6 +38,10 @@ import { useAction, useMutation, useQuery } from "convex/react";
 import {
   AlertCircleIcon,
   CheckCircle2Icon,
+  CheckIcon,
+  CopyIcon,
+  EyeIcon,
+  EyeOffIcon,
   FlaskConicalIcon,
   LoaderCircleIcon,
   LockKeyholeIcon,
@@ -57,6 +61,10 @@ const eventTypes = [
   "transaction.failed",
   "project.registered",
   "project.updated",
+  "payment.created",
+  "payment.succeeded",
+  "payment.failed",
+  "payment_access.activated",
 ] as const;
 
 type EventType = (typeof eventTypes)[number];
@@ -92,9 +100,32 @@ function DeliveryDetail({ delivery }: { delivery: Doc<"webhookDeliveries"> }) {
           </Badge>
           <span className="text-xs font-medium text-zinc-500 uppercase">HTTP status</span>
           <span>{delivery.httpStatus ?? "No response"}</span>
+          <span className="text-xs font-medium text-zinc-500 uppercase">Latency</span>
+          <span>{delivery.responseTimeMs ? `${delivery.responseTimeMs} ms` : "N/A"}</span>
+          {delivery.payloadSummary?.paymentIntentId && (
+            <>
+              <span className="text-xs font-medium text-zinc-500 uppercase">Payment Intent ID</span>
+              <span className="font-mono text-xs text-zinc-700 bg-zinc-100 px-1 py-0.5 w-fit">
+                {delivery.payloadSummary.paymentIntentId}
+              </span>
+            </>
+          )}
           <span className="text-xs font-medium text-zinc-500 uppercase">Failure reason</span>
           <span>{delivery.errorMessage ?? "None"}</span>
         </div>
+
+        <div className="grid gap-2 border border-zinc-200 p-3 bg-zinc-50 rounded text-xs text-zinc-600">
+          <span className="font-semibold text-zinc-700">Webhook Signature Security</span>
+          <p>
+            Payloads are signed using HMAC-SHA256. The request contains the following signature
+            header value:
+          </p>
+          <code className="block bg-zinc-100 p-2 font-mono text-[10px] break-all border border-zinc-200">
+            x-velo-signature: t={Math.floor((delivery.lastAttemptAt || delivery.createdAt) / 1000)}
+            ,v1=...
+          </code>
+        </div>
+
         <div className="grid gap-2">
           <h3 className="text-sm font-semibold">Payload summary</h3>
           <pre className="max-h-96 overflow-auto bg-zinc-950 p-3 text-xs text-zinc-100">
@@ -138,6 +169,8 @@ export function ProjectWebhooks({ projectId }: { projectId: string }) {
   const [isSaving, setIsSaving] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [notice, setNotice] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [showSecret, setShowSecret] = useState(false);
+  const [copiedSecret, setCopiedSecret] = useState(false);
 
   useEffect(() => {
     if (!settings || loadedSettingsId.current === settings._id) {
@@ -373,6 +406,51 @@ export function ProjectWebhooks({ projectId }: { projectId: string }) {
           </Button>
         </div>
 
+        {settings?.signingSecret && (
+          <div className="grid gap-2 border-t border-zinc-100 pt-3">
+            <Label htmlFor="webhook-secret">Signing secret</Label>
+            <div className="flex items-center gap-2">
+              <Input
+                id="webhook-secret"
+                type={showSecret ? "text" : "password"}
+                value={settings.signingSecret}
+                readOnly
+                className="font-mono text-xs bg-zinc-50 flex-1"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={() => setShowSecret(!showSecret)}
+                title={showSecret ? "Hide secret" : "Show secret"}
+              >
+                {showSecret ? <EyeOffIcon className="h-4 w-4" /> : <EyeIcon className="h-4 w-4" />}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={() => {
+                  navigator.clipboard.writeText(settings.signingSecret!);
+                  setCopiedSecret(true);
+                  setTimeout(() => setCopiedSecret(false), 2000);
+                }}
+                title="Copy secret"
+              >
+                {copiedSecret ? (
+                  <CheckIcon className="h-4 w-4 text-green-600" />
+                ) : (
+                  <CopyIcon className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
+            <p className="text-xs text-zinc-500">
+              Payloads are signed using this secret in HMAC-SHA256. Verify signatures to confirm
+              request authenticity.
+            </p>
+          </div>
+        )}
+
         <div className="flex items-center justify-between gap-4 border border-zinc-200 p-3">
           <div>
             <Label htmlFor="webhook-enabled">Endpoint enabled</Label>
@@ -488,6 +566,7 @@ export function ProjectWebhooks({ projectId }: { projectId: string }) {
                 <TableHead>Destination</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>HTTP</TableHead>
+                <TableHead>Latency</TableHead>
                 <TableHead>Attempts</TableHead>
                 <TableHead className="text-right">Payload</TableHead>
               </TableRow>
@@ -516,6 +595,9 @@ export function ProjectWebhooks({ projectId }: { projectId: string }) {
                     </TableCell>
                     <TableCell className="font-mono text-xs">
                       {delivery.httpStatus ?? "-"}
+                    </TableCell>
+                    <TableCell className="font-mono text-xs">
+                      {delivery.responseTimeMs ? `${delivery.responseTimeMs} ms` : "-"}
                     </TableCell>
                     <TableCell className="font-mono text-xs">{delivery.attemptCount}</TableCell>
                     <TableCell className="text-right">

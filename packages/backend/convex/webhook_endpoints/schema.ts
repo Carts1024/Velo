@@ -7,6 +7,7 @@ export default defineTable({
   destinationHost: v.string(),
   enabled: v.boolean(),
   eventTypes: v.array(v.string()),
+  signingSecret: v.optional(v.string()),
   createdAt: v.number(),
   updatedAt: v.number(),
 }).index("by_project", ["projectId"]);

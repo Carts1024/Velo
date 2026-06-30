@@ -1,5 +1,6 @@
 import { v, ConvexError } from "convex/values";
 
+import { internal } from "../_generated/api";
 import { mutation } from "../_generated/server";
 import { PAYMENT_INTENT_EXPIRY_MS, STATUS_TRANSITIONS } from "./helpers";
 
@@ -59,6 +60,12 @@ export const createPaymentIntent = mutation({
       requestCount: apiKey.requestCount + 1,
     });
 
+    await ctx.scheduler.runAfter(0, internal.webhookDelivery.trigger, {
+      projectId: project._id,
+      eventType: "payment.created",
+      paymentIntentId: id,
+    });
+
     return id;
   },
 });
@@ -116,5 +123,19 @@ export const updateStatus = mutation({
     }
 
     await ctx.db.patch(args.paymentIntentId, patch);
+
+    if (args.status === "paid") {
+      await ctx.scheduler.runAfter(0, internal.webhookDelivery.trigger, {
+        projectId: intent.projectId,
+        eventType: "payment.succeeded",
+        paymentIntentId: args.paymentIntentId,
+      });
+    } else if (args.status === "failed") {
+      await ctx.scheduler.runAfter(0, internal.webhookDelivery.trigger, {
+        projectId: intent.projectId,
+        eventType: "payment.failed",
+        paymentIntentId: args.paymentIntentId,
+      });
+    }
   },
 });

@@ -29,12 +29,29 @@ export const saveSettings = mutation({
     };
 
     if (existing) {
-      await ctx.db.patch(existing._id, value);
+      const patchValue: Record<string, unknown> = { ...value };
+      if (!existing.signingSecret) {
+        const randomBytes = new Uint8Array(16);
+        crypto.getRandomValues(randomBytes);
+        const secretToken = Array.from(randomBytes)
+          .map((b) => b.toString(16).padStart(2, "0"))
+          .join("");
+        patchValue.signingSecret = `whsec_${secretToken}`;
+      }
+      await ctx.db.patch(existing._id, patchValue);
       return existing._id;
     }
 
+    const randomBytes = new Uint8Array(16);
+    crypto.getRandomValues(randomBytes);
+    const secretToken = Array.from(randomBytes)
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+    const signingSecret = `whsec_${secretToken}`;
+
     return await ctx.db.insert("webhookEndpoints", {
       ...value,
+      signingSecret,
       createdAt: now,
     });
   },
