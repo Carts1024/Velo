@@ -35,23 +35,13 @@ import { useCallback, useEffect, useState } from "react";
 
 import type { Id } from "@repo/backend/convex/_generated/dataModel";
 
+import { formatAmount, formatAsset } from "./format";
+
 type CheckoutClientProps = {
   paymentIntentId: string;
 };
 
 type PaymentStep = "connect" | "review" | "submitting" | "submitted";
-
-function formatAsset(asset: string) {
-  if (asset === "native" || asset === "XLM") return "XLM";
-  const parts = asset.split(":");
-  return parts[0] || asset;
-}
-
-function formatAmount(amount: string, asset: string) {
-  const num = Number.parseFloat(amount);
-  if (Number.isNaN(num)) return `${amount} ${formatAsset(asset)}`;
-  return `${num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 7 })} ${formatAsset(asset)}`;
-}
 
 function useTimeRemaining(expiresAt: number | undefined) {
   const [remaining, setRemaining] = useState<number | null>(null);
@@ -229,7 +219,10 @@ export function CheckoutClient({ paymentIntentId }: CheckoutClientProps) {
   }
 
   // ─── Expired ───
-  if (intent.status === "expired" || timer?.expired) {
+  if (
+    intent.status === "expired" ||
+    (timer?.expired && step !== "submitting" && step !== "submitted")
+  ) {
     return (
       <CheckoutShell>
         <Card className="w-full max-w-md border-muted bg-card/90 backdrop-blur-md">
@@ -247,8 +240,70 @@ export function CheckoutClient({ paymentIntentId }: CheckoutClientProps) {
     );
   }
 
+  // ─── Pending / Processing ───
+  if (intent.status === "pending") {
+    return (
+      <CheckoutShell>
+        <Card className="w-full max-w-md bg-card/85 border border-white/10 shadow-2xl backdrop-blur-lg animate-in fade-in zoom-in-95 duration-300">
+          <CardHeader className="text-center border-b border-border/50 pb-4">
+            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 border border-primary/20">
+              <Spinner className="h-6 w-6 text-primary" />
+            </div>
+            <CardTitle className="text-xl font-bold bg-clip-text bg-gradient-to-r from-foreground to-foreground/80">
+              Payment Processing
+            </CardTitle>
+            <CardDescription className="text-muted-foreground text-sm mt-1">
+              We are verifying your transaction on the Stellar network.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6 pt-6">
+            <div className="rounded-xl border border-border/50 bg-muted/20 p-4 space-y-3">
+              <div className="flex items-center justify-between text-xs sm:text-sm">
+                <span className="text-muted-foreground font-medium">Merchant</span>
+                <span className="font-semibold text-zinc-950 dark:text-zinc-100">
+                  {intent.merchantName}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-xs sm:text-sm">
+                <span className="text-muted-foreground font-medium">Amount</span>
+                <span className="font-semibold text-zinc-950 dark:text-zinc-100">
+                  {Number.parseFloat(intent.amount).toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 7,
+                  })}{" "}
+                  {formatAsset(intent.asset)}
+                </span>
+              </div>
+              {intent.txHash && (
+                <div className="flex flex-col gap-1 text-xs">
+                  <span className="text-muted-foreground font-medium text-left">
+                    Transaction Hash
+                  </span>
+                  <span className="font-mono text-[10px] break-all bg-muted/40 p-2 rounded select-all text-zinc-700 dark:text-zinc-300 border border-border/30">
+                    {intent.txHash}
+                  </span>
+                </div>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground text-center leading-relaxed">
+              Please do not close this window or navigate away. This page will update automatically
+              once confirmed.
+            </p>
+          </CardContent>
+          <CardFooter className="justify-center border-t border-border/50 pt-4">
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium">
+              <ShieldCheckIcon className="h-3.5 w-3.5 text-green-500 animate-pulse" />
+              <span>Verifying transaction status...</span>
+            </div>
+          </CardFooter>
+        </Card>
+      </CheckoutShell>
+    );
+  }
+
   const isSubmitting = step === "submitting";
-  const canPay = step === "review" && wallet.status === "connected" && !isSubmitting;
+  const canPay =
+    step === "review" && wallet.status === "connected" && !isSubmitting && !timer?.expired;
   const assetLabel = formatAsset(intent.asset);
 
   return (
