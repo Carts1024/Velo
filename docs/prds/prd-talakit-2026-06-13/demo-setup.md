@@ -7,8 +7,9 @@ Use this flow before a timed hackathon demo. It requires no direct Convex databa
 1. Start the web and Convex development processes with the documented environment variables.
 2. Connect a funded Stellar Testnet wallet.
 3. Set `NEXT_PUBLIC_VELO_REGISTRY_CONTRACT_ID` to the deployed Testnet registry contract.
-4. Have one DemoPay Soroban contract ID available.
-5. For webhook delivery, deploy the web app or expose port 3000 through an HTTPS tunnel. Hosted Convex cannot call localhost.
+4. Set `NEXT_PUBLIC_VELO_PAY_ACCESS_CONTRACT_ID` in the web app and `VELO_PAY_ACCESS_CONTRACT_ID` in Convex/backend to the deployed Testnet pay-access contract.
+5. Have one DemoPay Soroban contract ID available.
+6. For webhook delivery, deploy the web app or expose port 3000 through an HTTPS tunnel. Hosted Convex cannot call localhost.
 
 ## Timed Journey
 

@@ -64,8 +64,10 @@ After deployment, copy the returned contract ID into the web app environment:
 NEXT_PUBLIC_VELO_REGISTRY_CONTRACT_ID=<DEPLOYED_CONTRACT_ID>
 ```
 
+Hosted web deployments must set this value explicitly. Local development can leave it unset, but registry actions will remain unavailable until configured.
+
 Current Testnet registry contract ID:
 
 ```txt
-[PENDING_DEPLOYMENT]
+CBSR5LFHR5Q2X3PO3HSMGXI43YEUYGFTHUPGNVGW6XH2VNOQUEUHIEJR
 ```

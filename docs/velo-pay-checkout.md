@@ -34,6 +34,8 @@ sequenceDiagram
 - Project has an API key with prefix `tk_live_`.
 - `NEXT_PUBLIC_CONVEX_URL` points to the same Convex deployment that stores the project and API key.
 - `NEXT_PUBLIC_APP_URL` points to the web app origin used in checkout links.
+- `NEXT_PUBLIC_VELO_PAY_ACCESS_CONTRACT_ID` points to the deployed Testnet pay-access contract for web activation flows.
+- `VELO_PAY_ACCESS_CONTRACT_ID` is set in Convex/backend for pay-access event sync.
 - Buyer wallet is on Stellar Testnet.
 - Receiver account exists on Stellar Testnet.
 
@@ -171,10 +173,13 @@ Use matching Convex deployments:
 # apps/web/.env.local
 NEXT_PUBLIC_CONVEX_URL=https://brainy-labrador-583.convex.cloud
 NEXT_PUBLIC_CONVEX_SITE_URL=https://brainy-labrador-583.convex.site
+NEXT_PUBLIC_VELO_REGISTRY_CONTRACT_ID=CBSR5LFHR5Q2X3PO3HSMGXI43YEUYGFTHUPGNVGW6XH2VNOQUEUHIEJR
+NEXT_PUBLIC_VELO_PAY_ACCESS_CONTRACT_ID=CBHDLZYSYWETHPC6KDGH35S4SNBU5P7QWLNNDWYXJRHZMZDTQSKYVOXJ
 
 # packages/backend/.env.local
 CONVEX_URL=https://brainy-labrador-583.convex.cloud
 CONVEX_SITE_URL=https://brainy-labrador-583.convex.site
+VELO_PAY_ACCESS_CONTRACT_ID=CBHDLZYSYWETHPC6KDGH35S4SNBU5P7QWLNNDWYXJRHZMZDTQSKYVOXJ
 ```
 
 After changing Convex functions:

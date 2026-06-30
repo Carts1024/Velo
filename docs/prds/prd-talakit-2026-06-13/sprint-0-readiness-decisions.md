@@ -2,7 +2,7 @@
 title: "Sprint 0 Readiness Decisions"
 status: accepted
 created: 2026-06-13
-updated: 2026-06-13
+updated: 2026-07-01
 project_name: Velo
 ---
 
@@ -31,14 +31,29 @@ Required now:
 
 - `NEXT_PUBLIC_CONVEX_URL`
 
-Optional or defaulted for Sprint 0:
+Optional or defaulted for local development:
 
 - `NEXT_PUBLIC_CONVEX_SITE_URL`
 - `NEXT_PUBLIC_STELLAR_NETWORK=testnet`
 - `NEXT_PUBLIC_STELLAR_RPC_URL=https://soroban-testnet.stellar.org`
 - `NEXT_PUBLIC_VELO_REGISTRY_CONTRACT_ID`
+- `NEXT_PUBLIC_VELO_PAY_ACCESS_CONTRACT_ID`
 
-`NEXT_PUBLIC_VELO_REGISTRY_CONTRACT_ID` stays optional until the registry contract is deployed during Sprint 1.
+Hosted deployments must set both public contract IDs and should enable the guardrail with `VELO_REQUIRE_CONTRACT_IDS=true` unless the hosting platform sets `VERCEL_ENV=production`.
+
+Backend/Convex contract IDs:
+
+- `STELLAR_RPC_URL` is preferred backend-side; `NEXT_PUBLIC_STELLAR_RPC_URL` remains a compatibility fallback.
+- `VELO_PAY_ACCESS_CONTRACT_ID` is the canonical Convex/backend pay-access sync variable.
+- `NEXT_PUBLIC_VELO_PAY_ACCESS_CONTRACT_ID` is retained only as a local compatibility fallback for Convex.
+
+Current Testnet contract IDs:
+
+```txt
+NEXT_PUBLIC_VELO_REGISTRY_CONTRACT_ID=CBSR5LFHR5Q2X3PO3HSMGXI43YEUYGFTHUPGNVGW6XH2VNOQUEUHIEJR
+NEXT_PUBLIC_VELO_PAY_ACCESS_CONTRACT_ID=CBHDLZYSYWETHPC6KDGH35S4SNBU5P7QWLNNDWYXJRHZMZDTQSKYVOXJ
+VELO_PAY_ACCESS_CONTRACT_ID=CBHDLZYSYWETHPC6KDGH35S4SNBU5P7QWLNNDWYXJRHZMZDTQSKYVOXJ
+```
 
 ## Route Contract
 

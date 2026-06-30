@@ -12,6 +12,9 @@ jobs:
     runs-on: ubuntu-latest
     env:
       NEXT_PUBLIC_CONVEX_URL: https://dummy.convex.cloud
+      NEXT_PUBLIC_VELO_REGISTRY_CONTRACT_ID: CBSR5LFHR5Q2X3PO3HSMGXI43YEUYGFTHUPGNVGW6XH2VNOQUEUHIEJR
+      NEXT_PUBLIC_VELO_PAY_ACCESS_CONTRACT_ID: CBHDLZYSYWETHPC6KDGH35S4SNBU5P7QWLNNDWYXJRHZMZDTQSKYVOXJ
+      VELO_REQUIRE_CONTRACT_IDS: "true"
 
     steps:
       - name: Checkout Code
@@ -125,7 +128,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: registry-contract-wasm
-          path: contracts/registry/target/wasm32v1-none/release/talakit_registry.wasm
+          path: contracts/registry/target/wasm32v1-none/release/velo_registry.wasm
 
       - name: Deploy to Testnet
         if: env.HAS_STELLAR_SECRET_KEY == 'true'
@@ -135,7 +138,7 @@ jobs:
           stellar network add --rpc-url https://soroban-testnet.stellar.org --network-passphrase "Test SDF Network ; September 2015" testnet
           stellar keys add deployer --secret-key "$STELLAR_SECRET_KEY"
           CONTRACT_ID=$(stellar contract deploy \
-            --wasm contracts/registry/target/wasm32v1-none/release/talakit_registry.wasm \
+            --wasm contracts/registry/target/wasm32v1-none/release/velo_registry.wasm \
             --source deployer \
             --network testnet)
           echo "Deployed Contract ID: $CONTRACT_ID"

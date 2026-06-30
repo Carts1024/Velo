@@ -1,4 +1,4 @@
-import { fetchRecentContractEvents } from "@repo/stellar";
+import { fetchRecentContractEvents, resolveBackendPayAccessContractId } from "@repo/stellar";
 import { v } from "convex/values";
 
 import { internal } from "./_generated/api";
@@ -6,17 +6,19 @@ import { internalAction, internalMutation, internalQuery } from "./_generated/se
 
 const DEFAULT_TESTNET_RPC_URL = "https://soroban-testnet.stellar.org";
 
-const PAY_ACCESS_CONTRACT_ID =
-  process.env.VELO_PAY_ACCESS_CONTRACT_ID ??
-  process.env.NEXT_PUBLIC_VELO_PAY_ACCESS_CONTRACT_ID ??
-  "CBHDLZYSYWETHPC6KDGH35S4SNBU5P7QWLNNDWYXJRHZMZDTQSKYVOXJ";
-
 function rpcUrl() {
   return (
     process.env.STELLAR_RPC_URL ??
     process.env.NEXT_PUBLIC_STELLAR_RPC_URL ??
     DEFAULT_TESTNET_RPC_URL
   );
+}
+
+export function payAccessContractIdFromEnv(env: Record<string, string | undefined>) {
+  return resolveBackendPayAccessContractId({
+    payAccessContractId: env.VELO_PAY_ACCESS_CONTRACT_ID,
+    publicPayAccessContractId: env.NEXT_PUBLIC_VELO_PAY_ACCESS_CONTRACT_ID,
+  });
 }
 
 export const syncPayAccessEvents = internalAction({
@@ -29,7 +31,7 @@ export const syncPayAccessEvents = internalAction({
     // 2. Fetch events from the VeloPayAccess contract
     const result = await fetchRecentContractEvents({
       rpcUrl: rpcUrl(),
-      contractIds: [PAY_ACCESS_CONTRACT_ID],
+      contractIds: [payAccessContractIdFromEnv(process.env)],
       afterLedger: lastLedger,
     });
 

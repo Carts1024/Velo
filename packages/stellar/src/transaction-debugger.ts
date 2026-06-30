@@ -6,7 +6,7 @@ import {
   TransactionBuilder,
 } from "@stellar/stellar-sdk";
 
-import { assertValidTransactionHash } from "./validation";
+import { assertValidTransactionHash } from "./validation.ts";
 
 const TESTNET_NETWORK_PASSPHRASE = "Test SDF Network ; September 2015";
 

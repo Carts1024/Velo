@@ -76,6 +76,14 @@ After deployment, copy the returned contract ID into the web app environment:
 NEXT_PUBLIC_VELO_PAY_ACCESS_CONTRACT_ID=<DEPLOYED_CONTRACT_ID>
 ```
 
+Copy the same contract ID into the Convex/backend environment for event sync:
+
+```bash
+VELO_PAY_ACCESS_CONTRACT_ID=<DEPLOYED_CONTRACT_ID>
+```
+
+`VELO_PAY_ACCESS_CONTRACT_ID` is the canonical backend variable. `NEXT_PUBLIC_VELO_PAY_ACCESS_CONTRACT_ID` is retained as a local compatibility fallback, but hosted Convex deployments should set the backend variable explicitly.
+
 Current Testnet pay access contract ID:
 
 ```txt

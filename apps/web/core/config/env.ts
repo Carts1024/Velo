@@ -1,3 +1,4 @@
+import { requirePublicContractConfig, resolvePublicContractConfig } from "@repo/stellar";
 import { z } from "zod";
 
 const envSchema = z.object({
@@ -13,17 +14,29 @@ const envSchema = z.object({
   NEXT_PUBLIC_APP_URL: z.string().url().default("http://localhost:3000"),
 });
 
-// This will throw an error if validation fails
-const validateEnv = () => {
+type RawEnv = Record<string, string | undefined>;
+
+type ParseEnvOptions = {
+  requireContractIds?: boolean;
+};
+
+function shouldRequireContractIds(rawEnv: RawEnv, options: ParseEnvOptions) {
+  return (
+    options.requireContractIds ??
+    (rawEnv.VELO_REQUIRE_CONTRACT_IDS === "true" || rawEnv.VERCEL_ENV === "production")
+  );
+}
+
+export const parseEnv = (rawEnv: RawEnv, options: ParseEnvOptions = {}) => {
   const parsed = envSchema.safeParse({
-    NEXT_PUBLIC_CONVEX_URL: process.env.NEXT_PUBLIC_CONVEX_URL,
-    NEXT_PUBLIC_CONVEX_SITE_URL: process.env.NEXT_PUBLIC_CONVEX_SITE_URL,
-    NEXT_PUBLIC_STELLAR_NETWORK: process.env.NEXT_PUBLIC_STELLAR_NETWORK,
-    NEXT_PUBLIC_STELLAR_RPC_URL: process.env.NEXT_PUBLIC_STELLAR_RPC_URL,
-    NEXT_PUBLIC_VELO_REGISTRY_CONTRACT_ID: process.env.NEXT_PUBLIC_VELO_REGISTRY_CONTRACT_ID,
-    NEXT_PUBLIC_VELO_PAY_ACCESS_CONTRACT_ID: process.env.NEXT_PUBLIC_VELO_PAY_ACCESS_CONTRACT_ID,
-    NEXT_PUBLIC_USDC_ISSUER: process.env.NEXT_PUBLIC_USDC_ISSUER,
-    NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
+    NEXT_PUBLIC_CONVEX_URL: rawEnv.NEXT_PUBLIC_CONVEX_URL,
+    NEXT_PUBLIC_CONVEX_SITE_URL: rawEnv.NEXT_PUBLIC_CONVEX_SITE_URL,
+    NEXT_PUBLIC_STELLAR_NETWORK: rawEnv.NEXT_PUBLIC_STELLAR_NETWORK,
+    NEXT_PUBLIC_STELLAR_RPC_URL: rawEnv.NEXT_PUBLIC_STELLAR_RPC_URL,
+    NEXT_PUBLIC_VELO_REGISTRY_CONTRACT_ID: rawEnv.NEXT_PUBLIC_VELO_REGISTRY_CONTRACT_ID,
+    NEXT_PUBLIC_VELO_PAY_ACCESS_CONTRACT_ID: rawEnv.NEXT_PUBLIC_VELO_PAY_ACCESS_CONTRACT_ID,
+    NEXT_PUBLIC_USDC_ISSUER: rawEnv.NEXT_PUBLIC_USDC_ISSUER,
+    NEXT_PUBLIC_APP_URL: rawEnv.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
   });
 
   if (!parsed.success) {
@@ -34,7 +47,22 @@ const validateEnv = () => {
     throw new Error("Invalid environment variables");
   }
 
-  return parsed.data;
+  const contractConfigInput = {
+    registryContractId: parsed.data.NEXT_PUBLIC_VELO_REGISTRY_CONTRACT_ID,
+    payAccessContractId: parsed.data.NEXT_PUBLIC_VELO_PAY_ACCESS_CONTRACT_ID,
+  };
+  const contractConfig = shouldRequireContractIds(rawEnv, options)
+    ? requirePublicContractConfig(contractConfigInput)
+    : resolvePublicContractConfig(contractConfigInput);
+
+  return {
+    ...parsed.data,
+    NEXT_PUBLIC_VELO_REGISTRY_CONTRACT_ID: contractConfig.registryContractId,
+    NEXT_PUBLIC_VELO_PAY_ACCESS_CONTRACT_ID: contractConfig.payAccessContractId,
+  };
 };
+
+// This will throw an error if validation fails
+const validateEnv = () => parseEnv(process.env);
 
 export const env = validateEnv();

@@ -4,7 +4,7 @@ import {
   assertValidContractId,
   assertValidPublicKey,
   assertValidTransactionHash,
-} from "./validation";
+} from "./validation.ts";
 
 export type ActivatePaymentsTransactionInput = {
   rpcUrl: string;

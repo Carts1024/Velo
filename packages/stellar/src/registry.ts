@@ -14,7 +14,7 @@ import {
   assertValidMetadataHash,
   assertValidPublicKey,
   assertValidTransactionHash,
-} from "./validation";
+} from "./validation.ts";
 
 export type StellarTestnetConfig = {
   networkPassphrase: string;
