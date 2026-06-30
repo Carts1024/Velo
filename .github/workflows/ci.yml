@@ -52,7 +52,7 @@ jobs:
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: stable
-          target: wasm32-unknown-unknown
+          target: wasm32v1-none
 
       - name: Run Cargo Tests
         run: cargo test --manifest-path contracts/registry/Cargo.toml
@@ -111,7 +111,7 @@ jobs:
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: stable
-          target: wasm32-unknown-unknown
+          target: wasm32v1-none
 
       - name: Install Stellar CLI
         run: |
