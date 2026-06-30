@@ -2,6 +2,8 @@
 import { convexTest } from "convex-test";
 import { expect, test } from "vitest";
 
+import type { Doc } from "./_generated/dataModel";
+
 import { api } from "./_generated/api";
 import schema from "./schema";
 
@@ -23,10 +25,10 @@ test("project API key lifecycle", async () => {
   });
 
   // Project starts with no API keys
-  let keys = await t.query(api.projects.query.listApiKeys, {
+  let keys = (await t.query(api.projects.query.listApiKeys, {
     projectId,
     ownerAddress,
-  });
+  })) as Doc<"apiKeys">[];
   expect(keys).toEqual([]);
 
   // Generate API key 1
@@ -60,10 +62,10 @@ test("project API key lifecycle", async () => {
   const apiKeyHash2 = await computeHash(rawKey2);
 
   // Retrieve keys and verify prefixes, labels, and hashes are set correctly
-  keys = await t.query(api.projects.query.listApiKeys, {
+  keys = (await t.query(api.projects.query.listApiKeys, {
     projectId,
     ownerAddress,
-  });
+  })) as Doc<"apiKeys">[];
   expect(keys.length).toBe(2);
 
   const devKey = keys.find((k) => k.label === "Dev Key");
@@ -111,10 +113,10 @@ test("project API key lifecycle", async () => {
   });
 
   // Verify key 1 is revoked and key 2 is still active
-  keys = await t.query(api.projects.query.listApiKeys, {
+  keys = (await t.query(api.projects.query.listApiKeys, {
     projectId,
     ownerAddress,
-  });
+  })) as Doc<"apiKeys">[];
   const revokedDevKey = keys.find((k) => k.label === "Dev Key");
   const activeProdKey = keys.find((k) => k.label === "Prod Key");
 

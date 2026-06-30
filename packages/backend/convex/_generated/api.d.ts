@@ -20,6 +20,7 @@ import type * as payAccessSync from "../payAccessSync.js";
 import type * as payment_intents_helpers from "../payment_intents/helpers.js";
 import type * as payment_intents_mutations from "../payment_intents/mutations.js";
 import type * as payment_intents_queries from "../payment_intents/queries.js";
+import type * as payment_intents_scanner from "../payment_intents/scanner.js";
 import type * as poller_state_helpers from "../poller_state/helpers.js";
 import type * as poller_state_mutation from "../poller_state/mutation.js";
 import type * as poller_state_query from "../poller_state/query.js";
@@ -69,6 +70,7 @@ declare const fullApi: ApiFromModules<{
   "payment_intents/helpers": typeof payment_intents_helpers;
   "payment_intents/mutations": typeof payment_intents_mutations;
   "payment_intents/queries": typeof payment_intents_queries;
+  "payment_intents/scanner": typeof payment_intents_scanner;
   "poller_state/helpers": typeof poller_state_helpers;
   "poller_state/mutation": typeof poller_state_mutation;
   "poller_state/query": typeof poller_state_query;

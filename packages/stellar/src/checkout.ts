@@ -197,6 +197,17 @@ export async function submitCheckoutTransaction(
   }
 }
 
+/**
+ * Deterministically retrieves the transaction hash from a signed transaction XDR.
+ */
+export function getTransactionHash(
+  signedXdr: string,
+  networkPassphrase = Networks.TESTNET,
+): string {
+  const transaction = TransactionBuilder.fromXDR(signedXdr, networkPassphrase);
+  return transaction.hash().toString("hex");
+}
+
 export type CreatePaymentIntentParams = {
   apiKey: string;
   amount: string;

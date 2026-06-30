@@ -109,6 +109,12 @@ function formatTimestamp(value?: number) {
   return value ? new Date(value).toLocaleString() : "Not synced";
 }
 
+function formatAsset(asset: string) {
+  if (asset === "native" || asset === "XLM") return "XLM";
+  const parts = asset.split(":");
+  return parts[0] || asset;
+}
+
 function errorMessage(error: unknown) {
   if (error instanceof Error) {
     return error.message;
@@ -170,6 +176,16 @@ export function ProjectDetail({ projectId }: ProjectDetailProps) {
       : "skip",
   );
 
+  const stats = useQuery(
+    api.payment_intents.queries.getProjectStats,
+    wallet.address
+      ? {
+          projectId: projectId as Id<"projects">,
+          ownerAddress: wallet.address,
+        }
+      : "skip",
+  );
+
   const [isRegistering, setIsRegistering] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isGeneratingKey, setIsGeneratingKey] = useState(false);
@@ -178,6 +194,9 @@ export function ProjectDetail({ projectId }: ProjectDetailProps) {
   const [newRawKey, setNewRawKey] = useState<string | null>(null);
   const [apiKeyLabel, setApiKeyLabel] = useState("");
   const [localError, setLocalError] = useState<string | null>(null);
+  const paidCount = stats?.counts?.paid ?? 0;
+  const totalCount = stats?.counts?.total ?? 0;
+  const conversionRate = totalCount > 0 ? Math.round((paidCount / totalCount) * 100) : 0;
 
   if (!wallet.address) {
     return (
@@ -802,6 +821,217 @@ export function ProjectDetail({ projectId }: ProjectDetailProps) {
               </Button>
             )}
           </div>
+        </div>
+      </div>
+
+      {/* Telemetry & Observability Section */}
+      <div className="space-y-4">
+        <div>
+          <h2 className="text-xl font-semibold tracking-tight text-zinc-900">
+            Telemetry & Observability
+          </h2>
+          <p className="text-sm text-zinc-500">
+            Real-time payments conversion, processed volume, and webhook reliability metrics.
+          </p>
+        </div>
+
+        {stats === undefined ? (
+          <div className="grid gap-4 md:grid-cols-3">
+            <Skeleton className="h-32 w-full" />
+            <Skeleton className="h-32 w-full" />
+            <Skeleton className="h-32 w-full" />
+          </div>
+        ) : (
+          <div className="grid gap-4 md:grid-cols-3">
+            {/* Total Volume Card */}
+            <div className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-zinc-500">Processed Volume</span>
+                <ActivityIcon className="size-5 text-zinc-400" />
+              </div>
+              <div className="mt-2.5">
+                {stats?.volumes && stats.volumes.length > 0 ? (
+                  <div className="space-y-1">
+                    {stats.volumes.map((v) => (
+                      <div key={v.asset} className="flex items-baseline gap-1.5">
+                        <span className="text-2xl font-bold tracking-tight text-zinc-900">
+                          {v.volume.toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
+                        </span>
+                        <span className="text-xs font-semibold uppercase text-zinc-500">
+                          {v.asset}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-2xl font-bold tracking-tight text-zinc-900">
+                    0.00 <span className="text-xs text-zinc-400 font-normal">assets</span>
+                  </p>
+                )}
+                <p className="mt-1 text-xs text-zinc-500">Cumulative merchant checkout volume.</p>
+              </div>
+            </div>
+
+            {/* Payment Conversion Card */}
+            <div className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-zinc-500">Payment Conversion</span>
+                <CheckCircle2Icon className="size-5 text-emerald-500" />
+              </div>
+              <div className="mt-2.5">
+                <div className="flex items-baseline gap-1">
+                  <span className="text-3xl font-extrabold tracking-tight text-zinc-900">
+                    {conversionRate}%
+                  </span>
+                  <span className="text-xs font-medium text-zinc-500">success rate</span>
+                </div>
+                <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-zinc-600">
+                  <span className="flex items-center gap-1">
+                    <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                    {stats?.counts?.paid || 0} paid
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+                    {stats?.counts?.pending || 0} pending
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <span className="h-2 w-2 rounded-full bg-red-500" />
+                    {stats?.counts?.failed || 0} failed
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Webhook Reliability Card */}
+            <div className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-zinc-500">Webhook Reliability</span>
+                <WebhookIcon className="size-5 text-zinc-400" />
+              </div>
+              <div className="mt-2.5">
+                <div className="flex items-baseline gap-1">
+                  <span className="text-3xl font-extrabold tracking-tight text-zinc-900">
+                    {stats?.webhooks?.successRate !== undefined
+                      ? Math.round(stats.webhooks.successRate)
+                      : 100}
+                    %
+                  </span>
+                  <span className="text-xs font-medium text-zinc-500">delivered</span>
+                </div>
+                <p className="mt-2 text-xs text-zinc-600">
+                  Avg Latency:{" "}
+                  <span className="font-semibold text-zinc-900">
+                    {stats?.webhooks?.averageLatency !== undefined
+                      ? Math.round(stats.webhooks.averageLatency)
+                      : 0}
+                    ms
+                  </span>
+                </p>
+                <p className="mt-1 text-[10px] text-zinc-400">
+                  Calculated over {stats?.webhooks?.totalDeliveries || 0} attempts.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Recent Payments Table */}
+        <div className="rounded-lg border border-zinc-200 bg-white shadow-sm overflow-hidden">
+          <div className="border-b border-zinc-200 p-4">
+            <h3 className="text-sm font-semibold text-zinc-900">Recent Payment Logs</h3>
+            <p className="text-xs text-zinc-500">
+              Real-time status updates of customer transactions.
+            </p>
+          </div>
+          {stats === undefined ? (
+            <div className="p-4 space-y-2">
+              <Skeleton className="h-8 w-full" />
+              <Skeleton className="h-8 w-full" />
+            </div>
+          ) : !stats?.recentPayments || stats.recentPayments.length === 0 ? (
+            <div className="p-8 text-center text-sm text-zinc-500">
+              No payments created yet. Once users check out, transactions will show up here.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Intent ID</TableHead>
+                    <TableHead>Amount</TableHead>
+                    <TableHead>Payer Address</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Transaction Hash</TableHead>
+                    <TableHead className="text-right">Created</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {stats.recentPayments.map((p) => (
+                    <TableRow key={p._id}>
+                      <TableCell className="font-mono text-xs text-zinc-500 select-all max-w-[8rem] truncate">
+                        {p._id}
+                      </TableCell>
+                      <TableCell className="font-semibold text-zinc-950">
+                        {parseFloat(p.amount).toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 7,
+                        })}{" "}
+                        <span className="text-xs text-zinc-500 font-normal">
+                          {formatAsset(p.asset)}
+                        </span>
+                      </TableCell>
+                      <TableCell className="font-mono text-xs text-zinc-600">
+                        {p.payerAddress ? (
+                          <span title={p.payerAddress}>
+                            {p.payerAddress.slice(0, 6)}...{p.payerAddress.slice(-6)}
+                          </span>
+                        ) : (
+                          <span className="text-zinc-400">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={
+                            p.status === "paid"
+                              ? "success"
+                              : p.status === "pending"
+                                ? "warning"
+                                : p.status === "failed" || p.status === "expired"
+                                  ? "error"
+                                  : "gray"
+                          }
+                          className={p.status === "pending" ? "animate-pulse" : ""}
+                        >
+                          {p.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="font-mono text-xs">
+                        {p.txHash ? (
+                          <a
+                            href={`https://stellar.expert/explorer/testnet/tx/${p.txHash}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-primary hover:underline flex items-center gap-1"
+                          >
+                            {p.txHash.slice(0, 6)}...{p.txHash.slice(-6)}
+                            <ExternalLinkIcon className="size-3 text-zinc-400" />
+                          </a>
+                        ) : (
+                          <span className="text-zinc-400">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right text-xs text-zinc-500">
+                        {formatTimestamp(p.createdAt)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </div>
       </div>
 

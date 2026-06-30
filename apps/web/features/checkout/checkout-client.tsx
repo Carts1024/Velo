@@ -3,7 +3,11 @@
 import { stellarConfig, STELLAR_TESTNET_NETWORK_PASSPHRASE } from "@/core/config/stellar";
 import { useWallet } from "@/core/wallet/wallet-provider";
 import { api } from "@repo/backend/convex/_generated/api";
-import { buildCheckoutPaymentTransaction, submitCheckoutTransaction } from "@repo/stellar";
+import {
+  buildCheckoutPaymentTransaction,
+  getTransactionHash,
+  submitCheckoutTransaction,
+} from "@repo/stellar";
 import { Badge } from "@repo/ui/components/ui-customs/badge";
 import { Alert, AlertDescription, AlertTitle } from "@repo/ui/components/ui/alert";
 import { Button } from "@repo/ui/components/ui/button";
@@ -126,11 +130,15 @@ export function CheckoutClient({ paymentIntentId }: CheckoutClientProps) {
       // 2. Request signature from connected wallet
       const signedXdr = await wallet.signTransaction(unsignedXdr);
 
+      // Deterministically extract the transaction hash
+      const txHash = getTransactionHash(signedXdr);
+
       // 3. Transition to pending once the transaction is ready to submit.
       await updateStatus({
         paymentIntentId: intentId,
         status: "pending",
         payerAddress: wallet.address,
+        txHash,
       });
       markedPending = true;
 

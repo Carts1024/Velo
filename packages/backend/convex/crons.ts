@@ -18,4 +18,11 @@ crons.interval(
   {},
 );
 
+crons.interval(
+  "poll pending payment intents",
+  { minutes: 1 },
+  internal.payment_intents.scanner.checkPendingPayments,
+  {},
+);
+
 export default crons;
