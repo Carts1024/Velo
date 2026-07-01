@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import { formatAmount, formatAsset } from "./format.ts";
@@ -17,4 +18,11 @@ test("formatAmount formats numbers with minimum fraction digits and appends form
   assert.equal(formatAmount("10", "native"), "10.00 XLM");
   assert.equal(formatAmount("150.5", "USDC:GBX5S..."), "150.50 USDC");
   assert.equal(formatAmount("invalid", "native"), "invalid XLM");
+});
+
+test("checkout client does not mark Horizon submission success as paid", () => {
+  const source = readFileSync(new URL("./checkout-client.tsx", import.meta.url), "utf8");
+
+  assert.doesNotMatch(source, /status:\s*["']paid["']/);
+  assert.match(source, /backend scanner confirms settlement/);
 });

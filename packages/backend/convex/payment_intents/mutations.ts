@@ -1,7 +1,7 @@
 import { v, ConvexError } from "convex/values";
 
 import { internal } from "../_generated/api";
-import { mutation } from "../_generated/server";
+import { internalMutation, mutation } from "../_generated/server";
 import { PAYMENT_INTENT_EXPIRY_MS, STATUS_TRANSITIONS } from "./helpers";
 
 /**
@@ -87,6 +87,10 @@ export const updateStatus = mutation({
     txHash: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    if (args.status === "paid") {
+      throw new ConvexError("Public mutation cannot mark payment intent paid");
+    }
+
     const intent = await ctx.db.get(args.paymentIntentId);
     if (!intent) {
       throw new ConvexError("Payment intent not found");
@@ -95,7 +99,7 @@ export const updateStatus = mutation({
     const now = Date.now();
 
     // Check expiry for non-terminal transitions
-    if ((args.status === "pending" || args.status === "paid") && now > intent.expiresAt) {
+    if (args.status === "pending" && now > intent.expiresAt) {
       await ctx.db.patch(args.paymentIntentId, {
         status: "expired",
         updatedAt: now,
@@ -124,18 +128,54 @@ export const updateStatus = mutation({
 
     await ctx.db.patch(args.paymentIntentId, patch);
 
-    if (args.status === "paid") {
-      await ctx.scheduler.runAfter(0, internal.webhookDelivery.trigger, {
-        projectId: intent.projectId,
-        eventType: "payment.succeeded",
-        paymentIntentId: args.paymentIntentId,
-      });
-    } else if (args.status === "failed") {
+    if (args.status === "failed") {
       await ctx.scheduler.runAfter(0, internal.webhookDelivery.trigger, {
         projectId: intent.projectId,
         eventType: "payment.failed",
         paymentIntentId: args.paymentIntentId,
       });
     }
+  },
+});
+
+/**
+ * Marks a payment intent paid after backend ledger verification.
+ * This is intentionally internal so clients cannot equate Horizon submission with settlement.
+ */
+export const markVerifiedPaid = internalMutation({
+  args: {
+    paymentIntentId: v.id("paymentIntents"),
+    txHash: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const intent = await ctx.db.get(args.paymentIntentId);
+    if (!intent) {
+      throw new ConvexError("Payment intent not found");
+    }
+
+    const now = Date.now();
+    if (now > intent.expiresAt) {
+      await ctx.db.patch(args.paymentIntentId, {
+        status: "expired",
+        updatedAt: now,
+      });
+      throw new ConvexError("Payment intent has expired");
+    }
+
+    if (intent.status !== "pending") {
+      throw new ConvexError(`Invalid verified paid transition: ${intent.status} -> paid`);
+    }
+
+    await ctx.db.patch(args.paymentIntentId, {
+      status: "paid",
+      txHash: args.txHash,
+      updatedAt: now,
+    });
+
+    await ctx.scheduler.runAfter(0, internal.webhookDelivery.trigger, {
+      projectId: intent.projectId,
+      eventType: "payment.succeeded",
+      paymentIntentId: args.paymentIntentId,
+    });
   },
 });

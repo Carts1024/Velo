@@ -25,7 +25,9 @@ sequenceDiagram
   Merchant->>Buyer: Redirect to checkoutUrl
   Buyer->>VeloAPI: Open /pay/{paymentIntentId}
   Buyer->>Stellar: Sign and submit payment
-  Buyer->>Convex: Mark intent paid or failed
+  Buyer->>Convex: Mark intent pending with tx hash
+  Convex->>Stellar: Scanner verifies transaction
+  Convex->>Convex: Mark intent paid or failed
 ```
 
 ## Prerequisites
@@ -150,15 +152,16 @@ Buyer flow:
 6. Wallet signs transaction.
 7. App marks payment intent `pending`.
 8. App submits transaction to Horizon.
-9. App marks payment intent `paid` or `failed`.
+9. App keeps the intent `pending` while Velo verifies the transaction.
+10. The backend scanner confirms the transaction over RPC and marks the intent `paid` or `failed`.
 
 ## Payment Statuses
 
 | Status | Meaning |
 | --- | --- |
 | `created` | Intent exists, checkout available. |
-| `pending` | Buyer signed and app is submitting payment. |
-| `paid` | Stellar transaction succeeded. |
+| `pending` | Buyer signed, a transaction hash was recorded, and Velo is verifying settlement. |
+| `paid` | Backend scanner confirmed the Stellar transaction succeeded. |
 | `failed` | Submission failed after pending state. |
 | `cancelled` | Buyer cancelled checkout. |
 | `expired` | Intent passed expiry time. |

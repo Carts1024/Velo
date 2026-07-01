@@ -43,6 +43,12 @@ type CheckoutClientProps = {
 
 type PaymentStep = "connect" | "review" | "submitting" | "submitted";
 
+function isTerminalSubmissionFailure(message: string) {
+  return /rejected|tx_|op_|malformed|underfunded|no_trust|line_full|too_late|too_early|bad_seq/i.test(
+    message,
+  );
+}
+
 function useTimeRemaining(expiresAt: number | undefined) {
   const [remaining, setRemaining] = useState<number | null>(null);
 
@@ -138,15 +144,9 @@ export function CheckoutClient({ paymentIntentId }: CheckoutClientProps) {
         horizonUrl: stellarConfig.horizonUrl,
       });
 
-      // 5. Check submission status and transition database state
+      // 5. Horizon accepted the transaction; backend scanner confirms settlement.
       if (result.successful) {
-        await updateStatus({
-          paymentIntentId: intentId,
-          status: "paid",
-          txHash: result.hash,
-        });
         setStep("submitted");
-        router.push(`/pay/${paymentIntentId}/success`);
       } else {
         await updateStatus({
           paymentIntentId: intentId,
@@ -171,7 +171,12 @@ export function CheckoutClient({ paymentIntentId }: CheckoutClientProps) {
         return;
       }
 
-      // Update intent status to failed in database after a submitted transaction fails.
+      if (!isTerminalSubmissionFailure(message)) {
+        setStep("submitted");
+        return;
+      }
+
+      // Update intent status to failed only for terminal Horizon rejections.
       try {
         await updateStatus({
           paymentIntentId: intentId,

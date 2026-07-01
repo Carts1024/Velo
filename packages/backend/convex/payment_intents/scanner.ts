@@ -36,9 +36,8 @@ export const checkPendingPayments = internalAction({
           const result = await lookupTestnetTransaction(url, intent.txHash);
 
           if (result.status === "success") {
-            await ctx.runMutation(api.payment_intents.mutations.updateStatus, {
+            await ctx.runMutation(internal.payment_intents.mutations.markVerifiedPaid, {
               paymentIntentId: intent._id,
-              status: "paid",
               txHash: intent.txHash,
             });
             await ctx.runMutation(internal.payment_intents.scanner.decrementProjectCredits, {

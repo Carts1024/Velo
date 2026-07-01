@@ -2,7 +2,7 @@
 import { convexTest } from "convex-test";
 import { expect, test } from "vitest";
 
-import { api } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import schema from "./schema";
 
 const modules = import.meta.glob("./**/*.ts");
@@ -90,11 +90,24 @@ test("payment intent lifecycle", async () => {
   expect(intent?.status).toBe("pending");
   expect(intent?.payerAddress).toBe(payerAddress);
 
-  // Transition to paid state
+  // Public checkout clients cannot transition directly to paid.
   const txHash = "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
-  await t.mutation(api.payment_intents.mutations.updateStatus, {
+  await expect(
+    t.mutation(api.payment_intents.mutations.updateStatus, {
+      paymentIntentId,
+      status: "paid",
+      txHash,
+    }),
+  ).rejects.toThrow("Public mutation cannot mark payment intent paid");
+
+  intent = await t.query(api.payment_intents.queries.getPaymentIntent, {
     paymentIntentId,
-    status: "paid",
+  });
+  expect(intent?.status).toBe("pending");
+
+  // Verified backend confirmation is the only paid transition.
+  await t.mutation(internal.payment_intents.mutations.markVerifiedPaid, {
+    paymentIntentId,
     txHash,
   });
 
@@ -224,15 +237,14 @@ test("payment intent stats aggregation and scanner execution", async () => {
     txHash: "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
   });
 
-  // Transition pi2 to paid directly
+  // Transition pi2 to paid through verified backend confirmation.
   await t.mutation(api.payment_intents.mutations.updateStatus, {
     paymentIntentId: pi2,
     status: "pending",
     payerAddress: "GDFX...PAYER",
   });
-  await t.mutation(api.payment_intents.mutations.updateStatus, {
+  await t.mutation(internal.payment_intents.mutations.markVerifiedPaid, {
     paymentIntentId: pi2,
-    status: "paid",
     txHash: "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
   });
 
