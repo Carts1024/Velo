@@ -9,7 +9,7 @@ import type { WebhookDeliveryId } from "./webhook_deliveries/types";
 import type { WebhookEventType } from "./webhook_endpoints/types";
 
 import { internal } from "./_generated/api";
-import { action, internalAction, internalMutation } from "./_generated/server";
+import { action, internalAction } from "./_generated/server";
 import { requireIdentity } from "./projects/helpers";
 
 type DeliveryTarget = {
@@ -318,7 +318,7 @@ export const trigger = internalAction({
           });
           const RETRY_DELAYS = [0, 15, 60, 300, 900];
           const delaySeconds = RETRY_DELAYS[attemptCount] ?? 900;
-          await ctx.runMutation(internal.webhookDelivery.scheduleRetry, {
+          await ctx.runMutation(internal.webhook_deliveries.mutation.scheduleRetry, {
             delaySeconds,
             projectId: args.projectId,
             eventType: args.eventType,
@@ -349,7 +349,7 @@ export const trigger = internalAction({
         });
         const RETRY_DELAYS = [0, 15, 60, 300, 900];
         const delaySeconds = RETRY_DELAYS[attemptCount] ?? 900;
-        await ctx.runMutation(internal.webhookDelivery.scheduleRetry, {
+        await ctx.runMutation(internal.webhook_deliveries.mutation.scheduleRetry, {
           delaySeconds,
           projectId: args.projectId,
           eventType: args.eventType,
@@ -367,35 +367,5 @@ export const trigger = internalAction({
         });
       }
     }
-  },
-});
-
-export const scheduleRetry = internalMutation({
-  args: {
-    delaySeconds: v.number(),
-    projectId: v.id("projects"),
-    eventType: v.union(
-      v.literal("contract.event"),
-      v.literal("transaction.succeeded"),
-      v.literal("transaction.failed"),
-      v.literal("project.registered"),
-      v.literal("project.updated"),
-      v.literal("payment.created"),
-      v.literal("payment.succeeded"),
-      v.literal("payment.failed"),
-      v.literal("payment_access.activated"),
-    ),
-    contractEventId: v.optional(v.id("contractEvents")),
-    paymentIntentId: v.optional(v.id("paymentIntents")),
-    deliveryId: v.id("webhookDeliveries"),
-    attemptCount: v.number(),
-  },
-  handler: async (ctx, args) => {
-    const { delaySeconds, ...triggerArgs } = args;
-    await ctx.scheduler.runAfter(
-      delaySeconds * 1000,
-      internal.webhookDelivery.trigger,
-      triggerArgs,
-    );
   },
 });

@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 
+import { internal } from "../_generated/api";
 import { internalMutation } from "../_generated/server";
 
 export const createPending = internalMutation({
@@ -69,5 +70,35 @@ export const logAttemptFailure = internalMutation({
       responseTimeMs: args.responseTimeMs,
       lastAttemptAt: Date.now(),
     });
+  },
+});
+
+export const scheduleRetry = internalMutation({
+  args: {
+    delaySeconds: v.number(),
+    projectId: v.id("projects"),
+    eventType: v.union(
+      v.literal("contract.event"),
+      v.literal("transaction.succeeded"),
+      v.literal("transaction.failed"),
+      v.literal("project.registered"),
+      v.literal("project.updated"),
+      v.literal("payment.created"),
+      v.literal("payment.succeeded"),
+      v.literal("payment.failed"),
+      v.literal("payment_access.activated"),
+    ),
+    contractEventId: v.optional(v.id("contractEvents")),
+    paymentIntentId: v.optional(v.id("paymentIntents")),
+    deliveryId: v.id("webhookDeliveries"),
+    attemptCount: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const { delaySeconds, ...triggerArgs } = args;
+    await ctx.scheduler.runAfter(
+      delaySeconds * 1000,
+      internal.webhookDelivery.trigger,
+      triggerArgs,
+    );
   },
 });
