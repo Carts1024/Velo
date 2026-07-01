@@ -20,7 +20,15 @@ The Alpha sprint has moved Velo from a Phase 1 Verify + Debug MVP into a demoabl
 9. Velo updates payment status, polls pending payments, records metrics, and sends signed webhooks.
 10. Developer reviews project status, payment logs, event logs, webhook logs, and integration snippets.
 
-Overall status: **Pay-prioritized Alpha is substantially implemented at code level and covered by focused unit/integration tests. Live Testnet deployment and full end-to-end demo validation remain the main readiness gate.**
+Post-gap status as of 2026-07-01: **Pay-prioritized Alpha is substantially implemented at code level and covered by focused unit/integration tests.** The latest work closed five previously documented hardening gaps:
+
+- Hosted contract IDs are validated, normalized, and required for hosted environments.
+- Checkout no longer marks a successful Horizon submission as paid; only backend ledger verification can mark an intent paid.
+- Convex ownership checks now use wallet-auth JWT identity and `ownerTokenIdentifier`, with legacy address fallback for migration.
+- Webhooks now support signing secret rotation and retry/backoff up to five attempts.
+- Public API routes now use a lightweight in-memory rate limiter with API-key and cached project-level buckets.
+
+Live Testnet deployment and full end-to-end demo validation remain the main readiness gate.
 
 The older broad Alpha spec in `talakit-alpha-spec.md` still includes production RPC gateway, request logs, rate limiting, and broader developer-ops infrastructure. Those are **deferred by the pay-prioritized revision** and should not be treated as blockers for the hackathon Alpha unless the product direction changes again.
 
@@ -63,12 +71,17 @@ Coverage artifacts found:
 - Web tests:
   - `apps/web/features/checkout/checkout-client.test.ts`
   - `apps/web/features/projects/demo-readiness.test.ts`
+  - `apps/web/features/api/rate-limit.test.ts`
+  - `apps/web/features/config/env.test.ts`
 - Backend tests:
   - `packages/backend/convex/apiKey.test.ts`
   - `packages/backend/convex/paymentIntent.test.ts`
   - `packages/backend/convex/tasks.test.ts`
+  - `packages/backend/convex/webhookDelivery.test.ts`
 - Stellar helper tests:
+  - `packages/stellar/src/auth.test.ts`
   - `packages/stellar/src/checkout.test.ts`
+  - `packages/stellar/src/contract-config.test.ts`
   - `packages/stellar/src/event-monitor.test.ts`
   - `packages/stellar/src/webhook.test.ts`
 - Contract integration tests:
@@ -77,9 +90,9 @@ Coverage artifacts found:
 
 Verification run on 2026-07-01:
 
-- `pnpm --filter web test`: passed, 5 tests.
-- `pnpm --filter @repo/backend test`: passed, 3 files / 5 tests.
-- `pnpm --filter @repo/stellar test`: passed, 3 test files.
+- `pnpm --filter web test`: passed, 13 tests.
+- `pnpm --filter @repo/backend test`: passed, 5 files / 11 tests.
+- `pnpm --filter @repo/stellar test`: passed, 25 tests.
 - `cd contracts/registry && cargo test`: passed, 11 integration tests.
 - `cd contracts/pay_access && cargo test`: passed, 5 integration tests.
 
@@ -142,8 +155,8 @@ Implemented stack:
 | Public verification page | Implemented | Manual route QA still needed | `/verify/[slug]`, safe projection, official contracts, recent public activity. |
 | Feedback and onboarding | Implemented as supporting product surface | Not Alpha-critical | Feedback form/list and user profile/onboarding modules are present. |
 | Full RPC gateway | Deferred | Not covered | Deferred by pay-prioritized Alpha. |
-| Rate limiting | Deferred | Not covered | Deferred by pay-prioritized Alpha. |
-| Production hardening | Partial | Needs deployment validation | Contract IDs, hosted Convex/Vercel envs, live Testnet dry run. |
+| Rate limiting | Implemented for current API routes | Covered by web test | In-memory API-key bucket, cached project bucket, `429`, `Retry-After`, and rate-limit headers. |
+| Production hardening | Partial | Focused tests added; deployment validation still needed | Contract ID guardrails, wallet JWT ownership, checkout settlement semantics, webhook retry/rotation, and rate limiting are implemented. Hosted Convex/Vercel envs and live Testnet dry run still need validation. |
 
 ## 5. Implemented Features
 
@@ -164,10 +177,12 @@ Current behavior:
 - Uses Testnet network configuration.
 - Tracks selected wallet, connected address, stale session, rejected connection, unavailable wallet, unsupported network, disconnect, and signing.
 - Gates owner-only project pages and checkout payment submission behind wallet state.
+- Supports message signing for wallet-auth challenge verification.
 
 Coverage:
 
-- No automated browser-wallet test exists.
+- `packages/stellar/src/auth.test.ts` covers accepted Stellar signature encodings and malformed signature rejection.
+- Browser-wallet interaction still needs manual QA.
 - Needs Freighter desktop/mobile QA against live Testnet.
 
 ### 5.2 Project / Merchant Dashboard
@@ -201,9 +216,12 @@ Coverage:
 - Project creation is exercised by Convex API key and PaymentIntent tests.
 - Demo readiness logic has a focused web test.
 
-Known limitation:
+Security hardening:
 
-- Ownership is enforced by submitted wallet address matching stored owner address. This is acceptable for wallet-first Alpha, but not production-grade authenticated authorization.
+- Wallet authentication is implemented through challenge creation, wallet message signature verification, and custom ES256 JWT issuance in `apps/web/core/auth/wallet-jwt.ts` and `apps/web/app/api/auth/wallet/*`.
+- Convex uses `packages/backend/convex/auth.config.ts` to trust the wallet JWT issuer/JWKS.
+- Project ownership checks now prefer `identity.tokenIdentifier` and persist it as `ownerTokenIdentifier`. Existing records without `ownerTokenIdentifier` can still migrate through a legacy subject/address match, then get patched with the token identifier.
+- Remaining production consideration: local/dev fallback secrets exist for non-production convenience; hosted environments must provide `VELO_AUTH_CHALLENGE_SECRET` and `VELO_AUTH_JWT_PRIVATE_KEY_PEM`.
 
 ### 5.3 `VeloRegistry` Contract
 
@@ -266,6 +284,13 @@ Remaining validation:
 
 - Confirm deployed Testnet `VeloPayAccess` ID and Registry ID in hosted envs.
 - Run the dashboard activation flow with a real wallet and live RPC.
+
+Contract ID guardrails:
+
+- `packages/stellar/src/contract-config.ts` validates and normalizes public Registry/PayAccess contract IDs.
+- `apps/web/core/config/env.ts` requires hosted contract IDs when `VELO_REQUIRE_CONTRACT_IDS=true` or `VERCEL_ENV=production`.
+- `resolveBackendPayAccessContractId` rejects missing backend PayAccess config instead of falling back to a hardcoded ID.
+- `apps/web/features/config/env.test.ts` and `packages/stellar/src/contract-config.test.ts` cover valid IDs, malformed IDs, hosted required IDs, backend preference, public fallback for local compatibility, and absent-ID rejection.
 
 ### 5.5 On-Chain Project Registration
 
@@ -380,9 +405,14 @@ Coverage:
 - `packages/stellar/src/checkout.test.ts` covers `createCheckoutSession` request shape, missing API key, and API failure handling.
 - `apps/web/features/checkout/checkout-client.test.ts` covers checkout formatting helpers.
 
-Known limitations:
+Settlement hardening:
 
-- The checkout page marks successful Horizon submission as paid immediately, while the scanner also handles pending verification. This is demo-friendly but should be tightened for production-grade settlement semantics.
+- Checkout submission now marks the intent `pending` after signed XDR hash extraction. A successful Horizon submission moves the UI to a submitted/processing state only.
+- The public `updateStatus` mutation rejects `paid`. Only internal `markVerifiedPaid` can mark a PaymentIntent paid after backend ledger verification through the scanner.
+- The scanner verifies pending transaction hashes through `lookupTestnetTransaction`, marks verified successes paid, marks failures failed, and fails stale pending intents after the timeout path.
+
+Known limitation:
+
 - Live payment flow still needs Testnet wallet and funded-account QA.
 
 ### 5.9 Checkout SDK and Integration Snippets
@@ -424,10 +454,12 @@ Implemented in:
 Current behavior:
 
 - Saves endpoint URL, destination host, enabled flag, selected event types, and generated `whsec_` signing secret.
+- Allows owner-triggered signing secret rotation.
 - Sends test webhook deliveries.
 - Triggers automatic deliveries for project, transaction, contract event, payment, and payment access events.
 - Signs payloads with HMAC-SHA256 and sends `x-velo-signature`, `x-velo-event`, and `x-velo-delivery` headers.
 - Stores delivery status, HTTP status, failure reason, attempt count, response time, payload summary, destination host, and PaymentIntent ID where relevant.
+- Automatic deliveries retry failed attempts with backoff up to five attempts, preserving the delivery ID and event ID across retries.
 - Provides SDK verification helper `verifyWebhookSignature`.
 
 Supported webhook event types:
@@ -445,13 +477,43 @@ Supported webhook event types:
 Coverage:
 
 - `packages/stellar/src/webhook.test.ts` covers valid signatures, expired timestamps, signature mismatch, payload mismatch, and malformed headers.
+- `packages/backend/convex/webhookDelivery.test.ts` covers signing secret rotation and retry/backoff lifecycle.
 
-Known limitations:
+Known limitation:
 
-- Delivery uses one attempt with timeout and status logging. Retry/backoff is still deferred.
-- Secret rotation is not implemented.
+- Rotation is immediate. There is no grace window where old and new signing secrets are both accepted by receivers.
 
-### 5.11 Payment Monitor and Observability
+### 5.11 API Rate Limiting
+
+Status: **Implemented for current public API routes**
+
+Implemented in:
+
+- `apps/web/core/api/rate-limit.ts`
+- `apps/web/app/api/v1/payment-intents/route.ts`
+- `apps/web/app/api/v1/events/route.ts`
+- `apps/web/app/api/v1/transactions/[hash]/route.ts`
+- `apps/web/app/api/v1/webhooks/deliveries/route.ts`
+- `apps/web/features/api/rate-limit.test.ts`
+
+Current behavior:
+
+- Checks limits after API key extraction/hash and before Convex API work.
+- Uses an in-memory token bucket per API key hash.
+- Caches API key hash to project ID after successful authorization, then also checks a project-level bucket.
+- Defaults to 60 requests/minute per API key and 100 requests/minute per project, configurable through `RATE_LIMIT_KEY_MAX`, `RATE_LIMIT_KEY_REFILL_RATE`, `RATE_LIMIT_PROJECT_MAX`, and `RATE_LIMIT_PROJECT_REFILL_RATE`.
+- Returns `429` with `Retry-After` when exhausted.
+- Adds `X-RateLimit-Limit` and `X-RateLimit-Remaining` headers to successful API responses.
+
+Coverage:
+
+- `apps/web/features/api/rate-limit.test.ts` covers key-based limits, cached project mapping, and exhausted-key blocking.
+
+Known limitation:
+
+- This is process-local in-memory limiting. It is enough for Alpha abuse resistance but not distributed across serverless instances or regions.
+
+### 5.12 Payment Monitor and Observability
 
 Status: **Implemented for Alpha**
 
@@ -476,7 +538,7 @@ Coverage:
 - Backend stats and scanner paths are covered in `paymentIntent.test.ts`.
 - Live RPC result handling needs Testnet validation with real transaction hashes.
 
-### 5.12 Contract Event Indexer and Monitor
+### 5.13 Contract Event Indexer and Monitor
 
 Status: **Implemented**
 
@@ -505,7 +567,7 @@ Coverage:
 - Stellar event monitor parsing has package-level tests.
 - End-to-end event polling against live contracts still needs Testnet validation.
 
-### 5.13 Transaction Debugger
+### 5.14 Transaction Debugger
 
 Status: **Implemented for transaction hash lookup**
 
@@ -534,7 +596,7 @@ Deferred:
 - Deep explanatory debugger.
 - Full project-context-aware debugger.
 
-### 5.14 Public Verification Page
+### 5.15 Public Verification Page
 
 Status: **Implemented**
 
@@ -576,12 +638,12 @@ Pay-prioritized Alpha overall: **feature-complete at code level, pending deploym
 | --- | --- | --- |
 | Registry contract | Cargo integration tests and snapshots | Testnet deployment verification |
 | PayAccess contract | Cargo integration tests and snapshots | Testnet deployment verification |
-| Convex API keys | Vitest with `convex-test` | Rate limiting not implemented |
+| Convex API keys | Vitest with `convex-test` | Distributed rate limiting not implemented |
 | Convex PaymentIntents | Vitest with `convex-test` | Live transaction confirmation behavior |
 | Stellar checkout helper | Node tests with mocked fetch | Real Horizon account/trustline/payment flow |
 | Stellar webhook helper | Node tests for verification | End-to-end signed delivery to real endpoint |
 | Web formatting/readiness | Node tests | Browser route and responsive QA |
-| Wallet flows | Manual implementation only | Automated browser-wallet coverage absent |
+| Wallet flows | Wallet signature helper covered; browser interaction manual | Automated browser-wallet coverage absent |
 | Event polling | Helper tests and cron code | Live contract event fixture validation |
 
 Recommended verification commands before handoff:
@@ -596,22 +658,22 @@ cd contracts/pay_access && cargo test
 
 ## 8. Current Gaps and Risks
 
-| Risk | Impact | Recommended action |
+| Risk | Impact | Current status / recommended action |
 | --- | --- | --- |
-| Live Testnet flow not documented as completed in this report | Demo may fail under wallet/RPC/env conditions | Run full dry run: register project, activate PayAccess, generate key, create PaymentIntent, pay, verify webhook. |
-| Contract IDs may drift between local defaults and hosted envs | Activation/polling can target wrong contracts | Record deployed Registry and PayAccess IDs in env docs and hosted settings. |
-| Checkout marks successful Horizon submission as paid | Production semantics may overstate settlement finality | For post-Alpha, mark paid only after ledger confirmation; keep submitted/pending separately. |
-| Wallet ownership is address-argument based in Convex | Caller can spoof owner address at backend boundary | Add signed wallet challenge or proper auth before production. |
-| Webhooks have no retry/backoff or secret rotation | Delivery reliability and ops controls are limited | Add retry policy, replay controls, endpoint disable-after-failure, and secret rotation. |
-| No rate limiting | API abuse is possible | Add lightweight per-key and per-project rate limits before public launch. |
-| Mobile/browser QA not recorded | UI regressions may appear on demo devices | Run responsive pass for dashboard, project detail, integration, webhooks, checkout, and verify pages. |
-| Full RPC gateway remains absent | Older broad Alpha spec is not fully satisfied | Keep explicitly deferred unless product re-prioritizes developer-ops gateway. |
+| Live Testnet flow not documented as completed in this report | Demo may fail under wallet/RPC/env conditions | Still open. Run full dry run: register project, activate PayAccess, generate key, create PaymentIntent, pay, verify webhook. |
+| Contract IDs may drift between local defaults and hosted envs | Activation/polling can target wrong contracts | Guardrails implemented. Hosted envs now require valid Registry/PayAccess IDs; still record deployed IDs in env docs and hosted settings. |
+| Checkout could overstate settlement finality | Production semantics may overstate settlement finality | Fixed at code level. Client only marks `pending/submitted`; internal scanner marks verified `paid`. Live payment QA still needed. |
+| Wallet ownership spoofing at Convex boundary | Caller can spoof owner address at backend boundary | Fixed at code level. Wallet challenge/JWT auth and token-identifier ownership checks are implemented, with legacy migration fallback. Hosted auth secrets still need verification. |
+| Webhook delivery reliability and signing ops | Failed deliveries could be lost; secret compromise required manual reset | Improved. Retry/backoff and secret rotation are implemented. Remaining gap: no dual-secret grace period after rotation. |
+| API abuse | High request volume can consume app/backend resources | Improved. API-key and cached project-level in-memory rate limiting is implemented. Remaining gap: limiter is not distributed across instances. |
+| Mobile/browser QA not recorded | UI regressions may appear on demo devices | Still open. Run responsive pass for dashboard, project detail, integration, webhooks, checkout, and verify pages. |
+| Full RPC gateway remains absent | Older broad Alpha spec is not fully satisfied | Still deferred unless product re-prioritizes developer-ops gateway. |
 
 ## 9. Recommended Next Actions
 
 1. Run all automated checks listed in Section 7.
 2. Deploy or confirm deployed `VeloRegistry` and `VeloPayAccess` Testnet contract IDs.
-3. Verify hosted environment variables for web, Convex, Stellar RPC, Horizon, Registry, PayAccess, checkout asset, and app URL.
+3. Verify hosted environment variables for web, Convex, Stellar RPC, Horizon, Registry, PayAccess, checkout asset, app URL, wallet JWT private key, wallet challenge secret, and webhook/rate-limit settings.
 4. Execute the full Velo Pay demo run on Testnet:
    - create merchant project;
    - register on-chain;
@@ -642,8 +704,11 @@ mindmap
       Checkout SDK helper
       Integration snippets
       Signed webhooks
+      Webhook retry and secret rotation
       Payment scanner
       Payment metrics
+      API rate limiting
+      Wallet JWT ownership
     Existing MVP Implemented
       Official contract linking
       Public verify page
@@ -656,10 +721,11 @@ mindmap
       Live PayAccess activation
       Live checkout payment
       Live webhook receiver
+      Hosted auth and contract envs
       Mobile responsive pass
     Deferred
       Full RPC gateway
-      Rate limiting
+      Distributed rate limiting
       Advanced request logs
       Multi-tenant teams
       Production auth hardening
@@ -669,4 +735,4 @@ mindmap
 
 Velo now has a coherent, implemented Alpha centered on stablecoin payment links and hosted checkout. The codebase includes the required two-contract Soroban architecture, a meaningful Registry-to-PayAccess inter-contract call, API-key-authenticated PaymentIntent creation, customer checkout, signed payment webhooks, payment metrics, and the earlier verification/debug/event-monitoring foundation.
 
-The remaining work is not a rebuild. It is deployment discipline: confirm contract IDs, run the live Testnet payment path, record the demo setup, and decide which deferred production concerns belong in the next sprint.
+The remaining work is not a rebuild. The previously listed code-level hardening gaps are now addressed. The next gate is deployment discipline: confirm hosted contract/auth envs, run the live Testnet payment path, record the demo setup, and decide which deferred production concerns belong in the next sprint.
