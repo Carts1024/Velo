@@ -2,7 +2,7 @@
 # Velo
 
 <p align="center">
-  <img src="apps/web/public/iconv2.png" alt="Velo logo" width="125" height="125" />
+  <img src="apps/web/public/iconv2.png" alt="Velo logo" width="300" height="300" />
 </p>
 
 **Developer-first stablecoin payment infrastructure and verification tooling for Stellar builders.**
