@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 
-import { query } from "../_generated/server";
+import { internalQuery, query } from "../_generated/server";
 import { ownerProjectOrNull } from "../webhook_endpoints/helpers";
 import { normalizeDeliveryLimit } from "./helpers";
 
@@ -19,5 +19,14 @@ export const listByProject = query({
       .withIndex("by_project_created_at", (q) => q.eq("projectId", args.projectId))
       .order("desc")
       .take(normalizeDeliveryLimit(args.limit));
+  },
+});
+
+export const getDelivery = internalQuery({
+  args: {
+    deliveryId: v.id("webhookDeliveries"),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.deliveryId);
   },
 });

@@ -55,3 +55,32 @@ export const saveSettings = mutation({
     });
   },
 });
+
+export const rotateSecret = mutation({
+  args: {
+    projectId: v.id("projects"),
+  },
+  handler: async (ctx, args) => {
+    await requireOwnerProject(ctx, args.projectId);
+    const existing = await ctx.db
+      .query("webhookEndpoints")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .unique();
+    if (!existing) {
+      throw new Error("Webhook endpoint not found");
+    }
+
+    const randomBytes = new Uint8Array(16);
+    crypto.getRandomValues(randomBytes);
+    const secretToken = Array.from(randomBytes)
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+    const signingSecret = `whsec_${secretToken}`;
+
+    await ctx.db.patch(existing._id, {
+      signingSecret,
+      updatedAt: Date.now(),
+    });
+    return existing._id;
+  },
+});

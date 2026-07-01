@@ -45,6 +45,7 @@ import {
   FlaskConicalIcon,
   LoaderCircleIcon,
   LockKeyholeIcon,
+  RefreshCwIcon,
   SaveIcon,
   SendIcon,
   WalletIcon,
@@ -157,6 +158,7 @@ export function ProjectWebhooks({ projectId }: { projectId: string }) {
     wallet.address ? { projectId: typedProjectId, limit: 1 } : "skip",
   );
   const saveSettings = useMutation(api.webhook_endpoints.mutation.saveSettings);
+  const rotateSecret = useMutation(api.webhook_endpoints.mutation.rotateSecret);
   const sendTest = useAction(api.webhookDelivery.sendTest);
   const loadedSettingsId = useRef<string | null>(null);
   const [url, setUrl] = useState("");
@@ -166,6 +168,8 @@ export function ProjectWebhooks({ projectId }: { projectId: string }) {
   const [useObservedEvent, setUseObservedEvent] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const [isRotating, setIsRotating] = useState(false);
+  const [isConfirmingRotation, setIsConfirmingRotation] = useState(false);
   const [notice, setNotice] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [showSecret, setShowSecret] = useState(false);
   const [copiedSecret, setCopiedSecret] = useState(false);
@@ -290,6 +294,29 @@ export function ProjectWebhooks({ projectId }: { projectId: string }) {
       });
     } finally {
       setIsSaving(false);
+    }
+  }
+
+  async function rotate() {
+    if (!wallet.address) {
+      return;
+    }
+
+    setIsRotating(true);
+    setNotice(null);
+    try {
+      await rotateSecret({
+        projectId: typedProjectId,
+      });
+      setNotice({ type: "success", message: "Webhook signing secret rotated." });
+      setIsConfirmingRotation(false);
+    } catch (error) {
+      setNotice({
+        type: "error",
+        message: error instanceof Error ? error.message : "Webhook secret could not be rotated",
+      });
+    } finally {
+      setIsRotating(false);
     }
   }
 
@@ -439,6 +466,44 @@ export function ProjectWebhooks({ projectId }: { projectId: string }) {
                   <CopyIcon className="h-4 w-4" />
                 )}
               </Button>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 mt-1">
+              {!isConfirmingRotation ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsConfirmingRotation(true)}
+                  disabled={!ownerMatches || isRotating}
+                >
+                  <RefreshCwIcon className="h-3 w-3 mr-1" />
+                  Rotate secret
+                </Button>
+              ) : (
+                <div className="flex items-center gap-2 bg-red-50 border border-red-200 p-2 rounded text-xs">
+                  <span className="text-red-700 font-medium">
+                    Are you sure? Old secret will immediately stop working.
+                  </span>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => void rotate()}
+                    disabled={isRotating}
+                  >
+                    {isRotating ? "Rotating..." : "Yes, rotate"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsConfirmingRotation(false)}
+                    disabled={isRotating}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              )}
             </div>
             <p className="text-xs text-zinc-500">
               Payloads are signed using this secret in HMAC-SHA256. Verify signatures to confirm

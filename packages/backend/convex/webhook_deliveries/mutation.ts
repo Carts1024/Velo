@@ -41,3 +41,33 @@ export const finish = internalMutation({
     });
   },
 });
+
+export const startAttempt = internalMutation({
+  args: {
+    deliveryId: v.id("webhookDeliveries"),
+    attemptCount: v.number(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.deliveryId, {
+      attemptCount: args.attemptCount,
+      lastAttemptAt: Date.now(),
+    });
+  },
+});
+
+export const logAttemptFailure = internalMutation({
+  args: {
+    deliveryId: v.id("webhookDeliveries"),
+    httpStatus: v.optional(v.number()),
+    errorMessage: v.optional(v.string()),
+    responseTimeMs: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.deliveryId, {
+      httpStatus: args.httpStatus,
+      errorMessage: args.errorMessage?.slice(0, 500),
+      responseTimeMs: args.responseTimeMs,
+      lastAttemptAt: Date.now(),
+    });
+  },
+});
