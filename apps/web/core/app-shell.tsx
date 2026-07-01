@@ -26,6 +26,7 @@ import {
   WalletIcon,
 } from "lucide-react";
 import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import { ReactNode, useCallback, useEffect, useState } from "react";
 
 const walletStatusCopy = {
@@ -43,20 +44,29 @@ const walletStatusCopy = {
 
 export function AppShell({ children }: { children: ReactNode }) {
   const wallet = useWallet();
-  const { user, isNewUser } = useUserProfile(wallet.address);
+  const { user, isNewUser, isLoading } = useUserProfile(wallet.address);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const pathname = usePathname();
+  const router = useRouter();
 
   const showWalletNotice = ["unavailable", "unsupported", "rejected", "stale", "error"].includes(
     wallet.status,
   );
 
-  // Show onboarding dialog for new users after wallet connection
+  const isProtectedRoute = pathname.startsWith("/dashboard") || pathname.startsWith("/projects");
+
   useEffect(() => {
-    if (isNewUser && wallet.status === "connected") {
-      setShowOnboarding(true);
+    if (wallet.status === "initializing" || isLoading) {
+      return;
     }
-  }, [isNewUser, wallet.status]);
+
+    if (isProtectedRoute && wallet.status !== "connected") {
+      router.push("/login");
+    } else if (wallet.status === "connected" && isNewUser && pathname !== "/signup") {
+      router.push("/signup");
+    }
+  }, [wallet.status, isNewUser, isLoading, isProtectedRoute, pathname, router]);
 
   const handleOnboardingComplete = useCallback(() => {
     setShowOnboarding(false);

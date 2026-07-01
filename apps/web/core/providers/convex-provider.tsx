@@ -2,7 +2,8 @@
 
 import { useWallet } from "@/core/wallet/wallet-provider";
 import { ConvexProviderWithAuth, ConvexReactClient } from "convex/react";
-import { ReactNode, useCallback, useMemo, useRef } from "react";
+import { usePathname } from "next/navigation";
+import { ReactNode, useCallback, useEffect, useMemo, useRef } from "react";
 
 import { env } from "../config/env";
 
@@ -29,60 +30,123 @@ function jwtExpiresAt(token: string) {
   }
 }
 
+function readStoredConvexToken(): WalletToken | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+  const stored = window.sessionStorage.getItem("velo:convex-token");
+  if (!stored) {
+    return null;
+  }
+  try {
+    return JSON.parse(stored) as WalletToken;
+  } catch {
+    window.sessionStorage.removeItem("velo:convex-token");
+    return null;
+  }
+}
+
+function writeStoredConvexToken(token: WalletToken | null) {
+  if (typeof window === "undefined") {
+    return;
+  }
+  if (token) {
+    window.sessionStorage.setItem("velo:convex-token", JSON.stringify(token));
+  } else {
+    window.sessionStorage.removeItem("velo:convex-token");
+  }
+}
+
 function useWalletConvexAuth() {
   const wallet = useWallet();
   const tokenRef = useRef<WalletToken | null>(null);
+  const pendingPromiseRef = useRef<Promise<string | null> | null>(null);
+  const pathname = usePathname();
+  const pathnameRef = useRef(pathname);
+  pathnameRef.current = pathname;
+
+  // Clear token if explicitly disconnected or rejected
+  useEffect(() => {
+    if (wallet.status === "disconnected" || wallet.status === "rejected") {
+      tokenRef.current = null;
+      pendingPromiseRef.current = null;
+      writeStoredConvexToken(null);
+    }
+  }, [wallet.status]);
 
   const fetchAccessToken = useCallback(
     async ({ forceRefreshToken }: { forceRefreshToken: boolean }) => {
-      if (!wallet.address) {
-        tokenRef.current = null;
+      if (wallet.status === "initializing" || wallet.status === "connecting") {
         return null;
       }
 
-      const cached = tokenRef.current;
+      if (!wallet.address || pathnameRef.current === "/") {
+        tokenRef.current = null;
+        pendingPromiseRef.current = null;
+        return null;
+      }
+
+      const cached = tokenRef.current || readStoredConvexToken();
       if (
         cached &&
         cached.address === wallet.address &&
         !forceRefreshToken &&
         jwtExpiresAt(cached.token) - Date.now() > 60_000
       ) {
+        tokenRef.current = cached;
         return cached.token;
       }
 
-      const challengeResponse = await fetch("/api/auth/wallet/challenge", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ address: wallet.address }),
-      });
-      if (!challengeResponse.ok) {
-        throw new Error("Unable to create wallet auth challenge");
+      if (pendingPromiseRef.current) {
+        return pendingPromiseRef.current;
       }
-      const challenge = (await challengeResponse.json()) as {
-        challenge: string;
-        message: string;
-      };
-      const signature = await wallet.signMessage(challenge.message);
-      const verifyResponse = await fetch("/api/auth/wallet/verify", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          address: wallet.address,
-          challenge: challenge.challenge,
-          message: challenge.message,
-          signature,
-        }),
-      });
-      if (!verifyResponse.ok) {
-        const errorBody = (await verifyResponse.json().catch(() => null)) as {
-          error?: string;
-        } | null;
-        throw new Error(errorBody?.error ?? "Unable to verify wallet auth signature");
-      }
-      const result = (await verifyResponse.json()) as { token: string; address: string };
-      tokenRef.current = result;
 
-      return result.token;
+      const fetchPromise = (async () => {
+        try {
+          const challengeResponse = await fetch("/api/auth/wallet/challenge", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ address: wallet.address }),
+          });
+          if (!challengeResponse.ok) {
+            throw new Error("Unable to create wallet auth challenge");
+          }
+          const challenge = (await challengeResponse.json()) as {
+            challenge: string;
+            message: string;
+          };
+          const signature = await wallet.signMessage(challenge.message);
+          const verifyResponse = await fetch("/api/auth/wallet/verify", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              address: wallet.address,
+              challenge: challenge.challenge,
+              message: challenge.message,
+              signature,
+            }),
+          });
+          if (!verifyResponse.ok) {
+            const errorBody = (await verifyResponse.json().catch(() => null)) as {
+              error?: string;
+            } | null;
+            throw new Error(errorBody?.error ?? "Unable to verify wallet auth signature");
+          }
+          const result = (await verifyResponse.json()) as { token: string; address: string };
+          tokenRef.current = result;
+          writeStoredConvexToken(result);
+          return result.token;
+        } catch {
+          writeStoredConvexToken(null);
+          wallet.disconnect();
+          return null;
+        } finally {
+          pendingPromiseRef.current = null;
+        }
+      })();
+
+      pendingPromiseRef.current = fetchPromise;
+      return fetchPromise;
     },
     [wallet],
   );
@@ -90,10 +154,10 @@ function useWalletConvexAuth() {
   return useMemo(
     () => ({
       isLoading: wallet.status === "initializing" || wallet.status === "connecting",
-      isAuthenticated: wallet.status === "connected" && Boolean(wallet.address),
+      isAuthenticated: wallet.status === "connected" && Boolean(wallet.address) && pathname !== "/",
       fetchAccessToken,
     }),
-    [fetchAccessToken, wallet.address, wallet.status],
+    [fetchAccessToken, wallet.address, wallet.status, pathname],
   );
 }
 
