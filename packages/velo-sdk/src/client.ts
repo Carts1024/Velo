@@ -5,12 +5,27 @@ import type {
   PaymentIntent,
   ListPaymentIntentsQuery,
   ListResponse,
+  WebhookEvent,
+  VerifyWebhookParams,
 } from "./types.ts";
 
 import { HttpClient } from "./http.ts";
+import { verifyWebhookSignature } from "./webhooks.ts";
 
 export class Velo {
   private readonly http: HttpClient;
+
+  static readonly webhooks = {
+    verify: async (params: VerifyWebhookParams): Promise<WebhookEvent> => {
+      return verifyWebhookSignature(params);
+    },
+  };
+
+  readonly webhooks = {
+    verify: async (params: VerifyWebhookParams): Promise<WebhookEvent> => {
+      return verifyWebhookSignature(params);
+    },
+  };
 
   constructor(config: VeloConfig) {
     if (

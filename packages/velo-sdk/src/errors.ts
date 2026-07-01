@@ -48,6 +48,12 @@ export class VeloAPIError extends VeloError {
   }
 }
 
+export class VeloWebhookSignatureVerificationError extends VeloValidationError {
+  constructor(message: string) {
+    super(message, { status: 400, code: "webhook_signature_verification_failed" });
+  }
+}
+
 export function mapErrorResponse(status: number, payload: unknown, requestId?: string): VeloError {
   const errorObj =
     payload &&
