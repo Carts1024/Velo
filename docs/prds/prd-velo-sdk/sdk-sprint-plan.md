@@ -40,31 +40,40 @@ Key technical constraints:
 
 Goal: Freeze the alpha contract before implementation expands.
 
+Canonical output: `docs/prds/prd-velo-sdk/sdk-alpha-contract.md`
+
+Sprint 0 is a documentation-only contract freeze. It does not create `packages/velo-sdk`, edit runtime code, change Convex schema, or regenerate generated files.
+
 Stories:
 
 1. As a Velo SDK maintainer, I want a public API contract document so SDK implementation and backend routes target the same behavior.
 2. As a developer, I want consistent error responses so failures are predictable.
 3. As a product owner, I want alpha scope explicitly cut so the SDK does not expand into wallet, registry, analytics, or React components.
+4. As a backend implementer, I want API key scoping, idempotency, pagination, and webhook naming locked before route hardening begins.
 
 Tasks:
 
-- Define public SDK package name, import path, runtime support, and release version.
-- Define REST response shapes for create, retrieve, and list payment intent operations.
-- Define the error envelope for auth, validation, rate limit, not found, and server errors.
-- Define pagination shape for list responses.
+- Create the canonical SDK alpha contract at `docs/prds/prd-velo-sdk/sdk-alpha-contract.md`.
+- Define public SDK package name, import path, runtime support, and release version in the contract.
+- Define REST request and response shapes for create, retrieve, and list payment intent operations.
+- Define the normalized error envelope for auth, validation, rate limit, not found, idempotency conflict, and server errors.
+- Define cursor pagination shape and defaults for list responses.
 - Define idempotency behavior for `POST /api/v1/payment-intents`.
-- Confirm webhook signature headers and event type names.
+- Preserve current webhook signature headers and event type names for alpha.
+- Document alpha exclusions in one explicit contract section.
 
 Acceptance criteria:
 
-- Public contract includes create, retrieve, list, webhook verification, errors, and idempotency.
+- Public contract includes create, retrieve, list, webhook verification, errors, pagination, and idempotency.
 - API key implies project scope; SDK callers never pass `projectId`.
+- Webhook naming preserves the current `x-velo-signature`, `x-velo-event`, `x-velo-delivery`, and `payment.*` event contract.
 - Alpha exclusions are documented.
+- Contract states that Sprint 0 is docs-only and does not change runtime code.
 - Implementation tickets can be estimated without open API-shape questions.
 
 Exit gate:
 
-- Contract reviewed by product and architecture before backend or SDK release work continues.
+- `docs/prds/prd-velo-sdk/sdk-alpha-contract.md` reviewed by product and architecture before backend or SDK release work continues.
 
 ## Sprint 1: Public PaymentIntent API Hardening
 

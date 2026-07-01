@@ -1,10 +1,10 @@
-import type { QueryCtx } from "../_generated/server";
+import type { MutationCtx, QueryCtx } from "../_generated/server";
 
 /**
  * Validates an API key hash and returns the associated project if authorized.
  * Checks that the key exists, is not revoked, and the project has payment access active.
  */
-export async function verifyApiKeyForPayments(ctx: QueryCtx, apiKeyHash: string) {
+export async function verifyApiKeyForPayments(ctx: QueryCtx | MutationCtx, apiKeyHash: string) {
   const apiKey = await ctx.db
     .query("apiKeys")
     .withIndex("by_key_hash", (q) => q.eq("keyHash", apiKeyHash))
@@ -26,8 +26,25 @@ export async function verifyApiKeyForPayments(ctx: QueryCtx, apiKeyHash: string)
   return {
     authorized: true as const,
     project,
+    apiKey,
     apiKeyId: apiKey._id,
   };
+}
+
+export function createPaymentIntentFingerprint(args: {
+  amount: string;
+  asset: string;
+  description?: string;
+  successUrl?: string;
+  cancelUrl?: string;
+}) {
+  return JSON.stringify({
+    amount: args.amount,
+    asset: args.asset,
+    cancelUrl: args.cancelUrl ?? null,
+    description: args.description ?? null,
+    successUrl: args.successUrl ?? null,
+  });
 }
 
 /** Default payment intent expiry: 30 minutes in milliseconds. */

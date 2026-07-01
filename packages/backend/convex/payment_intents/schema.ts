@@ -25,4 +25,6 @@ export default defineTable({
   updatedAt: v.number(),
 })
   .index("by_project", ["projectId"])
+  .index("by_project_created_at", ["projectId", "createdAt"])
+  .index("by_project_status_created_at", ["projectId", "status", "createdAt"])
   .index("by_status", ["status"]);

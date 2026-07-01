@@ -2,7 +2,12 @@ import { v, ConvexError } from "convex/values";
 
 import { internal } from "../_generated/api";
 import { internalMutation, mutation } from "../_generated/server";
-import { PAYMENT_INTENT_EXPIRY_MS, STATUS_TRANSITIONS } from "./helpers";
+import {
+  createPaymentIntentFingerprint,
+  PAYMENT_INTENT_EXPIRY_MS,
+  STATUS_TRANSITIONS,
+  verifyApiKeyForPayments,
+} from "./helpers";
 
 /**
  * Creates a new payment intent. Requires apiKeyHash for authentication.
@@ -67,6 +72,113 @@ export const createPaymentIntent = mutation({
     });
 
     return { paymentIntentId: id, projectId: project._id };
+  },
+});
+
+/**
+ * Creates a payment intent for SDK-facing REST routes.
+ * Auth and project scope are derived from the API key hash.
+ */
+export const createPublicPaymentIntent = mutation({
+  args: {
+    apiKeyHash: v.string(),
+    amount: v.string(),
+    asset: v.string(),
+    description: v.optional(v.string()),
+    successUrl: v.optional(v.string()),
+    cancelUrl: v.optional(v.string()),
+    idempotencyKey: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const auth = await verifyApiKeyForPayments(ctx, args.apiKeyHash);
+    if (!auth.authorized) {
+      return { authorized: false as const, reason: auth.reason };
+    }
+
+    const now = Date.now();
+    const requestFingerprint = createPaymentIntentFingerprint(args);
+
+    if (args.idempotencyKey !== undefined) {
+      const existing = await ctx.db
+        .query("paymentIntentIdempotencyKeys")
+        .withIndex("by_project_and_key", (q) =>
+          q.eq("projectId", auth.project._id).eq("key", args.idempotencyKey!),
+        )
+        .unique();
+
+      if (existing) {
+        if (existing.requestFingerprint !== requestFingerprint) {
+          return {
+            authorized: true as const,
+            idempotencyConflict: true as const,
+            projectId: auth.project._id,
+          };
+        }
+
+        const intent = await ctx.db.get(existing.paymentIntentId);
+        if (intent && intent.projectId === auth.project._id) {
+          await ctx.db.patch(auth.apiKeyId, {
+            lastUsedAt: now,
+            requestCount: auth.apiKey.requestCount + 1,
+          });
+          return {
+            authorized: true as const,
+            idempotencyReplay: true as const,
+            projectId: auth.project._id,
+            intent,
+          };
+        }
+      }
+    }
+
+    const paymentIntentId = await ctx.db.insert("paymentIntents", {
+      projectId: auth.project._id,
+      amount: args.amount,
+      asset: args.asset,
+      receiverAddress: auth.project.ownerAddress,
+      merchantName: auth.project.name,
+      ...(args.description !== undefined ? { description: args.description } : {}),
+      status: "created",
+      ...(args.successUrl !== undefined ? { successUrl: args.successUrl } : {}),
+      ...(args.cancelUrl !== undefined ? { cancelUrl: args.cancelUrl } : {}),
+      expiresAt: now + PAYMENT_INTENT_EXPIRY_MS,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    if (args.idempotencyKey !== undefined) {
+      await ctx.db.insert("paymentIntentIdempotencyKeys", {
+        projectId: auth.project._id,
+        key: args.idempotencyKey,
+        requestFingerprint,
+        paymentIntentId,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+
+    await ctx.db.patch(auth.apiKeyId, {
+      lastUsedAt: now,
+      requestCount: auth.apiKey.requestCount + 1,
+    });
+
+    await ctx.scheduler.runAfter(0, internal.webhookDelivery.trigger, {
+      projectId: auth.project._id,
+      eventType: "payment.created",
+      paymentIntentId,
+    });
+
+    const intent = await ctx.db.get(paymentIntentId);
+    if (!intent) {
+      throw new ConvexError("Payment intent not found after creation");
+    }
+
+    return {
+      authorized: true as const,
+      idempotencyReplay: false as const,
+      projectId: auth.project._id,
+      intent,
+    };
   },
 });
 
