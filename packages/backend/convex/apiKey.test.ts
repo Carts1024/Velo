@@ -9,13 +9,22 @@ import schema from "./schema";
 
 const modules = import.meta.glob("./**/*.ts");
 
+function asWallet(t: ReturnType<typeof convexTest>, ownerAddress: string) {
+  return t.withIdentity({
+    subject: ownerAddress,
+    issuer: "http://localhost:3000",
+    tokenIdentifier: `http://localhost:3000|${ownerAddress}`,
+  });
+}
+
 test("project API key lifecycle", async () => {
   const t = convexTest(schema, modules);
 
   const ownerAddress = "GD7O2C226SF2677PFFUVD6O2ICFOBNCWPI5Z46N43ZSFQGLM65U3I2SP";
+  const owner = asWallet(t, ownerAddress);
 
   // Create a draft project
-  const projectId = await t.mutation(api.projects.mutation.createDraft, {
+  const projectId = await owner.mutation(api.projects.mutation.createDraft, {
     name: "Test Project",
     slug: "test-project",
     description: "A test project",
@@ -25,25 +34,22 @@ test("project API key lifecycle", async () => {
   });
 
   // Project starts with no API keys
-  let keys = (await t.query(api.projects.query.listApiKeys, {
+  let keys = (await owner.query(api.projects.query.listApiKeys, {
     projectId,
-    ownerAddress,
   })) as Doc<"apiKeys">[];
   expect(keys).toEqual([]);
 
   // Generate API key 1
-  const { rawKey: rawKey1 } = await t.mutation(api.projects.mutation.generateApiKey, {
+  const { rawKey: rawKey1 } = await owner.mutation(api.projects.mutation.generateApiKey, {
     id: projectId,
-    ownerAddress,
     label: "Dev Key",
   });
 
   expect(rawKey1).toMatch(/^tk_live_[a-f0-9]{32}$/);
 
   // Generate API key 2
-  const { rawKey: rawKey2 } = await t.mutation(api.projects.mutation.generateApiKey, {
+  const { rawKey: rawKey2 } = await owner.mutation(api.projects.mutation.generateApiKey, {
     id: projectId,
-    ownerAddress,
     label: "Prod Key",
   });
 
@@ -62,9 +68,8 @@ test("project API key lifecycle", async () => {
   const apiKeyHash2 = await computeHash(rawKey2);
 
   // Retrieve keys and verify prefixes, labels, and hashes are set correctly
-  keys = (await t.query(api.projects.query.listApiKeys, {
+  keys = (await owner.query(api.projects.query.listApiKeys, {
     projectId,
-    ownerAddress,
   })) as Doc<"apiKeys">[];
   expect(keys.length).toBe(2);
 
@@ -106,16 +111,14 @@ test("project API key lifecycle", async () => {
   expect(invalidQuery.events).toBeUndefined();
 
   // Revoke API Key 1
-  await t.mutation(api.projects.mutation.revokeApiKey, {
+  await owner.mutation(api.projects.mutation.revokeApiKey, {
     keyId: devKey!._id,
     projectId,
-    ownerAddress,
   });
 
   // Verify key 1 is revoked and key 2 is still active
-  keys = (await t.query(api.projects.query.listApiKeys, {
+  keys = (await owner.query(api.projects.query.listApiKeys, {
     projectId,
-    ownerAddress,
   })) as Doc<"apiKeys">[];
   const revokedDevKey = keys.find((k) => k.label === "Dev Key");
   const activeProdKey = keys.find((k) => k.label === "Prod Key");
@@ -136,4 +139,35 @@ test("project API key lifecycle", async () => {
     limit: 10,
   });
   expect(stillAuthorizedQuery.authorized).toBe(true);
+});
+
+test("authenticated wallet cannot manage another wallet project", async () => {
+  const t = convexTest(schema, modules);
+  const ownerAddress = "GD7O2C226SF2677PFFUVD6O2ICFOBNCWPI5Z46N43ZSFQGLM65U3I2SP";
+  const attackerAddress = "GDFWQCS3C72IWT5QV6CJYCMCQZ4WQ2QELSE6ABWI5Q3XRZ6BPGRS6LZV";
+  const owner = asWallet(t, ownerAddress);
+  const attacker = asWallet(t, attackerAddress);
+
+  const projectId = await owner.mutation(api.projects.mutation.createDraft, {
+    name: "Protected Project",
+    slug: "protected-project",
+    description: "A protected project",
+    metadataJson: "{}",
+    metadataHash: "0000000000000000000000000000000000000000000000000000000000000000",
+    ownerAddress,
+  });
+
+  await expect(
+    attacker.mutation(api.projects.mutation.generateApiKey, {
+      id: projectId,
+      label: "Spoofed Key",
+    }),
+  ).rejects.toThrow("Unauthorized");
+
+  const attackerRead = await attacker.query(api.projects.query.getById, { id: projectId });
+  expect(attackerRead).toBeNull();
+
+  const ownerRead = await owner.query(api.projects.query.getById, { id: projectId });
+  expect(ownerRead?._id).toBe(projectId);
+  expect(ownerRead?.ownerTokenIdentifier).toBe(`http://localhost:3000|${ownerAddress}`);
 });

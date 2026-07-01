@@ -1,15 +1,14 @@
 import { v } from "convex/values";
 
 import { internalQuery, query } from "../_generated/server";
-import { ownerProjectOrNull, requireOwnerProject, validateWebhookUrl } from "./helpers";
+import { ownerProjectOrNull, requireOwnerProjectByToken, validateWebhookUrl } from "./helpers";
 
 export const getSettings = query({
   args: {
     projectId: v.id("projects"),
-    ownerAddress: v.string(),
   },
   handler: async (ctx, args) => {
-    if (!(await ownerProjectOrNull(ctx, args.projectId, args.ownerAddress))) {
+    if (!(await ownerProjectOrNull(ctx, args.projectId))) {
       return null;
     }
 
@@ -23,10 +22,9 @@ export const getSettings = query({
 export const getSummary = query({
   args: {
     projectId: v.id("projects"),
-    ownerAddress: v.string(),
   },
   handler: async (ctx, args) => {
-    if (!(await ownerProjectOrNull(ctx, args.projectId, args.ownerAddress))) {
+    if (!(await ownerProjectOrNull(ctx, args.projectId))) {
       return null;
     }
 
@@ -57,13 +55,19 @@ export const getSummary = query({
 export const getDeliveryTarget = internalQuery({
   args: {
     projectId: v.id("projects"),
-    ownerAddress: v.string(),
+    ownerTokenIdentifier: v.string(),
+    ownerSubject: v.string(),
     eventType: v.string(),
     contractEventId: v.optional(v.id("contractEvents")),
     paymentIntentId: v.optional(v.id("paymentIntents")),
   },
   handler: async (ctx, args) => {
-    const project = await requireOwnerProject(ctx, args.projectId, args.ownerAddress);
+    const project = await requireOwnerProjectByToken(
+      ctx,
+      args.projectId,
+      args.ownerTokenIdentifier,
+      args.ownerSubject,
+    );
     const endpoint = await ctx.db
       .query("webhookEndpoints")
       .withIndex("by_project", (q) => q.eq("projectId", args.projectId))

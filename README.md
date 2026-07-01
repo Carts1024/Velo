@@ -55,6 +55,7 @@ As of `2026-06-29`, Velo is **Phase 1 MVP implemented** and **Alpha Pay in plann
 Implemented and locally verified:
 
 - Wallet connection flow for Stellar Testnet through Stellar Wallets Kit.
+- Wallet-signed Convex authentication for owner-private dashboard workflows.
 - Convex-backed project dashboard and project creation flow.
 - Soroban `VeloRegistry` contract with integration tests.
 - On-chain project registration transaction builder and sync flow.
@@ -95,7 +96,9 @@ Supported states include:
 - Unsupported or stale wallet session.
 - Disconnect.
 
-The wallet provider exposes `connect`, `disconnect`, and `signTransaction` for project registration and contract management flows.
+The wallet provider exposes `connect`, `disconnect`, `signTransaction`, and `signMessage` for project registration, contract management, and wallet-authenticated Convex sessions.
+
+Owner-private Convex functions use app-issued JWTs derived from a signed wallet challenge. The wallet address remains a Stellar business field for signing, payment receivers, and public proof, but it is not accepted as private authorization proof.
 
 ### Project and Merchant Dashboard
 
@@ -103,7 +106,7 @@ Developers can create and manage Velo projects in the dashboard.
 
 Current behavior:
 
-- Owner-wallet-scoped project list.
+- Authenticated owner-scoped project list.
 - Draft project creation.
 - Slug generation.
 - Metadata JSON preview.
@@ -111,7 +114,21 @@ Current behavior:
 - Project status tracking: `draft`, `pending_registration`, `registered`, `registration_error`, and `stale`.
 - Dashboard loading and empty states.
 
-The project model is wallet-first. Ownership checks compare the connected/submitted wallet address against the stored owner wallet. Full account auth is outside the current MVP scope.
+The project model is wallet-first. Convex stores `ownerTokenIdentifier` from the authenticated JWT and uses that token identifier for private project ownership checks.
+
+### Wallet Auth Environment
+
+Custom Convex JWT auth requires the web app to expose a JWKS endpoint and Convex to trust the same issuer URL.
+
+Required in production:
+
+```txt
+NEXT_PUBLIC_APP_URL=https://your-app.example
+VELO_AUTH_JWT_PRIVATE_KEY_PEM="-----BEGIN EC PRIVATE KEY-----\n...\n-----END EC PRIVATE KEY-----"
+VELO_AUTH_CHALLENGE_SECRET=<random 32+ byte secret>
+```
+
+`VELO_AUTH_JWT_PRIVATE_KEY_PEM` must be an ES256/P-256 private key. `VELO_AUTH_CHALLENGE_SECRET` signs short-lived wallet challenge payloads; if omitted outside production, local development falls back to the JWT key or a local-only development secret. Convex reads `NEXT_PUBLIC_APP_URL` in `packages/backend/convex/auth.config.ts` and validates tokens against `${NEXT_PUBLIC_APP_URL}/api/auth/wallet/jwks`.
 
 ### Soroban Registry Contract
 

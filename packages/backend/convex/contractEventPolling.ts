@@ -6,6 +6,7 @@ import type { PollTarget } from "./contract_events/types";
 
 import { internal } from "./_generated/api";
 import { action, internalAction } from "./_generated/server";
+import { requireIdentity } from "./projects/helpers";
 
 const DEFAULT_TESTNET_RPC_URL = "https://soroban-testnet.stellar.org";
 
@@ -65,12 +66,16 @@ async function pollTarget(ctx: ActionCtx, target: PollTarget): Promise<PollResul
 export const pollProject = action({
   args: {
     projectId: v.id("projects"),
-    ownerAddress: v.string(),
   },
   handler: async (ctx, args): Promise<PollResult> => {
+    const identity = await requireIdentity(ctx);
     const target: OwnerPollTarget = await ctx.runQuery(
       internal.contract_events.query.getPollTarget,
-      args,
+      {
+        projectId: args.projectId,
+        ownerTokenIdentifier: identity.tokenIdentifier,
+        ownerSubject: identity.subject,
+      },
     );
     return await pollTarget(ctx, { ...target, projectId: args.projectId });
   },

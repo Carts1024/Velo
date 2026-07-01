@@ -6,13 +6,12 @@ import { requireOwnerProject, validateEventTypes, validateWebhookUrl } from "./h
 export const saveSettings = mutation({
   args: {
     projectId: v.id("projects"),
-    ownerAddress: v.string(),
     url: v.string(),
     enabled: v.boolean(),
     eventTypes: v.array(v.string()),
   },
   handler: async (ctx, args) => {
-    await requireOwnerProject(ctx, args.projectId, args.ownerAddress);
+    await requireOwnerProject(ctx, args.projectId);
     const normalizedUrl = validateWebhookUrl(args.url);
     const eventTypes = validateEventTypes(args.eventTypes);
     const existing = await ctx.db

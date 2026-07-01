@@ -1,3 +1,4 @@
+export * from "./auth.ts";
 export * from "./checkout.ts";
 export * from "./contract-config.ts";
 export * from "./event-monitor.ts";

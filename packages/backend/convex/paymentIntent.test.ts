@@ -7,13 +7,22 @@ import schema from "./schema";
 
 const modules = import.meta.glob("./**/*.ts");
 
+function asWallet(t: ReturnType<typeof convexTest>, ownerAddress: string) {
+  return t.withIdentity({
+    subject: ownerAddress,
+    issuer: "http://localhost:3000",
+    tokenIdentifier: `http://localhost:3000|${ownerAddress}`,
+  });
+}
+
 test("payment intent lifecycle", async () => {
   const t = convexTest(schema, modules);
 
   const ownerAddress = "GD7O2C226SF2677PFFUVD6O2ICFOBNCWPI5Z46N43ZSFQGLM65U3I2SP";
+  const owner = asWallet(t, ownerAddress);
 
   // Create a draft project
-  const projectId = await t.mutation(api.projects.mutation.createDraft, {
+  const projectId = await owner.mutation(api.projects.mutation.createDraft, {
     name: "Merchant Store",
     slug: "merchant-store",
     description: "Accepting USDC on Stellar",
@@ -23,23 +32,20 @@ test("payment intent lifecycle", async () => {
   });
 
   // Verify project defaults to paymentAccessActive undefined/null or false
-  let project = await t.query(api.projects.query.getById, {
+  let project = await owner.query(api.projects.query.getById, {
     id: projectId,
-    ownerAddress,
   });
   expect(project?.paymentAccessActive).toBeFalsy();
 
   // Activate payment access using the proper mutation
-  await t.mutation(api.projects.mutation.markPaymentAccessActive, {
+  await owner.mutation(api.projects.mutation.markPaymentAccessActive, {
     id: projectId,
-    ownerAddress,
     checkoutCredits: 100,
   });
 
   // Generate API key
-  const { rawKey } = await t.mutation(api.projects.mutation.generateApiKey, {
+  const { rawKey } = await owner.mutation(api.projects.mutation.generateApiKey, {
     id: projectId,
-    ownerAddress,
     label: "Main API Key",
   });
 
@@ -118,9 +124,8 @@ test("payment intent lifecycle", async () => {
   expect(intent?.txHash).toBe(txHash);
 
   // Listing by project
-  const intentsList = await t.query(api.payment_intents.queries.listByProject, {
+  const intentsList = await owner.query(api.payment_intents.queries.listByProject, {
     projectId,
-    ownerAddress,
     limit: 10,
   });
   expect(intentsList.length).toBe(1);
@@ -131,7 +136,8 @@ test("payment intent creation allows omitted redirect urls", async () => {
   const t = convexTest(schema, modules);
 
   const ownerAddress = "GD7O2C226SF2677PFFUVD6O2ICFOBNCWPI5Z46N43ZSFQGLM65U3I2SP";
-  const projectId = await t.mutation(api.projects.mutation.createDraft, {
+  const owner = asWallet(t, ownerAddress);
+  const projectId = await owner.mutation(api.projects.mutation.createDraft, {
     name: "Merchant Store",
     slug: "merchant-store-no-urls",
     description: "Accepting USDC on Stellar",
@@ -140,15 +146,13 @@ test("payment intent creation allows omitted redirect urls", async () => {
     ownerAddress,
   });
 
-  await t.mutation(api.projects.mutation.markPaymentAccessActive, {
+  await owner.mutation(api.projects.mutation.markPaymentAccessActive, {
     id: projectId,
-    ownerAddress,
     checkoutCredits: 100,
   });
 
-  const { rawKey } = await t.mutation(api.projects.mutation.generateApiKey, {
+  const { rawKey } = await owner.mutation(api.projects.mutation.generateApiKey, {
     id: projectId,
-    ownerAddress,
     label: "Main API Key",
   });
 
@@ -178,7 +182,8 @@ test("payment intent stats aggregation and scanner execution", async () => {
   const t = convexTest(schema, modules);
 
   const ownerAddress = "GD7O2C226SF2677PFFUVD6O2ICFOBNCWPI5Z46N43ZSFQGLM65U3I2SP";
-  const projectId = await t.mutation(api.projects.mutation.createDraft, {
+  const owner = asWallet(t, ownerAddress);
+  const projectId = await owner.mutation(api.projects.mutation.createDraft, {
     name: "Merchant Store Stats",
     slug: "merchant-store-stats",
     description: "Accepting USDC on Stellar",
@@ -187,15 +192,13 @@ test("payment intent stats aggregation and scanner execution", async () => {
     ownerAddress,
   });
 
-  await t.mutation(api.projects.mutation.markPaymentAccessActive, {
+  await owner.mutation(api.projects.mutation.markPaymentAccessActive, {
     id: projectId,
-    ownerAddress,
     checkoutCredits: 100,
   });
 
-  const { rawKey } = await t.mutation(api.projects.mutation.generateApiKey, {
+  const { rawKey } = await owner.mutation(api.projects.mutation.generateApiKey, {
     id: projectId,
-    ownerAddress,
     label: "Main API Key",
   });
 
@@ -221,9 +224,8 @@ test("payment intent stats aggregation and scanner execution", async () => {
   });
 
   // Verify status counts are initially showing created state
-  let stats = await t.query(api.payment_intents.queries.getProjectStats, {
+  let stats = await owner.query(api.payment_intents.queries.getProjectStats, {
     projectId,
-    ownerAddress,
   });
   expect(stats?.counts.total).toBe(2);
   expect(stats?.counts.created).toBe(2);
@@ -249,9 +251,8 @@ test("payment intent stats aggregation and scanner execution", async () => {
   });
 
   // Verify updated status counts and volume
-  stats = await t.query(api.payment_intents.queries.getProjectStats, {
+  stats = await owner.query(api.payment_intents.queries.getProjectStats, {
     projectId,
-    ownerAddress,
   });
   expect(stats?.counts.paid).toBe(1);
   expect(stats?.counts.pending).toBe(1);

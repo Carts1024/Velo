@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 
 import { mutation } from "../_generated/server";
-import { normalizeAddress } from "../projects/helpers";
+import { normalizeAddress, requireIdentity } from "../projects/helpers";
 
 // eslint-disable-next-line no-control-regex -- intentionally stripping control chars
 const CONTROL_CHARS_PATTERN = /[\x00-\x08\x0B\x0C\x0E-\x1F]/g;
@@ -27,32 +27,41 @@ function sanitizeComment(raw: string): string {
 
 export const submitFeedback = mutation({
   args: {
-    walletAddress: v.string(),
     rating: v.number(),
     comment: v.string(),
   },
   handler: async (ctx, args) => {
-    const walletAddress = normalizeAddress(args.walletAddress);
+    const identity = await requireIdentity(ctx);
+    const walletAddress = normalizeAddress(identity.subject);
     const rating = sanitizeRating(args.rating);
     const comment = sanitizeComment(args.comment);
     const now = Date.now();
 
     const existing = await ctx.db
       .query("feedback")
-      .withIndex("by_wallet", (q) => q.eq("walletAddress", walletAddress))
+      .withIndex("by_token_identifier", (q) => q.eq("tokenIdentifier", identity.tokenIdentifier))
       .unique();
+    const legacyExisting = existing
+      ? null
+      : await ctx.db
+          .query("feedback")
+          .withIndex("by_wallet", (q) => q.eq("walletAddress", walletAddress))
+          .unique();
+    const feedback = existing ?? legacyExisting;
 
-    if (existing) {
-      await ctx.db.patch(existing._id, {
+    if (feedback) {
+      await ctx.db.patch(feedback._id, {
+        tokenIdentifier: identity.tokenIdentifier,
         rating,
         comment,
         updatedAt: now,
       });
-      return existing._id;
+      return feedback._id;
     }
 
     return await ctx.db.insert("feedback", {
       walletAddress,
+      tokenIdentifier: identity.tokenIdentifier,
       rating,
       comment,
       createdAt: now,

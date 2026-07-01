@@ -48,7 +48,7 @@ export function ProjectIntegration({ projectId }: ProjectIntegrationProps) {
 
   const project = useQuery(
     api.projects.query.getById,
-    wallet.address ? { id: projectId as Id<"projects">, ownerAddress: wallet.address } : "skip",
+    wallet.address ? { id: projectId as Id<"projects"> } : "skip",
   );
 
   const apiKeys = useQuery(
@@ -56,7 +56,6 @@ export function ProjectIntegration({ projectId }: ProjectIntegrationProps) {
     wallet.address
       ? {
           projectId: projectId as Id<"projects">,
-          ownerAddress: wallet.address,
         }
       : "skip",
   );

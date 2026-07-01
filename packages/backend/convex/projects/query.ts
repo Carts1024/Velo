@@ -6,20 +6,36 @@ import {
   METADATA_HASH_PATTERN,
   normalizeAddress,
   ownerProjectOrNull,
+  requireIdentity,
   requireOwnerProject,
   safeWebsite,
 } from "./helpers";
 
 export const listByOwner = query({
-  args: { ownerAddress: v.string() },
-  handler: async (ctx, args) => {
-    const ownerAddress = normalizeAddress(args.ownerAddress);
-
-    return await ctx.db
+  args: {},
+  handler: async (ctx) => {
+    const identity = await requireIdentity(ctx);
+    const tokenProjects = await ctx.db
       .query("projects")
-      .withIndex("by_owner", (q) => q.eq("ownerAddress", ownerAddress))
+      .withIndex("by_owner_token_identifier", (q) =>
+        q.eq("ownerTokenIdentifier", identity.tokenIdentifier),
+      )
       .order("desc")
       .collect();
+
+    const legacyProjects = await ctx.db
+      .query("projects")
+      .withIndex("by_owner", (q) => q.eq("ownerAddress", normalizeAddress(identity.subject)))
+      .order("desc")
+      .collect();
+
+    const tokenProjectIds = new Set(tokenProjects.map((project) => project._id));
+    return [
+      ...tokenProjects,
+      ...legacyProjects.filter(
+        (project) => !project.ownerTokenIdentifier && !tokenProjectIds.has(project._id),
+      ),
+    ];
   },
 });
 
@@ -36,10 +52,9 @@ export const getBySlug = query({
 export const getById = query({
   args: {
     id: v.id("projects"),
-    ownerAddress: v.string(),
   },
   handler: async (ctx, args) => {
-    return await ownerProjectOrNull(ctx, args.id, args.ownerAddress);
+    return await ownerProjectOrNull(ctx, args.id);
   },
 });
 
@@ -190,10 +205,9 @@ export const verifyApiKeyAndGetWebhookDeliveries = query({
 export const listApiKeys = query({
   args: {
     projectId: v.id("projects"),
-    ownerAddress: v.string(),
   },
   handler: async (ctx, args) => {
-    await requireOwnerProject(ctx, args.projectId, args.ownerAddress);
+    await requireOwnerProject(ctx, args.projectId);
 
     return await ctx.db
       .query("apiKeys")

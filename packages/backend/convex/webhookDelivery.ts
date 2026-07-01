@@ -10,6 +10,7 @@ import type { WebhookEventType } from "./webhook_endpoints/types";
 
 import { internal } from "./_generated/api";
 import { action, internalAction } from "./_generated/server";
+import { requireIdentity } from "./projects/helpers";
 
 type DeliveryTarget = {
   endpoint: Doc<"webhookEndpoints">;
@@ -134,7 +135,6 @@ function computeSignatureHeader(payload: unknown, secret?: string): string | und
 export const sendTest = action({
   args: {
     projectId: v.id("projects"),
-    ownerAddress: v.string(),
     eventType: v.union(
       v.literal("contract.event"),
       v.literal("transaction.succeeded"),
@@ -153,9 +153,14 @@ export const sendTest = action({
     ctx,
     args,
   ): Promise<{ deliveryId: WebhookDeliveryId; status: "success" | "failed" }> => {
+    const identity = await requireIdentity(ctx);
     const target: DeliveryTarget = await ctx.runQuery(
       internal.webhook_endpoints.query.getDeliveryTarget,
-      args,
+      {
+        ...args,
+        ownerTokenIdentifier: identity.tokenIdentifier,
+        ownerSubject: identity.subject,
+      },
     );
     const payload = buildPayload(target, args.eventType, true);
     const signatureHeader = computeSignatureHeader(payload, target.endpoint.signingSecret);

@@ -95,7 +95,6 @@ export function OnboardingDialog({ open, onComplete, existingProfile }: Onboardi
 
     try {
       await upsertProfile({
-        walletAddress: wallet.address,
         name: name.trim(),
         email: email.trim(),
       });

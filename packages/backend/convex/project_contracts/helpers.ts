@@ -4,18 +4,14 @@ import type { MutationCtx, QueryCtx } from "../_generated/server";
 import type { ProjectId } from "../projects/types";
 import type { ProjectContractId } from "./types";
 
-import { normalizeAddress, requireOwnerProject } from "../projects/helpers";
+import { requireProjectOwner } from "../projects/helpers";
 
 export function normalizeContractId(contractId: string) {
   return assertValidContractId(contractId);
 }
 
-export async function requireRegisteredOwnerProject(
-  ctx: MutationCtx,
-  projectId: ProjectId,
-  ownerAddress: string,
-) {
-  const project = await requireOwnerProject(ctx, projectId, ownerAddress);
+export async function requireRegisteredOwnerProject(ctx: MutationCtx, projectId: ProjectId) {
+  const project = await requireProjectOwner(ctx, projectId);
 
   if (project.status !== "registered" || project.registryProjectId === undefined) {
     throw new Error("Only registered projects can manage official contracts");
@@ -24,20 +20,14 @@ export async function requireRegisteredOwnerProject(
   return project;
 }
 
-export async function requireOwnerContract(
-  ctx: MutationCtx,
-  id: ProjectContractId,
-  ownerAddress: string,
-) {
+export async function requireOwnerContract(ctx: MutationCtx, id: ProjectContractId) {
   const contract = await ctx.db.get(id);
 
   if (!contract) {
     throw new Error("Contract link not found");
   }
 
-  if (contract.ownerAddress !== normalizeAddress(ownerAddress)) {
-    throw new Error("Connected wallet does not own this contract link");
-  }
+  await requireProjectOwner(ctx, contract.projectId);
 
   return contract;
 }

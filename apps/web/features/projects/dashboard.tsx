@@ -44,10 +44,7 @@ const statusVariant = {
 
 export function ProjectDashboard() {
   const wallet = useWallet();
-  const projects = useQuery(
-    api.projects.query.listByOwner,
-    wallet.address ? { ownerAddress: wallet.address } : "skip",
-  );
+  const projects = useQuery(api.projects.query.listByOwner, wallet.address ? {} : "skip");
 
   if (!wallet.address) {
     return (

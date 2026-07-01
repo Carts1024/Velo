@@ -3,8 +3,11 @@ import { v } from "convex/values";
 
 export default defineTable({
   walletAddress: v.string(),
+  tokenIdentifier: v.optional(v.string()),
   name: v.string(),
   email: v.string(),
   createdAt: v.number(),
   lastSeenAt: v.number(),
-}).index("by_wallet", ["walletAddress"]);
+})
+  .index("by_wallet", ["walletAddress"])
+  .index("by_token_identifier", ["tokenIdentifier"]);

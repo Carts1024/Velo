@@ -11,12 +11,11 @@ import {
 export const markAddPending = mutation({
   args: {
     projectId: v.id("projects"),
-    ownerAddress: v.string(),
     contractId: v.string(),
     transactionHash: v.string(),
   },
   handler: async (ctx, args) => {
-    const project = await requireRegisteredOwnerProject(ctx, args.projectId, args.ownerAddress);
+    const project = await requireRegisteredOwnerProject(ctx, args.projectId);
     const registryProjectId = project.registryProjectId;
 
     if (registryProjectId === undefined) {
@@ -67,11 +66,10 @@ export const markAddPending = mutation({
 export const markAddConfirmed = mutation({
   args: {
     id: v.id("projectContracts"),
-    ownerAddress: v.string(),
     confirmedLedger: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const contract = await requireOwnerContract(ctx, args.id, args.ownerAddress);
+    const contract = await requireOwnerContract(ctx, args.id);
 
     if (contract.status !== "pending_add") {
       throw new Error("Only pending additions can be confirmed");
@@ -91,11 +89,10 @@ export const markAddConfirmed = mutation({
 export const markRemovePending = mutation({
   args: {
     id: v.id("projectContracts"),
-    ownerAddress: v.string(),
     transactionHash: v.string(),
   },
   handler: async (ctx, args) => {
-    const contract = await requireOwnerContract(ctx, args.id, args.ownerAddress);
+    const contract = await requireOwnerContract(ctx, args.id);
 
     if (
       contract.status !== "active" &&
@@ -118,10 +115,9 @@ export const markRemovePending = mutation({
 export const markRemoved = mutation({
   args: {
     id: v.id("projectContracts"),
-    ownerAddress: v.string(),
   },
   handler: async (ctx, args) => {
-    const contract = await requireOwnerContract(ctx, args.id, args.ownerAddress);
+    const contract = await requireOwnerContract(ctx, args.id);
 
     if (contract.status !== "pending_remove") {
       throw new Error("Only pending removals can be confirmed");
@@ -134,10 +130,9 @@ export const markRemoved = mutation({
 export const markStale = mutation({
   args: {
     id: v.id("projectContracts"),
-    ownerAddress: v.string(),
   },
   handler: async (ctx, args) => {
-    const contract = await requireOwnerContract(ctx, args.id, args.ownerAddress);
+    const contract = await requireOwnerContract(ctx, args.id);
 
     if (contract.status !== "pending_add" && contract.status !== "pending_remove") {
       throw new Error("Only pending contract updates can become stale");
@@ -155,11 +150,10 @@ export const markStale = mutation({
 export const markError = mutation({
   args: {
     id: v.id("projectContracts"),
-    ownerAddress: v.string(),
     error: v.string(),
   },
   handler: async (ctx, args) => {
-    const contract = await requireOwnerContract(ctx, args.id, args.ownerAddress);
+    const contract = await requireOwnerContract(ctx, args.id);
 
     if (
       contract.status !== "pending_add" &&

@@ -62,7 +62,20 @@ export const parseEnv = (rawEnv: RawEnv, options: ParseEnvOptions = {}) => {
   };
 };
 
-// This will throw an error if validation fails
-const validateEnv = () => parseEnv(process.env);
+// Keep direct process.env property access here so Next can inline NEXT_PUBLIC_* values
+// into client bundles.
+const validateEnv = () =>
+  parseEnv({
+    NEXT_PUBLIC_CONVEX_URL: process.env.NEXT_PUBLIC_CONVEX_URL,
+    NEXT_PUBLIC_CONVEX_SITE_URL: process.env.NEXT_PUBLIC_CONVEX_SITE_URL,
+    NEXT_PUBLIC_STELLAR_NETWORK: process.env.NEXT_PUBLIC_STELLAR_NETWORK,
+    NEXT_PUBLIC_STELLAR_RPC_URL: process.env.NEXT_PUBLIC_STELLAR_RPC_URL,
+    NEXT_PUBLIC_VELO_REGISTRY_CONTRACT_ID: process.env.NEXT_PUBLIC_VELO_REGISTRY_CONTRACT_ID,
+    NEXT_PUBLIC_VELO_PAY_ACCESS_CONTRACT_ID: process.env.NEXT_PUBLIC_VELO_PAY_ACCESS_CONTRACT_ID,
+    NEXT_PUBLIC_USDC_ISSUER: process.env.NEXT_PUBLIC_USDC_ISSUER,
+    NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
+    VELO_REQUIRE_CONTRACT_IDS: process.env.VELO_REQUIRE_CONTRACT_IDS,
+    VERCEL_ENV: process.env.VERCEL_ENV,
+  });
 
 export const env = validateEnv();

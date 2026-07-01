@@ -40,6 +40,7 @@ type WalletState = {
   connect: () => Promise<void>;
   disconnect: () => Promise<void>;
   signTransaction: (xdr: string) => Promise<string>;
+  signMessage: (message: string) => Promise<string>;
 };
 
 const WalletContext = createContext<WalletState | null>(null);
@@ -248,6 +249,23 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     [address],
   );
 
+  const signMessage = useCallback(
+    async (message: string) => {
+      if (!address) {
+        throw new Error("Connect a wallet before signing");
+      }
+
+      const { StellarWalletsKit } = await import("@creit-tech/stellar-wallets-kit");
+      const result = await StellarWalletsKit.signMessage(message, {
+        networkPassphrase: STELLAR_TESTNET_NETWORK_PASSPHRASE,
+        address,
+      });
+
+      return result.signedMessage;
+    },
+    [address],
+  );
+
   const value = useMemo<WalletState>(
     () => ({
       address,
@@ -260,6 +278,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       connect,
       disconnect,
       signTransaction,
+      signMessage,
     }),
     [
       address,
@@ -271,6 +290,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       connect,
       disconnect,
       signTransaction,
+      signMessage,
     ],
   );
 

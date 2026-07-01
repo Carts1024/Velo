@@ -9,6 +9,7 @@ export default defineTable({
   metadataJson: v.string(),
   metadataHash: v.string(),
   ownerAddress: v.string(),
+  ownerTokenIdentifier: v.optional(v.string()),
   status: v.union(
     v.literal("draft"),
     v.literal("pending_registration"),
@@ -31,7 +32,9 @@ export default defineTable({
   updatedAt: v.number(),
 })
   .index("by_owner", ["ownerAddress"])
+  .index("by_owner_token_identifier", ["ownerTokenIdentifier"])
   .index("by_slug", ["slug"])
   .index("by_owner_status", ["ownerAddress", "status"])
+  .index("by_owner_token_identifier_status", ["ownerTokenIdentifier", "status"])
   .index("by_registry_project_id", ["registryProjectId"])
   .index("by_api_key_hash", ["apiKeyHash"]);

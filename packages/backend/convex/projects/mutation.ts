@@ -6,13 +6,15 @@ import {
   draftProjectArgs,
   normalizeAddress,
   normalizeTransactionHash,
-  requireOwnerProject,
+  requireIdentity,
+  requireProjectOwner,
   requireUniqueSlug,
 } from "./helpers";
 
 export const createDraft = mutation({
   args: draftProjectArgs,
   handler: async (ctx, args) => {
+    const identity = await requireIdentity(ctx);
     const now = Date.now();
     const ownerAddress = normalizeAddress(args.ownerAddress);
     const slug = args.slug.trim().toLowerCase();
@@ -27,6 +29,7 @@ export const createDraft = mutation({
       metadataJson: args.metadataJson,
       metadataHash: args.metadataHash,
       ownerAddress,
+      ownerTokenIdentifier: identity.tokenIdentifier,
       status: "draft",
       lastSyncAt: undefined,
       createdAt: now,
@@ -38,11 +41,10 @@ export const createDraft = mutation({
 export const markRegistrationPending = mutation({
   args: {
     id: v.id("projects"),
-    ownerAddress: v.string(),
     registrationTxHash: v.string(),
   },
   handler: async (ctx, args) => {
-    const project = await requireOwnerProject(ctx, args.id, args.ownerAddress);
+    const project = await requireProjectOwner(ctx, args.id);
 
     if (
       project.status !== "draft" &&
@@ -66,12 +68,11 @@ export const markRegistrationPending = mutation({
 export const markRegistrationSynced = mutation({
   args: {
     id: v.id("projects"),
-    ownerAddress: v.string(),
     registryProjectId: v.optional(v.number()),
     createdLedger: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const project = await requireOwnerProject(ctx, args.id, args.ownerAddress);
+    const project = await requireProjectOwner(ctx, args.id);
 
     if (!project.registrationTxHash) {
       throw new Error("Project has no registration transaction to sync");
@@ -102,10 +103,9 @@ export const markRegistrationSynced = mutation({
 export const markRegistrationStale = mutation({
   args: {
     id: v.id("projects"),
-    ownerAddress: v.string(),
   },
   handler: async (ctx, args) => {
-    await requireOwnerProject(ctx, args.id, args.ownerAddress);
+    await requireProjectOwner(ctx, args.id);
 
     const now = Date.now();
     await ctx.db.patch(args.id, {
@@ -119,11 +119,10 @@ export const markRegistrationStale = mutation({
 export const markRegistrationError = mutation({
   args: {
     id: v.id("projects"),
-    ownerAddress: v.string(),
     registrationError: v.string(),
   },
   handler: async (ctx, args) => {
-    await requireOwnerProject(ctx, args.id, args.ownerAddress);
+    await requireProjectOwner(ctx, args.id);
 
     const now = Date.now();
     await ctx.db.patch(args.id, {
@@ -146,20 +145,13 @@ export const updateDraft = mutation({
     ...draftProjectArgs,
   },
   handler: async (ctx, args) => {
-    const project = await ctx.db.get(args.id);
-
-    if (!project) {
-      throw new Error("Project not found");
-    }
+    const project = await requireProjectOwner(ctx, args.id);
 
     if (project.status !== "draft") {
       throw new Error("Only draft projects can be updated in Sprint 2");
     }
 
     const ownerAddress = normalizeAddress(args.ownerAddress);
-    if (project.ownerAddress !== ownerAddress) {
-      throw new Error("Connected wallet does not own this project");
-    }
 
     const slug = args.slug.trim().toLowerCase();
     if (slug !== project.slug) {
@@ -174,6 +166,7 @@ export const updateDraft = mutation({
       metadataJson: args.metadataJson,
       metadataHash: args.metadataHash,
       ownerAddress,
+      ownerTokenIdentifier: project.ownerTokenIdentifier,
       updatedAt: Date.now(),
     });
 
@@ -187,11 +180,10 @@ export const updateDraft = mutation({
 export const generateApiKey = mutation({
   args: {
     id: v.id("projects"),
-    ownerAddress: v.string(),
     label: v.string(),
   },
   handler: async (ctx, args) => {
-    await requireOwnerProject(ctx, args.id, args.ownerAddress);
+    await requireProjectOwner(ctx, args.id);
 
     // Generate secure random API key token: tk_live_<32 hex chars>
     const randomBytes = new Uint8Array(16);
@@ -231,10 +223,9 @@ export const revokeApiKey = mutation({
   args: {
     keyId: v.id("apiKeys"),
     projectId: v.id("projects"),
-    ownerAddress: v.string(),
   },
   handler: async (ctx, args) => {
-    await requireOwnerProject(ctx, args.projectId, args.ownerAddress);
+    await requireProjectOwner(ctx, args.projectId);
 
     const now = Date.now();
     const key = await ctx.db.get(args.keyId);
@@ -274,11 +265,10 @@ export const recordKeyUsage = internalMutation({
 export const markPaymentAccessActive = mutation({
   args: {
     id: v.id("projects"),
-    ownerAddress: v.string(),
     checkoutCredits: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    await requireOwnerProject(ctx, args.id, args.ownerAddress);
+    await requireProjectOwner(ctx, args.id);
 
     const now = Date.now();
     await ctx.db.patch(args.id, {
@@ -298,10 +288,9 @@ export const markPaymentAccessActive = mutation({
 export const markPaymentAccessInactive = mutation({
   args: {
     id: v.id("projects"),
-    ownerAddress: v.string(),
   },
   handler: async (ctx, args) => {
-    await requireOwnerProject(ctx, args.id, args.ownerAddress);
+    await requireProjectOwner(ctx, args.id);
 
     const now = Date.now();
     await ctx.db.patch(args.id, {

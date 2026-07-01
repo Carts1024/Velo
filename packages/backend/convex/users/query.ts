@@ -1,12 +1,22 @@
 import { v } from "convex/values";
 
 import { query } from "../_generated/server";
-import { normalizeAddress } from "../projects/helpers";
+import { normalizeAddress, requireIdentity } from "../projects/helpers";
 
 export const getByWallet = query({
-  args: { walletAddress: v.string() },
-  handler: async (ctx, args) => {
-    const walletAddress = normalizeAddress(args.walletAddress);
+  args: {},
+  handler: async (ctx) => {
+    const identity = await requireIdentity(ctx);
+    const tokenUser = await ctx.db
+      .query("users")
+      .withIndex("by_token_identifier", (q) => q.eq("tokenIdentifier", identity.tokenIdentifier))
+      .unique();
+
+    if (tokenUser) {
+      return tokenUser;
+    }
+
+    const walletAddress = normalizeAddress(identity.subject);
 
     return await ctx.db
       .query("users")

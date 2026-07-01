@@ -1,7 +1,8 @@
 import { v } from "convex/values";
 
-import type { MutationCtx, QueryCtx } from "../_generated/server";
+import type { ActionCtx, MutationCtx, QueryCtx } from "../_generated/server";
 import type { ProjectId } from "./types";
+import type { UserIdentity } from "convex/server";
 
 const TRANSACTION_HASH_PATTERN = /^[0-9a-f]{64}$/i;
 export const METADATA_HASH_PATTERN = /^[0-9a-f]{64}$/i;
@@ -18,6 +19,28 @@ export const draftProjectArgs = {
 
 export function normalizeAddress(address: string) {
   return address.trim().toUpperCase();
+}
+
+export async function requireIdentity(ctx: QueryCtx | MutationCtx | ActionCtx) {
+  const identity = await ctx.auth.getUserIdentity();
+
+  if (!identity) {
+    throw new Error("Not authenticated");
+  }
+
+  return identity;
+}
+
+function identityOwnerAddress(identity: UserIdentity) {
+  if (typeof identity.subject !== "string") {
+    return null;
+  }
+
+  try {
+    return normalizeAddress(identity.subject);
+  } catch {
+    return null;
+  }
 }
 
 export function normalizeTransactionHash(hash: string) {
@@ -54,10 +77,11 @@ export async function requireUniqueSlug(ctx: MutationCtx, slug: string) {
   }
 }
 
-export async function requireOwnerProject(
+export async function requireProjectOwnerByToken(
   ctx: QueryCtx | MutationCtx,
   id: ProjectId,
-  ownerAddress: string,
+  ownerTokenIdentifier: string,
+  ownerSubject: string,
 ) {
   const project = await ctx.db.get(id);
 
@@ -65,19 +89,85 @@ export async function requireOwnerProject(
     throw new Error("Project not found");
   }
 
-  if (project.ownerAddress !== normalizeAddress(ownerAddress)) {
-    throw new Error("Connected wallet does not own this project");
+  if (project.ownerTokenIdentifier === ownerTokenIdentifier) {
+    return project;
   }
+
+  if (project.ownerTokenIdentifier) {
+    throw new Error("Unauthorized");
+  }
+
+  if (project.ownerAddress !== normalizeAddress(ownerSubject)) {
+    throw new Error("Unauthorized");
+  }
+
+  if ("patch" in ctx.db) {
+    await (ctx as MutationCtx).db.patch(id, { ownerTokenIdentifier });
+  }
+
+  return { ...project, ownerTokenIdentifier };
+}
+
+export async function requireProjectOwner(ctx: QueryCtx | MutationCtx, id: ProjectId) {
+  const identity = await requireIdentity(ctx);
+  const project = await ctx.db.get(id);
+
+  if (!project) {
+    throw new Error("Project not found");
+  }
+
+  if (project.ownerTokenIdentifier === identity.tokenIdentifier) {
+    return project;
+  }
+
+  if (project.ownerTokenIdentifier) {
+    throw new Error("Unauthorized");
+  }
+
+  if (project.ownerAddress !== identityOwnerAddress(identity)) {
+    throw new Error("Unauthorized");
+  }
+
+  if ("patch" in ctx.db) {
+    await (ctx as MutationCtx).db.patch(id, { ownerTokenIdentifier: identity.tokenIdentifier });
+  }
+
+  return { ...project, ownerTokenIdentifier: identity.tokenIdentifier };
+}
+
+export async function projectOwnerOrNull(ctx: QueryCtx | MutationCtx, id: ProjectId) {
+  const identity = await requireIdentity(ctx);
+  const project = await ctx.db.get(id);
+
+  if (!project) {
+    return null;
+  }
+
+  if (project.ownerTokenIdentifier === identity.tokenIdentifier) {
+    return project;
+  }
+
+  if (project.ownerTokenIdentifier) {
+    return null;
+  }
+
+  if (project.ownerAddress !== identityOwnerAddress(identity)) {
+    return null;
+  }
+
+  if ("patch" in ctx.db) {
+    await (ctx as MutationCtx).db.patch(id, { ownerTokenIdentifier: identity.tokenIdentifier });
+  }
+
+  return { ...project, ownerTokenIdentifier: identity.tokenIdentifier };
+}
+
+export async function requireOwnerProject(ctx: QueryCtx | MutationCtx, id: ProjectId) {
+  const project = await requireProjectOwner(ctx, id);
 
   return project;
 }
 
-export async function ownerProjectOrNull(ctx: QueryCtx, id: ProjectId, ownerAddress: string) {
-  const project = await ctx.db.get(id);
-
-  if (!project || project.ownerAddress !== normalizeAddress(ownerAddress)) {
-    return null;
-  }
-
-  return project;
+export async function ownerProjectOrNull(ctx: QueryCtx | MutationCtx, id: ProjectId) {
+  return await projectOwnerOrNull(ctx, id);
 }

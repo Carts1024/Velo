@@ -131,32 +131,24 @@ export function ProjectDetail({ projectId }: ProjectDetailProps) {
   const wallet = useWallet();
   const project = useQuery(
     api.projects.query.getById,
-    wallet.address ? { id: projectId as Id<"projects">, ownerAddress: wallet.address } : "skip",
+    wallet.address ? { id: projectId as Id<"projects"> } : "skip",
   );
   const contracts = useQuery(
     api.project_contracts.query.listByProject,
-    wallet.address
-      ? { projectId: projectId as Id<"projects">, ownerAddress: wallet.address }
-      : "skip",
+    wallet.address ? { projectId: projectId as Id<"projects"> } : "skip",
   );
   const recentActivity = useQuery(
     api.contract_events.query.listByProject,
     wallet.address
       ? {
           projectId: projectId as Id<"projects">,
-          ownerAddress: wallet.address,
           limit: 5,
         }
       : "skip",
   );
   const webhookSummary = useQuery(
     api.webhook_endpoints.query.getSummary,
-    wallet.address
-      ? {
-          projectId: projectId as Id<"projects">,
-          ownerAddress: wallet.address,
-        }
-      : "skip",
+    wallet.address ? { projectId: projectId as Id<"projects"> } : "skip",
   );
   const markPending = useMutation(api.projects.mutation.markRegistrationPending);
   const markSynced = useMutation(api.projects.mutation.markRegistrationSynced);
@@ -171,7 +163,6 @@ export function ProjectDetail({ projectId }: ProjectDetailProps) {
     wallet.address
       ? {
           projectId: projectId as Id<"projects">,
-          ownerAddress: wallet.address,
         }
       : "skip",
   );
@@ -181,7 +172,6 @@ export function ProjectDetail({ projectId }: ProjectDetailProps) {
     wallet.address
       ? {
           projectId: projectId as Id<"projects">,
-          ownerAddress: wallet.address,
         }
       : "skip",
   );
@@ -279,14 +269,13 @@ export function ProjectDetail({ projectId }: ProjectDetailProps) {
       });
 
       if (confirmation.status === "pending") {
-        await markStale({ id: currentProject._id, ownerAddress: wallet.address });
+        await markStale({ id: currentProject._id });
         return;
       }
 
       if (confirmation.status === "error") {
         await markError({
           id: currentProject._id,
-          ownerAddress: wallet.address,
           registrationError: confirmation.message,
         });
         return;
@@ -294,7 +283,6 @@ export function ProjectDetail({ projectId }: ProjectDetailProps) {
 
       await markSynced({
         id: currentProject._id,
-        ownerAddress: wallet.address,
         registryProjectId: confirmation.registryProjectId ?? undefined,
         createdLedger: confirmation.createdLedger ?? undefined,
       });
@@ -303,7 +291,6 @@ export function ProjectDetail({ projectId }: ProjectDetailProps) {
       setLocalError(message);
       await markError({
         id: currentProject._id,
-        ownerAddress: wallet.address,
         registrationError: message,
       });
     } finally {
@@ -344,7 +331,6 @@ export function ProjectDetail({ projectId }: ProjectDetailProps) {
 
       await markPending({
         id: currentProject._id,
-        ownerAddress: wallet.address,
         registrationTxHash: transactionHash,
       });
       await syncRegistration(transactionHash);
@@ -356,7 +342,6 @@ export function ProjectDetail({ projectId }: ProjectDetailProps) {
       setLocalError(message);
       await markError({
         id: currentProject._id,
-        ownerAddress: wallet.address,
         registrationError: message,
       });
     } finally {
@@ -376,7 +361,6 @@ export function ProjectDetail({ projectId }: ProjectDetailProps) {
     try {
       const result = await generateApiKey({
         id: currentProject._id,
-        ownerAddress: wallet.address,
         label: label.trim(),
       });
       setNewRawKey(result.rawKey);
@@ -404,7 +388,6 @@ export function ProjectDetail({ projectId }: ProjectDetailProps) {
       await revokeApiKey({
         keyId,
         projectId: currentProject._id,
-        ownerAddress: wallet.address,
       });
       setNewRawKey(null);
     } catch (err) {
@@ -460,7 +443,6 @@ export function ProjectDetail({ projectId }: ProjectDetailProps) {
 
       await markPaymentAccessActive({
         id: currentProject._id,
-        ownerAddress: wallet.address,
       });
     } catch (error) {
       setLocalError(`Activation error: ${errorMessage(error)}`);

@@ -86,13 +86,11 @@ export function ProjectContracts({ projectId }: ProjectContractsProps) {
   const wallet = useWallet();
   const project = useQuery(
     api.projects.query.getById,
-    wallet.address ? { id: projectId as Id<"projects">, ownerAddress: wallet.address } : "skip",
+    wallet.address ? { id: projectId as Id<"projects"> } : "skip",
   );
   const contracts = useQuery(
     api.project_contracts.query.listByProject,
-    wallet.address
-      ? { projectId: projectId as Id<"projects">, ownerAddress: wallet.address }
-      : "skip",
+    wallet.address ? { projectId: projectId as Id<"projects"> } : "skip",
   );
   const markAddPending = useMutation(api.project_contracts.mutation.markAddPending);
   const markAddConfirmed = useMutation(api.project_contracts.mutation.markAddConfirmed);
@@ -179,14 +177,13 @@ export function ProjectContracts({ projectId }: ProjectContractsProps) {
     }
 
     if (confirmation.status === "pending") {
-      await markStale({ id: linkId, ownerAddress: wallet.address });
+      await markStale({ id: linkId });
       return;
     }
 
     if (confirmation.status === "error") {
       await markError({
         id: linkId,
-        ownerAddress: wallet.address,
         error: confirmation.message,
       });
       return;
@@ -195,13 +192,12 @@ export function ProjectContracts({ projectId }: ProjectContractsProps) {
     if (outcome === "add") {
       await markAddConfirmed({
         id: linkId,
-        ownerAddress: wallet.address,
         confirmedLedger: confirmation.ledger ?? undefined,
       });
       return;
     }
 
-    await markRemoved({ id: linkId, ownerAddress: wallet.address });
+    await markRemoved({ id: linkId });
   }
 
   async function addContract(event: FormEvent<HTMLFormElement>) {
@@ -236,7 +232,6 @@ export function ProjectContracts({ projectId }: ProjectContractsProps) {
       });
       const linkId = await markAddPending({
         projectId: currentProject._id,
-        ownerAddress: wallet.address,
         contractId,
         transactionHash,
       });
@@ -282,7 +277,6 @@ export function ProjectContracts({ projectId }: ProjectContractsProps) {
 
       await markRemovePending({
         id: link._id,
-        ownerAddress: wallet.address,
         transactionHash,
       });
       pendingRecorded = true;
@@ -293,7 +287,7 @@ export function ProjectContracts({ projectId }: ProjectContractsProps) {
         : errorMessage(error);
       setLocalError(message);
       if (pendingRecorded) {
-        await markError({ id: link._id, ownerAddress: wallet.address, error: message });
+        await markError({ id: link._id, error: message });
       }
     } finally {
       setBusyId(null);

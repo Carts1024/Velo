@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 
 import { query } from "../_generated/server";
+import { projectOwnerOrNull } from "../projects/helpers";
 
 /**
  * Get a payment intent by ID. Public query — no auth required.
@@ -33,12 +34,10 @@ export const getPaymentIntent = query({
 export const listByProject = query({
   args: {
     projectId: v.id("projects"),
-    ownerAddress: v.string(),
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const project = await ctx.db.get(args.projectId);
-    if (!project || project.ownerAddress !== args.ownerAddress.trim().toUpperCase()) {
+    if (!(await projectOwnerOrNull(ctx, args.projectId))) {
       return [];
     }
 
@@ -63,11 +62,9 @@ function formatAsset(asset: string) {
 export const getProjectStats = query({
   args: {
     projectId: v.id("projects"),
-    ownerAddress: v.string(),
   },
   handler: async (ctx, args) => {
-    const project = await ctx.db.get(args.projectId);
-    if (!project || project.ownerAddress !== args.ownerAddress.trim().toUpperCase()) {
+    if (!(await projectOwnerOrNull(ctx, args.projectId))) {
       return null;
     }
 

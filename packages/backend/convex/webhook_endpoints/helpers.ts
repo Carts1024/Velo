@@ -1,6 +1,11 @@
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import type { ProjectId } from "../projects/types";
 
+import {
+  projectOwnerOrNull,
+  requireProjectOwner,
+  requireProjectOwnerByToken,
+} from "../projects/helpers";
 import { WEBHOOK_EVENT_TYPES, type WebhookEventType } from "./types";
 
 const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
@@ -54,34 +59,19 @@ export function validateWebhookUrl(value: string) {
   };
 }
 
-export async function requireOwnerProject(
-  ctx: QueryCtx | MutationCtx,
-  projectId: ProjectId,
-  ownerAddress: string,
-) {
-  const project = await ctx.db.get(projectId);
-
-  if (!project) {
-    throw new Error("Project not found");
-  }
-
-  if (project.ownerAddress !== normalizeOwnerAddress(ownerAddress)) {
-    throw new Error("Connected wallet does not own this project");
-  }
-
-  return project;
+export async function requireOwnerProject(ctx: QueryCtx | MutationCtx, projectId: ProjectId) {
+  return await requireProjectOwner(ctx, projectId);
 }
 
-export async function ownerProjectOrNull(
-  ctx: QueryCtx,
+export async function requireOwnerProjectByToken(
+  ctx: QueryCtx | MutationCtx,
   projectId: ProjectId,
-  ownerAddress: string,
+  ownerTokenIdentifier: string,
+  ownerSubject: string,
 ) {
-  const project = await ctx.db.get(projectId);
+  return await requireProjectOwnerByToken(ctx, projectId, ownerTokenIdentifier, ownerSubject);
+}
 
-  if (!project || project.ownerAddress !== normalizeOwnerAddress(ownerAddress)) {
-    return null;
-  }
-
-  return project;
+export async function ownerProjectOrNull(ctx: QueryCtx | MutationCtx, projectId: ProjectId) {
+  return await projectOwnerOrNull(ctx, projectId);
 }

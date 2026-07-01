@@ -5,24 +5,21 @@ import type { ProjectId } from "../projects/types";
 import { internalQuery, query } from "../_generated/server";
 import { publicPollStatus } from "../poller_state/helpers";
 import { pollerForProject } from "../poller_state/query";
+import { projectOwnerOrNull, requireProjectOwnerByToken } from "../projects/helpers";
 import {
   MAX_SCHEDULED_CONTRACTS,
   MAX_SCHEDULED_PROJECTS,
   METADATA_HASH_PATTERN,
-  normalizeOwnerAddress,
   normalizePageSize,
 } from "./helpers";
 
 export const listByProject = query({
   args: {
     projectId: v.id("projects"),
-    ownerAddress: v.string(),
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const project = await ctx.db.get(args.projectId);
-
-    if (!project || project.ownerAddress !== normalizeOwnerAddress(args.ownerAddress)) {
+    if (!(await projectOwnerOrNull(ctx, args.projectId))) {
       return null;
     }
 
@@ -117,18 +114,16 @@ export const listPublicBySlug = query({
 export const getPollTarget = internalQuery({
   args: {
     projectId: v.id("projects"),
-    ownerAddress: v.string(),
+    ownerTokenIdentifier: v.string(),
+    ownerSubject: v.string(),
   },
   handler: async (ctx, args) => {
-    const project = await ctx.db.get(args.projectId);
-
-    if (!project) {
-      throw new Error("Project not found");
-    }
-
-    if (project.ownerAddress !== normalizeOwnerAddress(args.ownerAddress)) {
-      throw new Error("Connected wallet does not own this project");
-    }
+    const project = await requireProjectOwnerByToken(
+      ctx,
+      args.projectId,
+      args.ownerTokenIdentifier,
+      args.ownerSubject,
+    );
 
     if (project.status !== "registered") {
       throw new Error("Only registered projects can poll contract events");

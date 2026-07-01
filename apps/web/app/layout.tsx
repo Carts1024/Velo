@@ -44,13 +44,13 @@ export default function RootLayout({
   return (
     <html lang="en" className="scroll-smooth">
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
-        <ConvexClientProvider>
-          <WalletProvider>
+        <WalletProvider>
+          <ConvexClientProvider>
             <UiProviders>
               <PwaProvider>{children}</PwaProvider>
             </UiProviders>
-          </WalletProvider>
-        </ConvexClientProvider>
+          </ConvexClientProvider>
+        </WalletProvider>
       </body>
     </html>
   );

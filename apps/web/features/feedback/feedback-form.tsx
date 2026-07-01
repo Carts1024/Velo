@@ -17,10 +17,7 @@ const COMMENT_MAX = 2000;
 export function FeedbackForm() {
   const wallet = useWallet();
   const submitFeedback = useMutation(api.feedback.mutation.submitFeedback);
-  const existingFeedback = useQuery(
-    api.feedback.query.getByWallet,
-    wallet.address ? { walletAddress: wallet.address } : "skip",
-  );
+  const existingFeedback = useQuery(api.feedback.query.getByWallet, wallet.address ? {} : "skip");
 
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState("");
@@ -80,7 +77,6 @@ export function FeedbackForm() {
 
     try {
       await submitFeedback({
-        walletAddress: wallet.address,
         rating,
         comment: trimmedComment,
       });

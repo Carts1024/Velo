@@ -146,17 +146,15 @@ export function ProjectEvents({ projectId }: ProjectEventsProps) {
   const typedProjectId = projectId as Id<"projects">;
   const project = useQuery(
     api.projects.query.getById,
-    wallet.address ? { id: typedProjectId, ownerAddress: wallet.address } : "skip",
+    wallet.address ? { id: typedProjectId } : "skip",
   );
   const contracts = useQuery(
     api.project_contracts.query.listByProject,
-    wallet.address ? { projectId: typedProjectId, ownerAddress: wallet.address } : "skip",
+    wallet.address ? { projectId: typedProjectId } : "skip",
   );
   const activity = useQuery(
     api.contract_events.query.listByProject,
-    wallet.address
-      ? { projectId: typedProjectId, ownerAddress: wallet.address, limit: 100 }
-      : "skip",
+    wallet.address ? { projectId: typedProjectId, limit: 100 } : "skip",
   );
   const pollProject = useAction(api.contractEventPolling.pollProject);
   const [contractFilter, setContractFilter] = useState("all");
@@ -229,7 +227,7 @@ export function ProjectEvents({ projectId }: ProjectEventsProps) {
     setLocalError(null);
 
     try {
-      await pollProject({ projectId: typedProjectId, ownerAddress: wallet.address });
+      await pollProject({ projectId: typedProjectId });
     } catch (error) {
       setLocalError(error instanceof Error ? error.message : "Event polling failed");
     } finally {

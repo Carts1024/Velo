@@ -7,11 +7,10 @@ import { normalizeDeliveryLimit } from "./helpers";
 export const listByProject = query({
   args: {
     projectId: v.id("projects"),
-    ownerAddress: v.string(),
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    if (!(await ownerProjectOrNull(ctx, args.projectId, args.ownerAddress))) {
+    if (!(await ownerProjectOrNull(ctx, args.projectId))) {
       return [];
     }
 

@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 
 import { mutation } from "../_generated/server";
-import { normalizeAddress } from "../projects/helpers";
+import { normalizeAddress, requireIdentity } from "../projects/helpers";
 
 // eslint-disable-next-line no-control-regex -- intentionally stripping control chars
 const CONTROL_CHARS_PATTERN = /[\x00-\x08\x0B\x0C\x0E-\x1F]/g;
@@ -29,32 +29,41 @@ function sanitizeEmail(raw: string): string {
 
 export const upsertProfile = mutation({
   args: {
-    walletAddress: v.string(),
     name: v.string(),
     email: v.string(),
   },
   handler: async (ctx, args) => {
-    const walletAddress = normalizeAddress(args.walletAddress);
+    const identity = await requireIdentity(ctx);
+    const walletAddress = normalizeAddress(identity.subject);
     const name = sanitizeName(args.name);
     const email = sanitizeEmail(args.email);
     const now = Date.now();
 
     const existing = await ctx.db
       .query("users")
-      .withIndex("by_wallet", (q) => q.eq("walletAddress", walletAddress))
+      .withIndex("by_token_identifier", (q) => q.eq("tokenIdentifier", identity.tokenIdentifier))
       .unique();
+    const legacyExisting = existing
+      ? null
+      : await ctx.db
+          .query("users")
+          .withIndex("by_wallet", (q) => q.eq("walletAddress", walletAddress))
+          .unique();
+    const user = existing ?? legacyExisting;
 
-    if (existing) {
-      await ctx.db.patch(existing._id, {
+    if (user) {
+      await ctx.db.patch(user._id, {
+        tokenIdentifier: identity.tokenIdentifier,
         name,
         email,
         lastSeenAt: now,
       });
-      return existing._id;
+      return user._id;
     }
 
     return await ctx.db.insert("users", {
       walletAddress,
+      tokenIdentifier: identity.tokenIdentifier,
       name,
       email,
       createdAt: now,
@@ -64,19 +73,26 @@ export const upsertProfile = mutation({
 });
 
 export const updateLastSeen = mutation({
-  args: {
-    walletAddress: v.string(),
-  },
-  handler: async (ctx, args) => {
-    const walletAddress = normalizeAddress(args.walletAddress);
+  args: {},
+  handler: async (ctx) => {
+    const identity = await requireIdentity(ctx);
+    const walletAddress = normalizeAddress(identity.subject);
 
     const existing = await ctx.db
       .query("users")
-      .withIndex("by_wallet", (q) => q.eq("walletAddress", walletAddress))
+      .withIndex("by_token_identifier", (q) => q.eq("tokenIdentifier", identity.tokenIdentifier))
       .unique();
+    const legacyExisting = existing
+      ? null
+      : await ctx.db
+          .query("users")
+          .withIndex("by_wallet", (q) => q.eq("walletAddress", walletAddress))
+          .unique();
+    const user = existing ?? legacyExisting;
 
-    if (existing) {
-      await ctx.db.patch(existing._id, {
+    if (user) {
+      await ctx.db.patch(user._id, {
+        tokenIdentifier: identity.tokenIdentifier,
         lastSeenAt: Date.now(),
       });
     }

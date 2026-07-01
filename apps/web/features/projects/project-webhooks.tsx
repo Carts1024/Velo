@@ -142,21 +142,19 @@ export function ProjectWebhooks({ projectId }: { projectId: string }) {
   const typedProjectId = projectId as Id<"projects">;
   const project = useQuery(
     api.projects.query.getById,
-    wallet.address ? { id: typedProjectId, ownerAddress: wallet.address } : "skip",
+    wallet.address ? { id: typedProjectId } : "skip",
   );
   const settings = useQuery(
     api.webhook_endpoints.query.getSettings,
-    wallet.address ? { projectId: typedProjectId, ownerAddress: wallet.address } : "skip",
+    wallet.address ? { projectId: typedProjectId } : "skip",
   );
   const deliveries = useQuery(
     api.webhook_deliveries.query.listByProject,
-    wallet.address
-      ? { projectId: typedProjectId, ownerAddress: wallet.address, limit: 50 }
-      : "skip",
+    wallet.address ? { projectId: typedProjectId, limit: 50 } : "skip",
   );
   const activity = useQuery(
     api.contract_events.query.listByProject,
-    wallet.address ? { projectId: typedProjectId, ownerAddress: wallet.address, limit: 1 } : "skip",
+    wallet.address ? { projectId: typedProjectId, limit: 1 } : "skip",
   );
   const saveSettings = useMutation(api.webhook_endpoints.mutation.saveSettings);
   const sendTest = useAction(api.webhookDelivery.sendTest);
@@ -280,7 +278,6 @@ export function ProjectWebhooks({ projectId }: { projectId: string }) {
     try {
       await saveSettings({
         projectId: typedProjectId,
-        ownerAddress: wallet.address,
         url,
         enabled,
         eventTypes: selectedTypes,
@@ -306,7 +303,6 @@ export function ProjectWebhooks({ projectId }: { projectId: string }) {
     try {
       const result = await sendTest({
         projectId: typedProjectId,
-        ownerAddress: wallet.address,
         eventType: testEventType,
         contractEventId:
           testEventType === "contract.event" && useObservedEvent ? latestEvent?._id : undefined,

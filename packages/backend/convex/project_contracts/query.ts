@@ -6,10 +6,9 @@ import { ownerProjectOrNull } from "../projects/helpers";
 export const listByProject = query({
   args: {
     projectId: v.id("projects"),
-    ownerAddress: v.string(),
   },
   handler: async (ctx, args) => {
-    if (!(await ownerProjectOrNull(ctx, args.projectId, args.ownerAddress))) {
+    if (!(await ownerProjectOrNull(ctx, args.projectId))) {
       return [];
     }
 
