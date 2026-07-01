@@ -4,19 +4,33 @@ import { ArrowRight, Terminal } from "lucide-react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 
-import type { HyperspeedProps } from "@repo/ui/components/ui-customs/hyperspeed/Hyperspeed";
+import type { PixelBlastProps } from "@repo/ui/components/ui-customs/pixel-blast/PixelBlast";
 
-const Hyperspeed = dynamic<HyperspeedProps>(
-  () => import("@repo/ui/components/ui-customs/hyperspeed/Hyperspeed"),
+const PixelBlast = dynamic<PixelBlastProps>(
+  () => import("@repo/ui/components/ui-customs/pixel-blast/PixelBlast"),
   { ssr: false },
 );
 
 export function HeroSection() {
   return (
     <section className="relative flex min-h-[90vh] flex-col justify-between overflow-hidden border-b border-zinc-900 bg-zinc-950 text-zinc-50">
-      {/* Background Hyperspeed Canvas */}
-      <div className="pointer-events-auto absolute inset-0 z-0 opacity-70">
-        <Hyperspeed />
+      {/* Background PixelBlast Canvas */}
+      <div className="pointer-events-auto absolute inset-0 z-0 opacity-80">
+        <PixelBlast
+          variant="circle"
+          pixelSize={5}
+          color="#ffffff"
+          patternScale={3.5}
+          patternDensity={1.1}
+          pixelSizeJitter={0.3}
+          enableRipples={true}
+          rippleSpeed={0.35}
+          rippleThickness={0.1}
+          rippleIntensityScale={1.2}
+          speed={0.4}
+          edgeFade={0.3}
+          transparent={true}
+        />
       </div>
 
       {/* Floating Decorative Grid or Glow overlay */}
@@ -38,19 +52,19 @@ export function HeroSection() {
         <nav className="flex items-center gap-4 sm:gap-6">
           <Link
             href="/dashboard"
-            className="hidden sm:inline-block text-sm font-medium text-zinc-400 transition-colors hover:text-zinc-100"
+            className="hidden text-sm font-medium text-zinc-400 transition-colors hover:text-zinc-100 sm:inline-block"
           >
             Dashboard
           </Link>
           <Link
             href="/debug"
-            className="hidden sm:inline-block text-sm font-medium text-zinc-400 transition-colors hover:text-zinc-100"
+            className="hidden text-sm font-medium text-zinc-400 transition-colors hover:text-zinc-100 sm:inline-block"
           >
             Debugger
           </Link>
           <Link
             href="/dashboard"
-            className="rounded-full border border-zinc-800 bg-zinc-900 px-3 py-1 sm:px-4 sm:py-1.5 text-xs font-semibold text-zinc-300 transition-all hover:bg-zinc-800"
+            className="rounded-full border border-zinc-800 bg-zinc-900 px-3 py-1 text-xs font-semibold text-zinc-300 transition-all hover:bg-zinc-800 sm:px-4 sm:py-1.5"
           >
             Launch Console
           </Link>
