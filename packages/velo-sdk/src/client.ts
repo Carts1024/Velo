@@ -27,29 +27,52 @@ export class Velo {
   readonly checkout = {
     sessions: {
       create: async (
-        _params: CreateCheckoutSessionParams,
-        _options?: RequestOptions,
+        params: CreateCheckoutSessionParams,
+        options?: RequestOptions,
       ): Promise<PaymentIntent> => {
-        throw new Error("checkout.sessions.create is not implemented in Sprint 2 foundation");
+        return this.http.request<PaymentIntent>("POST", "/api/v1/payment-intents", params, options);
       },
     },
   };
 
   readonly paymentIntents = {
     create: async (
-      _params: CreateCheckoutSessionParams,
-      _options?: RequestOptions,
+      params: CreateCheckoutSessionParams,
+      options?: RequestOptions,
     ): Promise<PaymentIntent> => {
-      throw new Error("paymentIntents.create is not implemented in Sprint 2 foundation");
+      return this.http.request<PaymentIntent>("POST", "/api/v1/payment-intents", params, options);
     },
-    retrieve: async (_id: string, _options?: RequestOptions): Promise<PaymentIntent> => {
-      throw new Error("paymentIntents.retrieve is not implemented in Sprint 2 foundation");
+    retrieve: async (id: string, options?: RequestOptions): Promise<PaymentIntent> => {
+      if (!id || typeof id !== "string" || id.trim() === "") {
+        throw new Error("Payment intent ID is required");
+      }
+      return this.http.request<PaymentIntent>(
+        "GET",
+        `/api/v1/payment-intents/${encodeURIComponent(id)}`,
+        undefined,
+        options,
+      );
     },
     list: async (
-      _query?: ListPaymentIntentsQuery,
-      _options?: RequestOptions,
+      query?: ListPaymentIntentsQuery,
+      options?: RequestOptions,
     ): Promise<ListResponse<PaymentIntent>> => {
-      throw new Error("paymentIntents.list is not implemented in Sprint 2 foundation");
+      let path = "/api/v1/payment-intents";
+      const searchParams = new URLSearchParams();
+      if (query?.status) {
+        searchParams.append("status", query.status);
+      }
+      if (query?.limit !== undefined) {
+        searchParams.append("limit", String(query.limit));
+      }
+      if (query?.cursor) {
+        searchParams.append("cursor", query.cursor);
+      }
+      const queryString = searchParams.toString();
+      if (queryString) {
+        path += `?${queryString}`;
+      }
+      return this.http.request<ListResponse<PaymentIntent>>("GET", path, undefined, options);
     },
   };
 }

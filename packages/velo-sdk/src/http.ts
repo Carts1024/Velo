@@ -1,6 +1,6 @@
 import type { VeloConfig, RequestOptions } from "./types.ts";
 
-import { mapErrorResponse, VeloAPIError } from "./errors.ts";
+import { mapErrorResponse, VeloAPIError, VeloRateLimitError } from "./errors.ts";
 
 export function resolveBaseUrl(config: VeloConfig): string {
   if (config.baseUrl) {
@@ -43,52 +43,81 @@ export class HttpClient {
       headers["Idempotency-Key"] = options.idempotencyKey;
     }
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => {
-      controller.abort();
-    }, this.timeoutMs);
+    const maxRetries = 2;
+    let attempt = 0;
 
-    try {
-      const response = await fetch(url, {
-        method,
-        headers,
-        body: body ? JSON.stringify(body) : undefined,
-        signal: controller.signal,
-      });
+    while (true) {
+      attempt++;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => {
+        controller.abort();
+      }, this.timeoutMs);
 
-      const requestId = response.headers.get("x-request-id") || undefined;
-
-      let payload: unknown;
-      const contentType = response.headers.get("content-type") || "";
-      if (contentType.includes("application/json")) {
-        const text = await response.text();
-        try {
-          payload = JSON.parse(text);
-        } catch {
-          payload = text;
-        }
-      } else {
-        payload = await response.text();
-      }
-
-      if (!response.ok) {
-        throw mapErrorResponse(response.status, payload, requestId);
-      }
-
-      return payload as T;
-    } catch (err) {
-      if (
-        err instanceof Error &&
-        (err.name === "AbortError" || (err instanceof DOMException && err.name === "AbortError"))
-      ) {
-        throw new VeloAPIError(`Request timed out after ${this.timeoutMs}ms`, {
-          status: 408,
-          code: "timeout",
+      try {
+        const response = await fetch(url, {
+          method,
+          headers,
+          body: body ? JSON.stringify(body) : undefined,
+          signal: controller.signal,
         });
+
+        const requestId = response.headers.get("x-request-id") || undefined;
+
+        let payload: unknown;
+        const contentType = response.headers.get("content-type") || "";
+        if (contentType.includes("application/json")) {
+          const text = await response.text();
+          try {
+            payload = JSON.parse(text);
+          } catch {
+            payload = text;
+          }
+        } else {
+          payload = await response.text();
+        }
+
+        if (!response.ok) {
+          throw mapErrorResponse(response.status, payload, requestId);
+        }
+
+        return payload as T;
+      } catch (err) {
+        if (
+          err instanceof Error &&
+          (err.name === "AbortError" || (err instanceof DOMException && err.name === "AbortError"))
+        ) {
+          throw new VeloAPIError(`Request timed out after ${this.timeoutMs}ms`, {
+            status: 408,
+            code: "timeout",
+          });
+        }
+
+        // Network failures in fetch throw TypeError
+        const isNetworkError =
+          err instanceof TypeError ||
+          (err instanceof Error &&
+            (err.message.includes("fetch failed") ||
+              err.message.includes("ECONNREFUSED") ||
+              err.message.includes("ENOTFOUND") ||
+              err.message.includes("network error")));
+
+        const isRetryableError =
+          err instanceof VeloRateLimitError ||
+          (err instanceof VeloAPIError && err.status !== undefined && err.status >= 500) ||
+          isNetworkError;
+
+        const canRetryMethod = method === "GET" || (method === "POST" && !!options?.idempotencyKey);
+
+        if (isRetryableError && canRetryMethod && attempt <= maxRetries) {
+          const delay = 500 * Math.pow(2, attempt - 1);
+          await new Promise((resolve) => setTimeout(resolve, delay));
+          continue;
+        }
+
+        throw err;
+      } finally {
+        clearTimeout(timeoutId);
       }
-      throw err;
-    } finally {
-      clearTimeout(timeoutId);
     }
   }
 }
