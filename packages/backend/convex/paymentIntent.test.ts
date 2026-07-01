@@ -64,7 +64,7 @@ test("payment intent lifecycle", async () => {
   expect(verification.project?.paymentAccessActive).toBe(true);
 
   // Create a payment intent using the public mutation
-  const paymentIntentId = await t.mutation(api.payment_intents.mutations.createPaymentIntent, {
+  const { paymentIntentId } = await t.mutation(api.payment_intents.mutations.createPaymentIntent, {
     apiKeyHash,
     amount: "150.50",
     asset: "native",
@@ -162,7 +162,7 @@ test("payment intent creation allows omitted redirect urls", async () => {
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   const apiKeyHash = hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
 
-  const paymentIntentId = await t.mutation(api.payment_intents.mutations.createPaymentIntent, {
+  const { paymentIntentId } = await t.mutation(api.payment_intents.mutations.createPaymentIntent, {
     apiKeyHash,
     amount: "10.00",
     asset: "native",
@@ -209,19 +209,25 @@ test("payment intent stats aggregation and scanner execution", async () => {
   const apiKeyHash = hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
 
   // Create two payment intents
-  const pi1 = await t.mutation(api.payment_intents.mutations.createPaymentIntent, {
-    apiKeyHash,
-    amount: "50.00",
-    asset: "native",
-    description: "First stats payment",
-  });
+  const { paymentIntentId: pi1 } = await t.mutation(
+    api.payment_intents.mutations.createPaymentIntent,
+    {
+      apiKeyHash,
+      amount: "50.00",
+      asset: "native",
+      description: "First stats payment",
+    },
+  );
 
-  const pi2 = await t.mutation(api.payment_intents.mutations.createPaymentIntent, {
-    apiKeyHash,
-    amount: "100.00",
-    asset: "USDC:GBX",
-    description: "Second stats payment",
-  });
+  const { paymentIntentId: pi2 } = await t.mutation(
+    api.payment_intents.mutations.createPaymentIntent,
+    {
+      apiKeyHash,
+      amount: "100.00",
+      asset: "USDC:GBX",
+      description: "Second stats payment",
+    },
+  );
 
   // Verify status counts are initially showing created state
   let stats = await owner.query(api.payment_intents.queries.getProjectStats, {

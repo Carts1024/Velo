@@ -1,4 +1,5 @@
 import { getApiKeyFromRequest, hashApiKey } from "@/core/api/auth";
+import { rateLimiter } from "@/core/api/rate-limit";
 import { env } from "@/core/config/env";
 import { stellarConfig } from "@/core/config/stellar";
 import { api } from "@repo/backend/convex/_generated/api";
@@ -15,6 +16,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       { error: "Unauthorized: Missing or invalid API key format." },
       { status: 401 },
+    );
+  }
+
+  const apiKeyHash = hashApiKey(apiKey);
+  const rateLimitResult = rateLimiter.checkLimit(apiKeyHash);
+  if (!rateLimitResult.allowed) {
+    return NextResponse.json(
+      { error: "Too Many Requests: Rate limit exceeded." },
+      {
+        status: 429,
+        headers: rateLimitResult.headers,
+      },
     );
   }
 
@@ -44,8 +57,7 @@ export async function POST(request: NextRequest) {
     const convex = new ConvexHttpClient(env.NEXT_PUBLIC_CONVEX_URL);
 
     // 3. Verify key hash, check payments access, and create payment intent
-    const apiKeyHash = hashApiKey(apiKey);
-    const paymentIntentId = await convex.mutation(
+    const { paymentIntentId, projectId } = (await convex.mutation(
       api.payment_intents.mutations.createPaymentIntent,
       {
         apiKeyHash,
@@ -55,13 +67,17 @@ export async function POST(request: NextRequest) {
         ...(body.successUrl !== undefined ? { successUrl: body.successUrl } : {}),
         ...(body.cancelUrl !== undefined ? { cancelUrl: body.cancelUrl } : {}),
       },
-    );
+    )) as { paymentIntentId: string; projectId: string };
+
+    if (projectId) {
+      rateLimiter.cacheKeyProjectMapping(apiKeyHash, projectId);
+    }
 
     // 4. Return payment intent ID and checkout URL
     const appUrl = env.NEXT_PUBLIC_APP_URL;
     const checkoutUrl = `${appUrl}/pay/${paymentIntentId}`;
 
-    return NextResponse.json(
+    const response = NextResponse.json(
       {
         paymentIntentId,
         checkoutUrl,
@@ -69,6 +85,12 @@ export async function POST(request: NextRequest) {
       },
       { status: 201 },
     );
+
+    Object.entries(rateLimitResult.headers).forEach(([key, val]) => {
+      response.headers.set(key, val);
+    });
+
+    return response;
   } catch (error) {
     const message = error instanceof Error ? error.message : "Internal Server Error";
     console.error("Payment intent creation failed:", message);

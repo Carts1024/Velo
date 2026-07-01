@@ -1,4 +1,5 @@
 import { getApiKeyFromRequest, hashApiKey } from "@/core/api/auth";
+import { rateLimiter } from "@/core/api/rate-limit";
 import { env } from "@/core/config/env";
 import { api } from "@repo/backend/convex/_generated/api";
 import { ConvexHttpClient } from "convex/browser";
@@ -15,6 +16,18 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     );
   }
 
+  const apiKeyHash = hashApiKey(apiKey);
+  const rateLimitResult = rateLimiter.checkLimit(apiKeyHash);
+  if (!rateLimitResult.allowed) {
+    return NextResponse.json(
+      { error: "Too Many Requests: Rate limit exceeded." },
+      {
+        status: 429,
+        headers: rateLimitResult.headers,
+      },
+    );
+  }
+
   if (!hash || hash.trim().length !== 64) {
     return NextResponse.json(
       { error: "Bad Request: Invalid transaction hash format." },
@@ -25,12 +38,16 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   try {
     const convex = new ConvexHttpClient(env.NEXT_PUBLIC_CONVEX_URL);
     const result = await convex.query(api.projects.query.verifyApiKeyAndGetTransaction, {
-      apiKeyHash: hashApiKey(apiKey),
+      apiKeyHash,
       hash: hash,
     });
 
     if (!result.authorized) {
       return NextResponse.json({ error: "Unauthorized: Invalid API key." }, { status: 401 });
+    }
+
+    if (result.projectId) {
+      rateLimiter.cacheKeyProjectMapping(apiKeyHash, result.projectId);
     }
 
     if (!result.transaction) {
@@ -40,9 +57,15 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       );
     }
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       transaction: result.transaction,
     });
+
+    Object.entries(rateLimitResult.headers).forEach(([key, val]) => {
+      response.headers.set(key, val);
+    });
+
+    return response;
   } catch (error) {
     const message = error instanceof Error ? error.message : "Internal Server Error";
     return NextResponse.json({ error: `Internal Server Error: ${message}` }, { status: 500 });

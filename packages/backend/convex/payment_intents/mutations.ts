@@ -66,7 +66,7 @@ export const createPaymentIntent = mutation({
       paymentIntentId: id,
     });
 
-    return id;
+    return { paymentIntentId: id, projectId: project._id };
   },
 });
 

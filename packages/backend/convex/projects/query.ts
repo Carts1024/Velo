@@ -163,6 +163,7 @@ export const verifyApiKeyAndGetTransaction = query({
 
     return {
       authorized: true,
+      projectId: project._id,
       transaction,
     };
   },
@@ -197,6 +198,7 @@ export const verifyApiKeyAndGetWebhookDeliveries = query({
 
     return {
       authorized: true,
+      projectId: project._id,
       deliveries,
     };
   },
