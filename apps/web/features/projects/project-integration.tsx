@@ -162,39 +162,46 @@ if (response.ok) {
   console.error("Payment creation failed:", data.error);
 }`;
 
-  const sdkSnippet = `import { createCheckoutSession } from "@repo/stellar";
+  const sdkSnippet = `import { Velo } from "@velo/sdk";
+
+const velo = new Velo({
+  apiKey: "${apiKeyPlaceholder}",
+  environment: "testnet", // "production", "testnet", or "development"
+  baseUrl: "${baseUrl}" // Optional: custom backend URL
+});
 
 try {
-  const session = await createCheckoutSession({
-    apiKey: "${apiKeyPlaceholder}",
+  const session = await velo.checkout.sessions.create({
     amount: "10.00",
-    asset: "native", // "native" for XLM, or "CODE:ISSUER" for custom assets (e.g. USDC)
+    asset: "USDC", // "native" for XLM, or "USDC"
     description: "Order #1001",
     successUrl: "https://your-merchant-site.com/success",
     cancelUrl: "https://your-merchant-site.com/cancel",
-    baseUrl: "${baseUrl}" // Optional: custom backend URL
   });
 
-  // Redirect customer to session.checkoutUrl
+  // Redirect customer to hosted checkout page
   window.location.href = session.checkoutUrl;
 } catch (error) {
   console.error("Failed to initiate Velo Pay checkout:", error);
 }`;
 
   const nextSnippet = `import { NextResponse } from "next/server";
-import { createCheckoutSession } from "@repo/stellar";
+import { Velo } from "@velo/sdk";
+
+const velo = new Velo({
+  apiKey: process.env.VELO_API_KEY || "${apiKeyPlaceholder}",
+  environment: "testnet",
+  baseUrl: "${baseUrl}"
+});
 
 export async function POST() {
   try {
-    const session = await createCheckoutSession({
-      // We recommend keeping your API key in an environment variable
-      apiKey: process.env.VELO_API_KEY || "${apiKeyPlaceholder}",
+    const session = await velo.checkout.sessions.create({
       amount: "10.00",
-      asset: "native",
+      asset: "USDC",
       description: "Order #1001",
       successUrl: "https://your-merchant-site.com/success",
       cancelUrl: "https://your-merchant-site.com/cancel",
-      baseUrl: "${baseUrl}"
     });
 
     return NextResponse.json({ url: session.checkoutUrl });

@@ -51,6 +51,12 @@ export function HeroSection() {
 
         <nav className="flex items-center gap-4 sm:gap-6">
           <Link
+            href="/docs"
+            className="hidden text-sm font-medium text-zinc-400 transition-colors hover:text-zinc-100 sm:inline-block"
+          >
+            Docs
+          </Link>
+          <Link
             href="/dashboard"
             className="hidden text-sm font-medium text-zinc-400 transition-colors hover:text-zinc-100 sm:inline-block"
           >

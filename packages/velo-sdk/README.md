@@ -166,3 +166,47 @@ app.post("/webhooks", express.raw({ type: "application/json" }), async (req, res
   }
 });
 ```
+
+---
+
+## Environment Variables
+
+Configure the following environment variables in your server environments:
+
+| Variable              | Required          | Description                                                                                     |
+| --------------------- | ----------------- | ----------------------------------------------------------------------------------------------- |
+| `VELO_API_KEY`        | **Yes**           | Your Velo project API key (e.g. `tk_live_...` or `tk_test_...`).                                |
+| `VELO_WEBHOOK_SECRET` | Only for Webhooks | Used to verify signature of incoming webhook events.                                            |
+| `VELO_BASE_URL`       | No                | Overrides the default Velo API endpoint (defaults to `https://api.velo.xyz` or local dev base). |
+
+---
+
+## Idempotency
+
+To prevent double-charging or duplicate session creation due to network retries, pass an `idempotencyKey` in the `RequestOptions` object as the second parameter:
+
+```ts
+const session = await velo.checkout.sessions.create(
+  {
+    amount: "10.00",
+    asset: "USDC",
+    description: "Order #1001",
+  },
+  {
+    idempotencyKey: "unique-order-id-1001", // Prevents duplicates
+  },
+);
+```
+
+Idempotency keys are scoped to your project. Repeating a request with the same payload and same key will return the cached original response. Repeating with a different payload will throw a `VeloAPIError` with status code `409` (conflict).
+
+---
+
+## Testnet vs Mainnet & Alpha Limitations
+
+> [!WARNING]
+> This SDK is currently in **Alpha** (`0.1.0-alpha.1`) and subject to changes.
+>
+> - **Stellar Testnet Only**: During the alpha phase, all transactions and checkout sessions are routed through the Stellar Testnet. Mainnet is currently unsupported.
+> - **Server-Side Only**: The SDK initializes and communicates using highly sensitive API keys and secrets. Do **NOT** use this SDK in browser environments or client-side code as it will leak your API credentials.
+> - **Browser Limitations**: Direct wallet connection, browser-based payment tracking, and front-end React components are excluded from the current alpha release.
