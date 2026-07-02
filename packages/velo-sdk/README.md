@@ -3,7 +3,7 @@
 The official Velo SDK for Node.js and modern JavaScript environments.
 
 > [!NOTE]
-> This package is currently in **Alpha** (`0.1.0-alpha.1`) and is meant for server-side environments only.
+> This package is currently in **Alpha** (`0.1.0-alpha.2`) and is meant for server-side environments only.
 
 ## Installation
 
@@ -205,7 +205,7 @@ Idempotency keys are scoped to your project. Repeating a request with the same p
 ## Testnet vs Mainnet & Alpha Limitations
 
 > [!WARNING]
-> This SDK is currently in **Alpha** (`0.1.0-alpha.1`) and subject to changes.
+> This SDK is currently in **Alpha** (`0.1.0-alpha.2`) and subject to changes.
 >
 > - **Stellar Testnet Only**: During the alpha phase, all transactions and checkout sessions are routed through the Stellar Testnet. Mainnet is currently unsupported.
 > - **ESM-Only**: The package uses ESM exports and requires `"type": "module"` or an ESM-compatible bundler/environment. CommonJS `require()` is not supported directly.

@@ -258,7 +258,7 @@ app.listen(3001, () => console.log("Express server running on port 3001"));`,
           </Link>
           <span className="text-sm font-semibold tracking-tight text-zinc-300">Velo SDK Docs</span>
           <span className="text-[10px] font-mono uppercase bg-zinc-900 text-zinc-500 border border-zinc-800 px-1.5 py-0.5 rounded font-bold">
-            0.1.0-alpha.1
+            0.1.0-alpha.2
           </span>
         </div>
         <div className="flex items-center gap-4">

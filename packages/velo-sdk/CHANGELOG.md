@@ -2,7 +2,7 @@
 
 All notable changes to the Velo SDK will be documented in this file.
 
-## [0.1.0-alpha.1] - 2026-07-02
+## [0.1.0-alpha.2] - 2026-07-02
 
 ### Added
 

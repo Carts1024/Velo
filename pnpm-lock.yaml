@@ -27,8 +27,8 @@ importers:
   apps/web:
     dependencies:
       '@carts1024/velo-sdk':
-        specifier: 0.1.0-alpha.1
-        version: 0.1.0-alpha.1
+        specifier: workspace:*
+        version: link:../../packages/velo-sdk
       '@creit-tech/stellar-wallets-kit':
         specifier: npm:@jsr/creit-tech__stellar-wallets-kit@^2.3.0
         version: '@jsr/creit-tech__stellar-wallets-kit@2.3.0(@stellar/stellar-sdk@14.2.0)(@trezor/connect@9.7.3(@solana/sysvars@5.5.1(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.9.2))(bufferutil@4.1.0)(fastestsmallesttextencoderdecoder@1.0.22)(tslib@2.8.1)(typescript@5.9.2)(utf-8-validate@6.0.6)(ws@8.20.1(bufferutil@4.1.0)(utf-8-validate@6.0.6)))(@types/react@19.2.13)(bufferutil@4.1.0)(fastestsmallesttextencoderdecoder@1.0.22)(near-api-js@5.1.1)(react@19.2.6)(tslib@2.8.1)(typescript@5.9.2)(use-sync-external-store@1.6.0(react@19.2.6))(utf-8-validate@6.0.6)(zod@4.4.3)'
@@ -362,9 +362,6 @@ packages:
 
   '@bufbuild/protobuf@2.12.0':
     resolution: {integrity: sha512-B/XlCaFIP8LOwzo+bz5uFzATYokcwCKQcghqnlfwSmM5eX/qTkvDBnDPs+gXtX/RyjxJ4DRikECcPJbyALA8FA==}
-
-  '@carts1024/velo-sdk@0.1.0-alpha.1':
-    resolution: {integrity: sha512-TWGp9aoyGsHnI0+dpP3N+D11CagHcQHZDM3Ta2Q7hiXtv1XAdI3DKFcJzbbr0jp9fKPsR4j8abYILER4i5rAFg==}
 
   '@coinbase/cdp-sdk@1.51.0':
     resolution: {integrity: sha512-XK8+OXDER1jirYpuiOct4ij65ODQ31LsmyRrZi/J7zF4GB89qxWZ0KPfAdsqJMP7VvE4no+Q++MKkQtAJUBoyg==}
@@ -5517,8 +5514,6 @@ snapshots:
       '@types/react': 19.2.13
 
   '@bufbuild/protobuf@2.12.0': {}
-
-  '@carts1024/velo-sdk@0.1.0-alpha.1': {}
 
   '@coinbase/cdp-sdk@1.51.0(bufferutil@4.1.0)(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.9.2)(utf-8-validate@6.0.6)':
     dependencies:
