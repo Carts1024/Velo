@@ -21,8 +21,8 @@ export function CTASection() {
         </h2>
 
         <p className="text-zinc-400 text-base md:text-lg max-w-xl mb-10 font-light leading-relaxed">
-          Open the console to create project infrastructure, verify contracts, debug transactions,
-          wire webhooks, and track the Velo Pay roadmap as one module of the platform.
+          Open the console to register project infrastructure on-chain, generate API keys, create
+          PaymentIntents, configure webhook endpoints, and inspect logs.
         </p>
 
         {/* Action button triggers */}
@@ -46,9 +46,9 @@ export function CTASection() {
         <div className="mt-16 text-xs text-zinc-600 font-mono flex flex-wrap items-center gap-2 justify-center select-none">
           <span>PROJECT REGISTRY</span>
           <span className="text-zinc-800">•</span>
-          <span>DEV TOOLING</span>
+          <span>VELO PAY ACTIVE</span>
           <span className="text-zinc-800">•</span>
-          <span>PAY ROADMAP</span>
+          <span>SIGNED WEBHOOKS</span>
         </div>
       </div>
     </section>

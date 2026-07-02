@@ -30,8 +30,8 @@ const features = [
     icon: Network,
     title: "Stellar Operations",
     description:
-      "Support wallet, asset, environment, and network workflows that teams need before an app is ready to launch.",
-    badge: "Alpha",
+      "On-chain project registration and wallet challenge authentication (wallet-auth JWT identity) on Stellar Testnet.",
+    badge: "Active",
   },
   {
     icon: CreditCard,
@@ -44,28 +44,28 @@ const features = [
     icon: Bell,
     title: "Webhook Infrastructure",
     description:
-      "Test server callbacks, review delivery logs, and prepare reliable event notifications for backend workflows.",
-    badge: "Alpha",
+      "HMAC-SHA256 signed event routing with automatic backoff retry policy, delivery logs, and rolling secret keys.",
+    badge: "Active",
   },
   {
     icon: Activity,
     title: "Event Monitor",
     description:
       "Watch contract and app activity during demos without building a custom indexer on day one.",
-    badge: "Beta",
+    badge: "Active",
   },
   {
     icon: WalletCards,
     title: "Velo Pay",
     description:
-      "Upcoming payment infrastructure for payment links, checkout SDKs, and app-native Stellar stablecoin flows.",
-    badge: "Roadmap",
+      "Generate stablecoin payment links and hosted checkout sessions with automated ledger settlement scanner confirmation.",
+    badge: "Active",
   },
   {
     icon: LayoutDashboard,
     title: "Infrastructure Console",
     description:
-      "Bring project status, verification, debugging, webhooks, and roadmap modules into one developer surface.",
+      "Bring project status, verification, debugging, webhooks, and payment logs into one developer surface.",
     badge: "Active",
   },
 ];

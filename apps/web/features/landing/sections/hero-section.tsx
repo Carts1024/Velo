@@ -82,7 +82,7 @@ export function HeroSection() {
         {/* Micro-badge */}
         <div className="animate-fade-in mb-6 inline-flex items-center gap-2 rounded-full border border-zinc-800 bg-zinc-900/60 px-3 py-1 font-mono text-xs tracking-wide text-zinc-300 backdrop-blur-md">
           <Terminal size={14} className="text-zinc-400" />
-          <span>Project infrastructure + developer tooling for Stellar Testnet</span>
+          <span>Stellar Testnet payment infrastructure + developer tooling active</span>
         </div>
 
         {/* Headings */}
@@ -95,8 +95,9 @@ export function HeroSection() {
 
         {/* Tagline */}
         <p className="mb-10 max-w-2xl text-lg leading-relaxed font-light text-zinc-400 md:text-xl">
-          Ship Stellar apps faster with hosted tools for project setup, contract verification,
-          transaction debugging, event monitoring, and upcoming payment infrastructure.
+          Ship Stellar apps faster with hosted tools for project setup, on-chain contract
+          verification, transaction debugging, event monitoring, and secure stablecoin payment
+          links.
         </p>
 
         {/* Actions */}
@@ -119,7 +120,7 @@ export function HeroSection() {
 
       {/* Alpha scope note */}
       <div className="pointer-events-none relative z-20 pb-8 text-center font-mono text-[10px] tracking-widest text-zinc-600 uppercase select-none">
-        Infrastructure roadmap for Stellar builders
+        Active Velo Pay Alpha on Stellar Testnet
       </div>
     </section>
   );

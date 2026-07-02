@@ -4,19 +4,21 @@ import { CheckCircle2, Copy, Terminal } from "lucide-react";
 import { useState } from "react";
 
 const infrastructureSnippet = [
-  'import { createProject, watchEvents } from "@carts1024/velo-sdk";',
+  'import { Velo } from "@carts1024/velo-sdk";',
   "",
-  "const project = await createProject({",
-  '  name: "Hackathon Wallet",',
-  '  network: "testnet",',
-  "  ownerWallet: wallet.publicKey,",
-  "  contractIds: [registryContractId],",
+  "const velo = new Velo({",
+  '  apiKey: "tk_live_f382a9d821...",',
   "});",
   "",
-  "const watchResult = await watchEvents({",
-  "  projectId: project.id,",
-  '  webhookUrl: "https://api.example.com/velo",',
+  "// Create a hosted payment checkout session",
+  "const session = await velo.checkout.sessions.create({",
+  '  amount: "45.00",',
+  '  asset: "USDC", // SEP-41 Stellar Asset Contract',
+  '  description: "Developer Plan Subscription",',
+  '  redirectUrl: "https://yourdomain.com/success",',
   "});",
+  "",
+  "console.log(`Pay at: ${session.checkoutUrl}`);",
 ].join("\n");
 
 export function DeveloperSection() {
@@ -41,8 +43,8 @@ export function DeveloperSection() {
               Tools for the full Stellar app lifecycle.
             </h3>
             <p className="text-zinc-400 text-sm leading-relaxed font-light">
-              Velo is the infrastructure layer around your Stellar app: typed helpers, reusable
-              workflows, project verification, observability, and payment APIs on the roadmap.
+              Velo is the infrastructure layer around your Stellar app: typed SDK helpers, automated
+              payment workflows, on-chain project verification, and real-time webhook delivery.
             </p>
 
             <ul className="flex flex-col gap-3 font-light text-zinc-300 text-sm mt-2">
@@ -56,7 +58,7 @@ export function DeveloperSection() {
               </li>
               <li className="flex items-center gap-3">
                 <CheckCircle2 size={16} className="text-zinc-400 shrink-0" />
-                <span>Expand into payment APIs as the platform grows</span>
+                <span>Generate payment links and checkout sessions with the Velo SDK</span>
               </li>
             </ul>
           </div>
