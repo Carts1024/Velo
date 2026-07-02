@@ -219,6 +219,44 @@ export const generateApiKey = mutation({
   },
 });
 
+export const generateApiKeyInternal = internalMutation({
+  args: {
+    id: v.id("projects"),
+    label: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const randomBytes = new Uint8Array(16);
+    crypto.getRandomValues(randomBytes);
+    const token = Array.from(randomBytes)
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+    const rawKey = `tk_live_${token}`;
+
+    const encoder = new TextEncoder();
+    const data = encoder.encode(rawKey);
+    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const apiKeyHash = hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+
+    const now = Date.now();
+    await ctx.db.insert("apiKeys", {
+      projectId: args.id,
+      keyHash: apiKeyHash,
+      prefix: `tk_live_${token.slice(0, 4)}...${token.slice(-4)}`,
+      label: args.label.trim() || "Default Key",
+      createdAt: now,
+      requestCount: 0,
+      revoked: false,
+    });
+
+    await ctx.db.patch(args.id, {
+      updatedAt: now,
+    });
+
+    return { rawKey };
+  },
+});
+
 export const revokeApiKey = mutation({
   args: {
     keyId: v.id("apiKeys"),

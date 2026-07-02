@@ -1,7 +1,7 @@
 {
-  "name": "@velo/sdk",
-  "version": "0.0.0",
-  "private": true,
+  "name": "@carts1024/velo-sdk",
+  "version": "0.1.0-alpha.1",
+  "private": false,
   "type": "module",
   "exports": {
     ".": "./src/index.ts"
