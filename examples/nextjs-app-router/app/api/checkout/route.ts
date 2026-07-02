@@ -8,19 +8,21 @@ const velo = new Velo({
   baseUrl: process.env.VELO_BASE_URL, // Optional override
 });
 
-export async function POST() {
+export async function POST(request: Request) {
   try {
+    const { asset = "USDC" } = await request.json().catch(() => ({}));
+
     const session = await velo.checkout.sessions.create(
       {
         amount: "10.00",
-        asset: "USDC",
-        description: "Order #1001",
+        asset,
+        description: `Order #1001 (${asset === "native" ? "XLM" : asset})`,
         successUrl: "http://localhost:3000/success",
         cancelUrl: "http://localhost:3000/cancel",
       },
       {
         // Supplying an idempotency key is recommended to prevent duplicates on retries
-        idempotencyKey: `order-1001-${Date.now()}`,
+        idempotencyKey: `order-1001-${asset.toLowerCase()}-${Date.now()}`,
       }
     );
 

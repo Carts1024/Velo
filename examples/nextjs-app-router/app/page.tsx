@@ -5,6 +5,7 @@ import { useState } from "react";
 export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [asset, setAsset] = useState<"USDC" | "native">("USDC");
 
   const handleCheckout = async () => {
     setLoading(true);
@@ -13,6 +14,7 @@ export default function Home() {
       const res = await fetch("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ asset }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -47,6 +49,46 @@ export default function Home() {
         Next.js App Router & `@carts1024/velo-sdk` demo store.
       </p>
 
+      <div style={{ marginBottom: "24px" }}>
+        <label style={{ display: "block", fontSize: "12px", fontWeight: "600", color: "#a1a1aa", marginBottom: "8px", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+          Select Asset
+        </label>
+        <div style={{ display: "flex", gap: "12px" }}>
+          <button
+            onClick={() => setAsset("USDC")}
+            style={{
+              flex: 1,
+              padding: "12px",
+              borderRadius: "8px",
+              background: asset === "USDC" ? "#27272a" : "#09090b",
+              color: asset === "USDC" ? "#ffffff" : "#a1a1aa",
+              border: asset === "USDC" ? "1px solid #3f3f46" : "1px solid #27272a",
+              fontWeight: "600",
+              cursor: "pointer",
+              transition: "all 0.2s"
+            }}
+          >
+            USDC
+          </button>
+          <button
+            onClick={() => setAsset("native")}
+            style={{
+              flex: 1,
+              padding: "12px",
+              borderRadius: "8px",
+              background: asset === "native" ? "#27272a" : "#09090b",
+              color: asset === "native" ? "#ffffff" : "#a1a1aa",
+              border: asset === "native" ? "1px solid #3f3f46" : "1px solid #27272a",
+              fontWeight: "600",
+              cursor: "pointer",
+              transition: "all 0.2s"
+            }}
+          >
+            XLM
+          </button>
+        </div>
+      </div>
+
       <div style={{
         padding: "16px",
         borderRadius: "8px",
@@ -56,7 +98,7 @@ export default function Home() {
       }}>
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
           <span>Order #1001</span>
-          <strong>10.00 USDC</strong>
+          <strong>{asset === "USDC" ? "10.00 USDC" : "10.00 XLM"}</strong>
         </div>
         <span style={{ fontSize: "12px", color: "#71717a" }}>1x Velo Pro Subscription</span>
       </div>
@@ -92,7 +134,7 @@ export default function Home() {
           transition: "all 0.2s"
         }}
       >
-        {loading ? "Redirecting to Velo Pay..." : "Pay with USDC"}
+        {loading ? "Redirecting to Velo Pay..." : `Pay with ${asset === "USDC" ? "USDC" : "XLM"}`}
       </button>
     </div>
   );

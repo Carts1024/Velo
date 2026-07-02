@@ -57,6 +57,15 @@ function writeStoredConvexToken(token: WalletToken | null) {
   }
 }
 
+function isPublicRoute(path: string) {
+  return (
+    path === "/" ||
+    path.startsWith("/docs") ||
+    path.startsWith("/verify") ||
+    path.startsWith("/pay")
+  );
+}
+
 function useWalletConvexAuth() {
   const wallet = useWallet();
   const tokenRef = useRef<WalletToken | null>(null);
@@ -80,7 +89,7 @@ function useWalletConvexAuth() {
         return null;
       }
 
-      if (!wallet.address || pathnameRef.current === "/") {
+      if (!wallet.address || isPublicRoute(pathnameRef.current)) {
         tokenRef.current = null;
         pendingPromiseRef.current = null;
         return null;
@@ -154,7 +163,8 @@ function useWalletConvexAuth() {
   return useMemo(
     () => ({
       isLoading: wallet.status === "initializing" || wallet.status === "connecting",
-      isAuthenticated: wallet.status === "connected" && Boolean(wallet.address) && pathname !== "/",
+      isAuthenticated:
+        wallet.status === "connected" && Boolean(wallet.address) && !isPublicRoute(pathname),
       fetchAccessToken,
     }),
     [fetchAccessToken, wallet.address, wallet.status, pathname],

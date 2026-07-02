@@ -20,16 +20,17 @@ app.use(express.json());
 // Create Checkout Session
 app.post("/api/checkout", async (req, res) => {
   try {
+    const asset = req.body?.asset || "USDC";
     const session = await velo.checkout.sessions.create(
       {
         amount: "10.00",
-        asset: "USDC",
-        description: "Order #1001",
+        asset,
+        description: `Order #1001 (${asset === "native" ? "XLM" : asset})`,
         successUrl: "http://localhost:3001/success",
         cancelUrl: "http://localhost:3001/cancel",
       },
       {
-        idempotencyKey: `order-1001-${Date.now()}`,
+        idempotencyKey: `order-1001-${asset.toLowerCase()}-${Date.now()}`,
       }
     );
 
