@@ -59,11 +59,15 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    const requestedAsset = parsed.body.asset;
+    const resolvedAsset =
+      !requestedAsset || requestedAsset === "USDC" ? stellarConfig.checkoutAsset : requestedAsset;
+
     const convex = new ConvexHttpClient(env.NEXT_PUBLIC_CONVEX_URL);
     const result = (await convex.mutation(api.payment_intents.mutations.createPublicPaymentIntent, {
       apiKeyHash: auth.apiKeyHash,
       amount: parsed.body.amount,
-      asset: parsed.body.asset || stellarConfig.checkoutAsset,
+      asset: resolvedAsset,
       ...(parsed.body.description !== undefined ? { description: parsed.body.description } : {}),
       ...(parsed.body.successUrl !== undefined ? { successUrl: parsed.body.successUrl } : {}),
       ...(parsed.body.cancelUrl !== undefined ? { cancelUrl: parsed.body.cancelUrl } : {}),

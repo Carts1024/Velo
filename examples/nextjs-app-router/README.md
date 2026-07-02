@@ -9,13 +9,13 @@ This is a simple demo application showing how to integrate `@carts1024/velo-sdk`
 
 ## Setup
 
-1. Copy the environment variables template and configure them:
+1. Create a `.env.local` file from `.env.example` and set variables:
 
 ```bash
-# Set your keys
-export VELO_API_KEY="tk_test_..."
-export VELO_WEBHOOK_SECRET="whsec_..."
+cp .env.example .env.local
 ```
+
+Make sure `VELO_API_KEY` starts with `tk_live_` (generated from local dashboard at http://localhost:3000) and `VELO_ENV=development`.
 
 2. Run the application:
 
@@ -24,7 +24,7 @@ pnpm install
 pnpm dev
 ```
 
-The application will be accessible at `http://localhost:3000`.
+The application will be accessible at `http://localhost:3001` or `http://localhost:3002` (if port 3000/3001 are occupied).
 
 ## Key Files
 
