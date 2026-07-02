@@ -7,7 +7,7 @@ Source: `docs/prds/prd-velo-sdk/sdk-phase.md`
 Ship the first production-facing Velo SDK alpha for Stellar stablecoin checkout. The target developer journey is:
 
 ```ts
-import { Velo } from "@velo/sdk";
+import { Velo } from "@carts1024/velo-sdk";
 
 const velo = new Velo({ apiKey: process.env.VELO_API_KEY! });
 
@@ -143,7 +143,7 @@ Acceptance criteria:
 
 Exit gate:
 
-- `pnpm --filter @velo/sdk test` passes.
+- `pnpm --filter @carts1024/velo-sdk test` passes.
 - Build output includes declarations and package exports.
 
 ## Sprint 3: Checkout and PaymentIntent SDK Resources
@@ -274,7 +274,7 @@ Tasks:
 - Run package tests, backend tests, web tests, lint, and build.
 - Verify package exports under Node 18+.
 - Verify ESM/CJS strategy or explicitly document ESM-only alpha.
-- Tag or prepare `@velo/sdk@0.1.0-alpha.1`.
+- Tag or prepare `@carts1024/velo-sdk@0.1.0-alpha.1`.
 - Record release notes and remaining limitations.
 
 Acceptance criteria:

@@ -44,7 +44,7 @@ export default function Home() {
         Velo Checkout Integration
       </h1>
       <p style={{ color: "#a1a1aa", fontSize: "14px", marginBottom: "24px" }}>
-        Next.js App Router & `@velo/sdk` demo store.
+        Next.js App Router & `@carts1024/velo-sdk` demo store.
       </p>
 
       <div style={{

@@ -1,6 +1,6 @@
 # Velo SDK Next.js App Router Example
 
-This is a simple demo application showing how to integrate `@velo/sdk` into a Next.js App Router application.
+This is a simple demo application showing how to integrate `@carts1024/velo-sdk` into a Next.js App Router application.
 
 ## Prerequisites
 

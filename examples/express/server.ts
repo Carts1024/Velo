@@ -1,5 +1,5 @@
 import express from "express";
-import { Velo } from "@velo/sdk";
+import { Velo } from "@carts1024/velo-sdk";
 import dotenv from "dotenv";
 
 dotenv.config();

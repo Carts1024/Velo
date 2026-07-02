@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { Velo } from "@velo/sdk";
+import { Velo } from "@carts1024/velo-sdk";
 
 // Initialize Velo client. Keep apiKey secure server-side!
 const velo = new Velo({

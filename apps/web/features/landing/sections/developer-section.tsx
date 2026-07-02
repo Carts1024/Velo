@@ -4,7 +4,7 @@ import { CheckCircle2, Copy, Terminal } from "lucide-react";
 import { useState } from "react";
 
 const infrastructureSnippet = [
-  'import { createProject, watchEvents } from "@velo/sdk";',
+  'import { createProject, watchEvents } from "@carts1024/velo-sdk";',
   "",
   "const project = await createProject({",
   '  name: "Hackathon Wallet",',

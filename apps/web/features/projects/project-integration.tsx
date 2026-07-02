@@ -162,7 +162,7 @@ if (response.ok) {
   console.error("Payment creation failed:", data.error);
 }`;
 
-  const sdkSnippet = `import { Velo } from "@velo/sdk";
+  const sdkSnippet = `import { Velo } from "@carts1024/velo-sdk";
 
 const velo = new Velo({
   apiKey: "${apiKeyPlaceholder}",
@@ -186,7 +186,7 @@ try {
 }`;
 
   const nextSnippet = `import { NextResponse } from "next/server";
-import { Velo } from "@velo/sdk";
+import { Velo } from "@carts1024/velo-sdk";
 
 const velo = new Velo({
   apiKey: process.env.VELO_API_KEY || "${apiKeyPlaceholder}",

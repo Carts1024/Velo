@@ -8,11 +8,11 @@ The official Velo SDK for Node.js and modern JavaScript environments.
 ## Installation
 
 ```bash
-npm install @velo/sdk
+npm install @carts1024/velo-sdk
 # or
-pnpm add @velo/sdk
+pnpm add @carts1024/velo-sdk
 # or
-yarn add @velo/sdk
+yarn add @carts1024/velo-sdk
 ```
 
 ## Getting Started
@@ -20,7 +20,7 @@ yarn add @velo/sdk
 Initialize the client with your Velo API key:
 
 ```ts
-import { Velo } from "@velo/sdk";
+import { Velo } from "@carts1024/velo-sdk";
 
 const velo = new Velo({
   apiKey: process.env.VELO_API_KEY!,
@@ -83,7 +83,7 @@ const event = await Velo.webhooks.verify({
 
 ```ts
 import { NextResponse } from "next/server";
-import { Velo } from "@velo/sdk";
+import { Velo } from "@carts1024/velo-sdk";
 
 export async function POST(request: Request) {
   // 1. Get the raw text payload (DO NOT call request.json())
@@ -134,7 +134,7 @@ Ensure you capture the raw body as a string. You can use `express.raw` middlewar
 
 ```ts
 import express from "express";
-import { Velo } from "@velo/sdk";
+import { Velo } from "@carts1024/velo-sdk";
 
 const app = express();
 

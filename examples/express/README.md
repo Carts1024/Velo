@@ -1,6 +1,6 @@
 # Velo SDK Express Server Example
 
-This is a simple server application showing how to integrate `@velo/sdk` into an Express application.
+This is a simple server application showing how to integrate `@carts1024/velo-sdk` into an Express application.
 
 ## Prerequisites
 

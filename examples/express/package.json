@@ -9,7 +9,7 @@
     "start": "node dist/server.js"
   },
   "dependencies": {
-    "@velo/sdk": "workspace:*",
+    "@carts1024/velo-sdk": "workspace:*",
     "dotenv": "^16.4.7",
     "express": "^4.21.2"
   },

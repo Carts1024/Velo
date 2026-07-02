@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { Velo } from "@velo/sdk";
+import { Velo } from "@carts1024/velo-sdk";
 
 export async function POST(request: Request) {
   // 1. Webhook verification requires the raw body as a string.

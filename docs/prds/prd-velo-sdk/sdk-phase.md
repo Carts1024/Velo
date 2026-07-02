@@ -32,7 +32,7 @@ For launch, focus on payment infrastructure first:
 
 ```ts
 
-import { Velo } from "@velo/sdk";
+import { Velo } from "@carts1024/velo-sdk";
 
 
 
@@ -104,7 +104,7 @@ Published as:
 
 ```txt
 
-@velo/sdk
+@carts1024/velo-sdk
 
 ```
 
@@ -382,7 +382,7 @@ You already have `verifyWebhookSignature`, so make it part of the public SDK:
 
 ```ts
 
-import { Velo } from "@velo/sdk";
+import { Velo } from "@carts1024/velo-sdk";
 
 
 
@@ -890,7 +890,7 @@ The first code sample should be this simple:
 
 ```ts
 
-import { Velo } from "@velo/sdk";
+import { Velo } from "@carts1024/velo-sdk";
 
 
 
@@ -938,7 +938,7 @@ For your first SDK launch, do **not** try to include everything.
 
 ```txt
 
-@velo/sdk
+@carts1024/velo-sdk
 
 - create checkout session
 
@@ -1040,7 +1040,7 @@ Deliverable:
 
 ```txt
 
-pnpm --filter @velo/sdk test
+pnpm --filter @carts1024/velo-sdk test
 
 ```
 
@@ -1192,7 +1192,7 @@ Deliverable:
 
 ```txt
 
-@velo/sdk@0.1.0-alpha.1
+@carts1024/velo-sdk@0.1.0-alpha.1
 
 ```
 
@@ -1334,7 +1334,7 @@ Proceed with this order:
 
 6. **Update dashboard snippets to use the new SDK.**
 
-7. **Publish as `@velo/sdk@0.1.0-alpha.1`.**
+7. **Publish as `@carts1024/velo-sdk@0.1.0-alpha.1`.**
 
 
 
@@ -1352,7 +1352,7 @@ packages/velo-sdk
 Published later as:
 
 ```txt
-@velo/sdk
+@carts1024/velo-sdk
 ```
 
 ## Why monorepo is better for your current stage
@@ -1408,7 +1408,7 @@ packages/velo-sdk/
 Then your web app can use it internally too:
 
 ```ts
-import { Velo } from "@velo/sdk";
+import { Velo } from "@carts1024/velo-sdk";
 ```
 
 This helps you dogfood the SDK before publishing it.
@@ -1435,7 +1435,7 @@ For now:
 ```txt
 Keep SDK in the Velo monorepo.
 Create it as packages/velo-sdk.
-Publish it independently as @velo/sdk.
+Publish it independently as @carts1024/velo-sdk.
 Split it into its own repo later only after the SDK becomes stable.
 ```
 

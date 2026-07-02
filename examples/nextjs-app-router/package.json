@@ -9,7 +9,7 @@
     "start": "next start"
   },
   "dependencies": {
-    "@velo/sdk": "workspace:*",
+    "@carts1024/velo-sdk": "workspace:*",
     "next": "16.1.6",
     "react": "^19.2.4",
     "react-dom": "^19.2.4"

@@ -1,7 +1,7 @@
 # Velo SDK Alpha Contract
 
 Status: Sprint 0 contract freeze candidate  
-Version target: `@velo/sdk@0.1.0-alpha.1`  
+Version target: `@carts1024/velo-sdk@0.1.0-alpha.1`  
 Source sprint: `docs/prds/prd-velo-sdk/sdk-sprint-plan.md`
 
 ## Purpose
@@ -12,12 +12,12 @@ Sprint 0 is a documentation and contract freeze only. It does not create `packag
 
 ## SDK Identity
 
-- Package name: `@velo/sdk`
+- Package name: `@carts1024/velo-sdk`
 - Future package location: `packages/velo-sdk`
 - Import path:
 
 ```ts
-import { Velo } from "@velo/sdk";
+import { Velo } from "@carts1024/velo-sdk";
 ```
 
 - Runtime support: Node.js `>=18`, server-side alpha only

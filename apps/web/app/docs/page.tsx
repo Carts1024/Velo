@@ -55,10 +55,10 @@ export default function DocsPage() {
   const currentSection = SECTIONS.find((s) => s.id === activeSection) || SECTIONS[0]!;
 
   const codeSnippets = {
-    installNpm: `npm install @velo/sdk`,
-    installPnpm: `pnpm add @velo/sdk`,
-    installYarn: `yarn add @velo/sdk`,
-    initClient: `import { Velo } from "@velo/sdk";
+    installNpm: `npm install @carts1024/velo-sdk`,
+    installPnpm: `pnpm add @carts1024/velo-sdk`,
+    installYarn: `yarn add @carts1024/velo-sdk`,
+    initClient: `import { Velo } from "@carts1024/velo-sdk";
 
 const velo = new Velo({
   apiKey: process.env.VELO_API_KEY!,
@@ -92,7 +92,7 @@ if (page.hasMore) {
   const nextCursor = page.nextCursor;
   // load next page...
 }`,
-    webhookVerify: `import { Velo } from "@velo/sdk";
+    webhookVerify: `import { Velo } from "@carts1024/velo-sdk";
 
 // rawBody must be the raw, unparsed request body string
 const event = await Velo.webhooks.verify({
@@ -108,7 +108,7 @@ if (event.type === "payment.succeeded") {
 }`,
     nextjsCode: `// app/api/checkout/route.ts
 import { NextResponse } from "next/server";
-import { Velo } from "@velo/sdk";
+import { Velo } from "@carts1024/velo-sdk";
 
 const velo = new Velo({
   apiKey: process.env.VELO_API_KEY!,
@@ -135,7 +135,7 @@ export async function POST() {
 }`,
     nextjsWebhook: `// app/api/webhook/route.ts
 import { NextResponse } from "next/server";
-import { Velo } from "@velo/sdk";
+import { Velo } from "@carts1024/velo-sdk";
 
 export async function POST(request: Request) {
   // Retrieve the RAW body text for signature checking
@@ -163,7 +163,7 @@ export async function POST(request: Request) {
 }`,
     expressCode: `// server.ts
 import express from "express";
-import { Velo } from "@velo/sdk";
+import { Velo } from "@carts1024/velo-sdk";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -351,7 +351,7 @@ app.listen(3001, () => console.log("Express server running on port 3001"));`,
                 </div>
 
                 {renderCodeBlock(
-                  `import { Velo } from "@velo/sdk";
+                  `import { Velo } from "@carts1024/velo-sdk";
 
 const velo = new Velo({ apiKey: process.env.VELO_API_KEY! });
 const session = await velo.checkout.sessions.create({
