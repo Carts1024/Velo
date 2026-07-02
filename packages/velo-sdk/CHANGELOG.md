@@ -2,7 +2,7 @@
 
 All notable changes to the Velo SDK will be documented in this file.
 
-## [0.1.0-alpha.1] - 2026-07-01
+## [0.1.0-alpha.1] - 2026-07-02
 
 ### Added
 
@@ -12,3 +12,8 @@ All notable changes to the Velo SDK will be documented in this file.
 - **Webhook Verification**: Secure HMAC-SHA256 signature validation with clock skew/tolerance checking using `Velo.webhooks.verify()`.
 - **Typed Errors**: Custom error classes (`VeloAPIError`, `VeloAuthError`, `VeloRateLimitError`, `VeloValidationError`) matching API status codes.
 - **Idempotency**: Support for client-supplied `Idempotency-Key` headers on payment session creation.
+- **E2E Tests**: End-to-end test suite verifying payment flows.
+
+### Changed
+
+- **Package Rename**: Renamed package from `@velo/sdk` to `@carts1024/velo-sdk` and updated examples and documentation.
