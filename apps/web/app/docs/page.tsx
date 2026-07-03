@@ -1,16 +1,15 @@
 "use client";
 
+import { AppShell } from "@/core/app-shell";
 import {
   CheckIcon,
   CopyIcon,
   InfoIcon,
   AlertTriangleIcon,
   ChevronRightIcon,
-  ArrowLeftIcon,
   HashIcon,
   KeyIcon,
 } from "lucide-react";
-import Link from "next/link";
 import React, { useState } from "react";
 
 type SectionId =
@@ -245,42 +244,10 @@ app.listen(3001, () => console.log("Express server running on port 3001"));`,
   };
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans selection:bg-zinc-800 selection:text-white flex flex-col">
-      {/* Top Header */}
-      <header className="border-b border-zinc-900 bg-zinc-950/80 backdrop-blur-md sticky top-0 z-50 px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Link
-            href="/"
-            className="flex items-center gap-2 text-zinc-400 hover:text-zinc-100 transition-colors"
-          >
-            <ArrowLeftIcon size={16} />
-            <img src="/iconv2.png" alt="Velo Logo" className="h-6 w-6 rounded" />
-          </Link>
-          <span className="text-sm font-semibold tracking-tight text-zinc-300">Velo SDK Docs</span>
-          <span className="text-[10px] font-mono uppercase bg-zinc-900 text-zinc-500 border border-zinc-800 px-1.5 py-0.5 rounded font-bold">
-            0.1.0-alpha.2
-          </span>
-        </div>
-        <div className="flex items-center gap-4">
-          <Link
-            href="/dashboard"
-            className="text-xs font-semibold text-zinc-400 hover:text-zinc-100 transition-colors"
-          >
-            Dashboard
-          </Link>
-          <Link
-            href="/dashboard"
-            className="rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs font-semibold text-zinc-300 transition-all hover:bg-zinc-800"
-          >
-            Launch Console
-          </Link>
-        </div>
-      </header>
-
-      {/* Main Container */}
-      <div className="flex flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-8 gap-8">
+    <AppShell>
+      <div className="rounded-xl border border-zinc-800 bg-zinc-950 text-zinc-100 p-6 md:p-8 font-sans selection:bg-zinc-800 selection:text-white flex flex-col md:flex-row gap-8">
         {/* Left Sidebar */}
-        <aside className="w-64 shrink-0 hidden md:block border-r border-zinc-900 pr-6 h-[calc(100vh-120px)] sticky top-24 overflow-y-auto">
+        <aside className="w-full md:w-64 shrink-0 border-b md:border-b-0 md:border-r border-zinc-900 pb-6 md:pb-0 md:pr-6 md:h-[calc(100vh-220px)] md:sticky md:top-24 overflow-y-auto">
           <div className="space-y-6">
             {categories.map((cat) => (
               <div key={cat} className="space-y-2">
@@ -313,7 +280,7 @@ app.listen(3001, () => console.log("Express server running on port 3001"));`,
         </aside>
 
         {/* Content Panel */}
-        <main className="flex-1 min-w-0 pb-16">
+        <div className="flex-1 min-w-0 pb-16">
           <div className="flex items-center gap-1.5 text-xs font-mono text-zinc-500 mb-2">
             <span>Docs</span>
             <ChevronRightIcon size={10} />
@@ -726,8 +693,8 @@ const session = await velo.checkout.sessions.create({
               </>
             )}
           </div>
-        </main>
+        </div>
       </div>
-    </div>
+    </AppShell>
   );
 }

@@ -11,6 +11,9 @@ import {
   SidebarContent,
   SidebarFooter,
   SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
   SidebarRail,
 } from "@repo/ui/components/ui/sidebar";
 import {
@@ -21,6 +24,7 @@ import {
   FileTextIcon,
   LayoutDashboardIcon,
   TerminalIcon,
+  WalletIcon,
   WebhookIcon,
 } from "lucide-react";
 import * as React from "react";
@@ -36,6 +40,8 @@ export type SidebarProps = React.ComponentProps<typeof Sidebar> & {
   onDisconnect?: () => void;
   onNavigate?: (url: string) => void;
   onPrefetch?: (url: string) => void;
+  onConnect?: () => void;
+  isConnecting?: boolean;
 };
 
 function isPathActive(currentPath: string | undefined, url: string) {
@@ -55,6 +61,8 @@ export function AppSidebar({
   onDisconnect,
   onNavigate,
   onPrefetch,
+  onConnect,
+  isConnecting,
   ...props
 }: SidebarProps) {
   const activeProject = projects.find((project) => project.id === activeProjectId);
@@ -103,7 +111,7 @@ export function AppSidebar({
       icon: TerminalIcon,
     },
     {
-      title: "Pages",
+      title: "Docs",
       url: "/docs",
       icon: BookOpenIcon,
     },
@@ -134,6 +142,19 @@ export function AppSidebar({
             feedbackUrl="/feedback"
             onNavigate={onNavigate}
           />
+        ) : onConnect ? (
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                onClick={onConnect}
+                disabled={isConnecting}
+                className="gap-2 text-zinc-600 hover:text-zinc-900"
+              >
+                <WalletIcon className="size-4" />
+                <span>Connect Wallet</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
         ) : null}
       </SidebarFooter>
       <SidebarRail />

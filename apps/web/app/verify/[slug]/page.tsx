@@ -1,3 +1,4 @@
+import { AppShell } from "@/core/app-shell";
 import { PublicVerification } from "@/features/projects/public-verification";
 
 type VerifyPageProps = {
@@ -9,5 +10,9 @@ type VerifyPageProps = {
 export default async function VerifyPage({ params }: VerifyPageProps) {
   const { slug } = await params;
 
-  return <PublicVerification slug={slug} />;
+  return (
+    <AppShell>
+      <PublicVerification slug={slug} />
+    </AppShell>
+  );
 }
