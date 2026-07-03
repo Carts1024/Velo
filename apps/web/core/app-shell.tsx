@@ -5,10 +5,13 @@ import { shortenAddress } from "@/core/wallet/format";
 import { useWallet } from "@/core/wallet/wallet-provider";
 import { OnboardingDialog } from "@/features/onboarding/onboarding-dialog";
 import { useUserProfile } from "@/features/onboarding/use-user-profile";
+import { api } from "@repo/backend/convex/_generated/api";
 import { CopyButton } from "@repo/ui/components/common/copy-button";
 import { Badge } from "@repo/ui/components/ui-customs/badge";
+import { AppSidebar } from "@repo/ui/components/ui-customs/sidebar/app-sidebar";
 import { Alert, AlertDescription, AlertTitle } from "@repo/ui/components/ui/alert";
 import { Button } from "@repo/ui/components/ui/button";
+import { Separator } from "@repo/ui/components/ui/separator";
 import {
   Sheet,
   SheetContent,
@@ -16,6 +19,8 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@repo/ui/components/ui/sheet";
+import { SidebarInset, SidebarProvider, SidebarTrigger } from "@repo/ui/components/ui/sidebar";
+import { useQuery } from "convex/react";
 import {
   MenuIcon,
   MessageSquareIcon,
@@ -27,7 +32,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { ReactNode, useCallback, useEffect, useState } from "react";
+import { ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 
 const walletStatusCopy = {
   initializing: "Loading wallet support",
@@ -77,6 +82,114 @@ export function AppShell({ children }: { children: ReactNode }) {
     setIsEditingProfile(true);
     setShowOnboarding(true);
   }, []);
+
+  // Fetch projects list for the sidebar switcher
+  const rawProjects = useQuery(api.projects.query.listByOwner, wallet.address ? {} : "skip");
+
+  // Parse activeProjectId from path if applicable (e.g. /projects/projectId)
+  const activeProjectId = useMemo(() => {
+    const match = pathname.match(/^\/projects\/([a-zA-Z0-9_-]+)/);
+    return match && match[1] !== "new" ? match[1] : null;
+  }, [pathname]);
+
+  const sidebarProjects = useMemo(() => {
+    if (!rawProjects) return [];
+    return rawProjects.map((p) => ({
+      id: p._id,
+      name: p.name,
+      status: p.status,
+    }));
+  }, [rawProjects]);
+
+  const sidebarUser = useMemo(() => {
+    if (user) {
+      return {
+        name: user.name,
+        email: user.email,
+        avatar: "",
+      };
+    }
+    if (wallet.address) {
+      return {
+        name: shortenAddress(wallet.address),
+        email: `${wallet.address.slice(0, 8)}...`,
+        avatar: "",
+      };
+    }
+    return null;
+  }, [user, wallet.address]);
+
+  const handleSelectProject = useCallback(
+    (id: string) => {
+      router.push(`/projects/${id}`);
+    },
+    [router],
+  );
+
+  const handleCreateProject = useCallback(() => {
+    router.push("/projects/new");
+  }, [router]);
+
+  if (isProtectedRoute) {
+    return (
+      <SidebarProvider>
+        <AppSidebar
+          user={sidebarUser}
+          projects={sidebarProjects}
+          activeProjectId={activeProjectId}
+          onSelectProject={handleSelectProject}
+          onCreateProject={handleCreateProject}
+          onEditProfile={handleEditProfile}
+          onDisconnect={wallet.disconnect}
+        />
+        <SidebarInset className="flex flex-col min-h-svh bg-zinc-50 text-zinc-950">
+          {/* Top Bar for Protected Pages */}
+          <header className="flex h-16 shrink-0 items-center gap-4 border-b border-zinc-200 px-6 bg-white">
+            <SidebarTrigger className="-ml-1" />
+            <Separator orientation="vertical" className="mr-2 h-4" />
+
+            <div className="flex flex-wrap items-center gap-2 ml-auto">
+              <Badge variant="info">{stellarConfig.networkLabel}</Badge>
+              <Badge
+                variant={
+                  wallet.address ? "success" : wallet.status === "stale" ? "warning" : "gray"
+                }
+              >
+                {wallet.walletName ?? "No wallet"}
+              </Badge>
+              <Badge variant={wallet.address ? "success" : "warning"}>
+                {wallet.address ? shortenAddress(wallet.address) : walletStatusCopy[wallet.status]}
+              </Badge>
+            </div>
+          </header>
+
+          <main className="flex-1 p-6 lg:p-8 overflow-y-auto">
+            {showWalletNotice ? (
+              <Alert className="mb-6">
+                <PlugZapIcon />
+                <AlertTitle>{walletStatusCopy[wallet.status]}</AlertTitle>
+                <AlertDescription>
+                  {wallet.error ??
+                    (wallet.staleAddress
+                      ? `Reconnect ${shortenAddress(wallet.staleAddress)} to continue with owner-scoped projects.`
+                      : "Use a Stellar Testnet wallet to create and manage draft projects.")}
+                </AlertDescription>
+              </Alert>
+            ) : null}
+
+            {children}
+          </main>
+        </SidebarInset>
+
+        {/* Onboarding / Profile Edit Dialog */}
+        <OnboardingDialog
+          open={showOnboarding}
+          onComplete={handleOnboardingComplete}
+          existingProfile={isEditingProfile ? user : undefined}
+        />
+      </SidebarProvider>
+    );
+  }
 
   return (
     <main className="min-h-svh bg-zinc-50 text-zinc-950">
