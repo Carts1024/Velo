@@ -103,8 +103,9 @@ export const getDashboardSummary = query({
         .withIndex("by_project", (q) => q.eq("projectId", project._id))
         .take(100);
       summary.contracts.total += contracts.length;
-      summary.contracts.active += contracts.filter((contract) => contract.status === "active")
-        .length;
+      summary.contracts.active += contracts.filter(
+        (contract) => contract.status === "active",
+      ).length;
 
       const events = await ctx.db
         .query("contractEvents")

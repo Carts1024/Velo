@@ -55,10 +55,18 @@ export function ProjectSwitcher({
               </div>
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-medium">
-                  {activeProject ? activeProject.name : projects.length > 0 ? "Select project" : "No projects"}
+                  {activeProject
+                    ? activeProject.name
+                    : projects.length > 0
+                      ? "Select project"
+                      : "No projects"}
                 </span>
                 <span className="truncate text-xs text-muted-foreground">
-                  {activeProject ? `Status: ${activeProject.status}` : projects.length > 0 ? "Choose from projects" : "Create a new project"}
+                  {activeProject
+                    ? `Status: ${activeProject.status}`
+                    : projects.length > 0
+                      ? "Choose from projects"
+                      : "Create a new project"}
                 </span>
               </div>
               <ChevronsUpDown className="ml-auto" />

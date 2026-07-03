@@ -131,6 +131,43 @@ export function AppShell({ children }: { children: ReactNode }) {
     router.push("/projects/new");
   }, [router]);
 
+  const handleNavigate = useCallback(
+    (url: string) => {
+      router.push(url);
+    },
+    [router],
+  );
+
+  const handlePrefetch = useCallback(
+    (url: string) => {
+      router.prefetch(url);
+    },
+    [router],
+  );
+
+  useEffect(() => {
+    const activeProject = sidebarProjects.find((project) => project.id === activeProjectId);
+    const urls = ["/dashboard", "/debug", "/docs", "/projects/new"];
+
+    if (activeProject) {
+      urls.push(
+        `/projects/${activeProject.id}`,
+        `/projects/${activeProject.id}/contracts`,
+        `/projects/${activeProject.id}/events`,
+        `/projects/${activeProject.id}/webhooks`,
+        `/projects/${activeProject.id}/integration`,
+      );
+
+      if (activeProject.slug) {
+        urls.push(`/verify/${activeProject.slug}`);
+      }
+    }
+
+    for (const url of urls) {
+      router.prefetch(url);
+    }
+  }, [activeProjectId, router, sidebarProjects]);
+
   if (isProtectedRoute) {
     return (
       <SidebarProvider>
@@ -141,6 +178,8 @@ export function AppShell({ children }: { children: ReactNode }) {
           currentPath={pathname}
           onSelectProject={handleSelectProject}
           onCreateProject={handleCreateProject}
+          onNavigate={handleNavigate}
+          onPrefetch={handlePrefetch}
           onEditProfile={handleEditProfile}
           onDisconnect={wallet.disconnect}
         />

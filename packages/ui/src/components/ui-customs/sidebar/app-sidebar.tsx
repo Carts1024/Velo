@@ -34,6 +34,8 @@ export type SidebarProps = React.ComponentProps<typeof Sidebar> & {
   onCreateProject?: () => void;
   onEditProfile?: () => void;
   onDisconnect?: () => void;
+  onNavigate?: (url: string) => void;
+  onPrefetch?: (url: string) => void;
 };
 
 function isPathActive(currentPath: string | undefined, url: string) {
@@ -51,6 +53,8 @@ export function AppSidebar({
   onCreateProject,
   onEditProfile,
   onDisconnect,
+  onNavigate,
+  onPrefetch,
   ...props
 }: SidebarProps) {
   const activeProject = projects.find((project) => project.id === activeProjectId);
@@ -119,7 +123,7 @@ export function AppSidebar({
         />
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={navMain} />
+        <NavMain items={navMain} onNavigate={onNavigate} onPrefetch={onPrefetch} />
       </SidebarContent>
       <SidebarFooter>
         {user ? (
@@ -128,6 +132,7 @@ export function AppSidebar({
             onEditProfile={onEditProfile}
             onDisconnect={onDisconnect}
             feedbackUrl="/feedback"
+            onNavigate={onNavigate}
           />
         ) : null}
       </SidebarFooter>

@@ -29,11 +29,13 @@ export function NavUser({
   onEditProfile,
   onDisconnect,
   feedbackUrl = "/feedback",
+  onNavigate,
 }: {
   user: SidebarUser;
   onEditProfile?: () => void;
   onDisconnect?: () => void;
   feedbackUrl?: string;
+  onNavigate?: (url: string) => void;
 }) {
   const { isMobile } = useSidebar();
 
@@ -96,7 +98,23 @@ export function NavUser({
                 </DropdownMenuItem>
               ) : null}
               <DropdownMenuItem asChild className="cursor-pointer gap-2">
-                <a href={feedbackUrl}>
+                <a
+                  href={feedbackUrl}
+                  onClick={(event) => {
+                    if (
+                      !onNavigate ||
+                      event.metaKey ||
+                      event.ctrlKey ||
+                      event.shiftKey ||
+                      event.altKey
+                    ) {
+                      return;
+                    }
+
+                    event.preventDefault();
+                    onNavigate(feedbackUrl);
+                  }}
+                >
                   <MessageSquare className="size-4" />
                   <span>Feedback</span>
                 </a>

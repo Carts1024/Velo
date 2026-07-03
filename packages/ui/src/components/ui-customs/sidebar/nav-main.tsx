@@ -15,6 +15,8 @@ import {
 } from "@repo/ui/components/ui/sidebar";
 import { ChevronRight, type LucideIcon } from "lucide-react";
 
+import type * as React from "react";
+
 export type NavMainItem = {
   title: string;
   url: string;
@@ -27,7 +29,27 @@ export type NavMainItem = {
   }[];
 };
 
-export function NavMain({ items }: { items: NavMainItem[] }) {
+export function NavMain({
+  items,
+  onNavigate,
+  onPrefetch,
+}: {
+  items: NavMainItem[];
+  onNavigate?: (url: string) => void;
+  onPrefetch?: (url: string) => void;
+}) {
+  function handleLinkClick(event: React.MouseEvent<HTMLAnchorElement>, url: string) {
+    if (!onNavigate || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+      return;
+    }
+
+    event.preventDefault();
+    onNavigate(url);
+  }
+
+  function prefetch(url: string) {
+    onPrefetch?.(url);
+  }
   return (
     <SidebarGroup>
       <SidebarGroupLabel>Platform</SidebarGroupLabel>
@@ -49,7 +71,12 @@ export function NavMain({ items }: { items: NavMainItem[] }) {
                   </SidebarMenuButton>
                 ) : (
                   <SidebarMenuButton asChild tooltip={item.title} isActive={item.isActive}>
-                    <a href={item.url}>
+                    <a
+                      href={item.url}
+                      onClick={(event) => handleLinkClick(event, item.url)}
+                      onFocus={() => prefetch(item.url)}
+                      onMouseEnter={() => prefetch(item.url)}
+                    >
                       {item.icon && <item.icon />}
                       <span>{item.title}</span>
                     </a>
@@ -79,7 +106,12 @@ export function NavMain({ items }: { items: NavMainItem[] }) {
                     {item.items?.map((subItem) => (
                       <SidebarMenuSubItem key={subItem.title}>
                         <SidebarMenuSubButton asChild>
-                          <a href={subItem.url}>
+                          <a
+                            href={subItem.url}
+                            onClick={(event) => handleLinkClick(event, subItem.url)}
+                            onFocus={() => prefetch(subItem.url)}
+                            onMouseEnter={() => prefetch(subItem.url)}
+                          >
                             <span>{subItem.title}</span>
                           </a>
                         </SidebarMenuSubButton>
