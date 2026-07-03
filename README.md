@@ -38,7 +38,7 @@ As of `2026-07-01`, Velo Pay Alpha is **feature-complete at code level** and cov
 Implemented:
 
 - Stellar Testnet wallet connection through Stellar Wallets Kit.
-- Wallet-signed challenge auth, app-issued JWTs, and Convex `ownerTokenIdentifier` ownership checks.
+- Wallet-signed challenge authentication using the core SEP-10 Web Authentication cryptographic flow (with transaction envelopes, domain-binding, and timebounds), app-issued JWTs, and Convex `ownerTokenIdentifier` ownership checks.
 - Project/merchant dashboard with on-chain registration status.
 - Soroban `VeloRegistry` contract.
 - Soroban `VeloPayAccess` contract with Registry inter-contract verification.
@@ -203,7 +203,7 @@ Webhook behavior:
 
 - **Frontend**: Next.js 16, React 19, TypeScript, App Router, Tailwind CSS.
 - **UI**: Shared `@repo/ui` package, lucide-react, reusable feature components.
-- **Backend**: Convex queries, mutations, actions, crons, custom JWT auth.
+- **Backend**: Convex queries, mutations, actions, crons, custom JWT auth integrated with core SEP-10 challenge-response transaction validation.
 - **Blockchain**: Stellar Testnet, Soroban, Stellar RPC, Horizon, `@stellar/stellar-sdk`.
 - **Wallets**: Stellar Wallets Kit with Freighter-first Testnet flow.
 - **Smart contracts**: Rust, `soroban-sdk`, Stellar CLI.

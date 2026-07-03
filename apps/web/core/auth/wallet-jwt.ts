@@ -1,17 +1,13 @@
 import crypto from "crypto";
 
-import { assertValidPublicKey, verifySignedMessage } from "@repo/stellar";
+import { assertValidPublicKey, Keypair, WebAuth } from "@repo/stellar";
+
+import { stellarConfig } from "../config/stellar.ts";
 
 const APPLICATION_ID = "velo-web";
 const KEY_ID = "velo-wallet-auth-v1";
 const TOKEN_TTL_SECONDS = 60 * 60;
 const CHALLENGE_TTL_SECONDS = 5 * 60;
-
-type ChallengePayload = {
-  address: string;
-  nonce: string;
-  exp: number;
-};
 
 function base64Url(input: Buffer | string) {
   return Buffer.from(input)
@@ -60,36 +56,13 @@ function privateKeyPem() {
   ].join("\n");
 }
 
-function signChallenge(payload: ChallengePayload) {
-  const encodedPayload = base64Url(JSON.stringify(payload));
-  const mac = crypto.createHmac("sha256", hmacSecret()).update(encodedPayload).digest();
-  return `${encodedPayload}.${base64Url(mac)}`;
-}
-
-function parseChallenge(challenge: string): ChallengePayload {
-  const [encodedPayload, encodedMac] = challenge.split(".");
-  if (!encodedPayload || !encodedMac) {
-    throw new Error("Invalid challenge");
+function serverKeypair() {
+  const secret = process.env.VELO_AUTH_SERVER_SECRET;
+  if (secret) {
+    return Keypair.fromSecret(secret);
   }
-
-  const expectedMac = base64Url(
-    crypto.createHmac("sha256", hmacSecret()).update(encodedPayload).digest(),
-  );
-  if (encodedMac.length !== expectedMac.length) {
-    throw new Error("Invalid challenge");
-  }
-  if (!crypto.timingSafeEqual(Buffer.from(encodedMac), Buffer.from(expectedMac))) {
-    throw new Error("Invalid challenge");
-  }
-
-  const payload = JSON.parse(Buffer.from(encodedPayload, "base64url").toString("utf8")) as
-    | ChallengePayload
-    | undefined;
-  if (!payload || payload.exp < Math.floor(Date.now() / 1000)) {
-    throw new Error("Expired challenge");
-  }
-
-  return payload;
+  const seed = crypto.createHash("sha256").update(hmacSecret()).digest();
+  return Keypair.fromRawEd25519Seed(seed);
 }
 
 function derToJose(signature: Buffer) {
@@ -121,58 +94,48 @@ function derToJose(signature: Buffer) {
 
 export function createWalletChallenge(address: string) {
   const normalizedAddress = assertValidPublicKey(address);
-  const payload: ChallengePayload = {
-    address: normalizedAddress,
-    nonce: crypto.randomBytes(16).toString("hex"),
-    exp: Math.floor(Date.now() / 1000) + CHALLENGE_TTL_SECONDS,
-  };
-  const challenge = signChallenge(payload);
-  const message = [
-    "Sign in to Velo",
-    `Wallet: ${payload.address}`,
-    `Nonce: ${payload.nonce}`,
-    `Expires: ${payload.exp}`,
-    `Challenge: ${challenge}`,
-  ].join("\n");
+  const serverKP = serverKeypair();
+  const homeDomain = new URL(issuer()).host;
 
-  return { challenge, message, expiresAt: payload.exp };
+  const challenge = WebAuth.buildChallengeTx(
+    serverKP,
+    normalizedAddress,
+    homeDomain,
+    CHALLENGE_TTL_SECONDS,
+    stellarConfig.networkPassphrase,
+    homeDomain,
+  );
+
+  return { challenge };
 }
 
-export function verifyWalletChallenge(input: {
-  address: string;
-  challenge: string;
-  message: string;
-  signature: string;
-}) {
+export function verifyWalletChallenge(input: { address: string; challenge: string }) {
   const normalizedAddress = assertValidPublicKey(input.address);
-  const payload = parseChallenge(input.challenge);
-  const expected = createChallengeMessage(payload, input.challenge);
+  const serverKP = serverKeypair();
+  const homeDomain = new URL(issuer()).host;
 
-  if (payload.address !== normalizedAddress || input.message !== expected) {
-    throw new Error("Invalid challenge");
+  const { clientAccountID } = WebAuth.readChallengeTx(
+    input.challenge,
+    serverKP.publicKey(),
+    stellarConfig.networkPassphrase,
+    homeDomain,
+    homeDomain,
+  );
+
+  if (clientAccountID !== normalizedAddress) {
+    throw new Error("Client account ID in challenge does not match requested address");
   }
 
-  if (
-    !verifySignedMessage({
-      publicKey: normalizedAddress,
-      message: input.message,
-      signature: input.signature,
-    })
-  ) {
-    throw new Error("Invalid wallet signature");
-  }
+  WebAuth.verifyChallengeTxSigners(
+    input.challenge,
+    serverKP.publicKey(),
+    stellarConfig.networkPassphrase,
+    [normalizedAddress],
+    homeDomain,
+    homeDomain,
+  );
 
   return normalizedAddress;
-}
-
-function createChallengeMessage(payload: ChallengePayload, challenge: string) {
-  return [
-    "Sign in to Velo",
-    `Wallet: ${payload.address}`,
-    `Nonce: ${payload.nonce}`,
-    `Expires: ${payload.exp}`,
-    `Challenge: ${challenge}`,
-  ].join("\n");
 }
 
 export function createWalletJwt(address: string) {

@@ -218,7 +218,7 @@ Coverage:
 
 Security hardening:
 
-- Wallet authentication is implemented through challenge creation, wallet message signature verification, and custom ES256 JWT issuance in `apps/web/core/auth/wallet-jwt.ts` and `apps/web/app/api/auth/wallet/*`.
+- Wallet authentication is implemented through SEP-10 Web Authentication (challenge creation, transaction envelope signature verification, domain-binding, and timebounds) and custom ES256 JWT issuance in `apps/web/core/auth/wallet-jwt.ts` and `apps/web/app/api/auth/wallet/*`.
 - Convex uses `packages/backend/convex/auth.config.ts` to trust the wallet JWT issuer/JWKS.
 - Project ownership checks now prefer `identity.tokenIdentifier` and persist it as `ownerTokenIdentifier`. Existing records without `ownerTokenIdentifier` can still migrate through a legacy subject/address match, then get patched with the token identifier.
 - Remaining production consideration: local/dev fallback secrets exist for non-production convenience; hosted environments must provide `VELO_AUTH_CHALLENGE_SECRET` and `VELO_AUTH_JWT_PRIVATE_KEY_PEM`.

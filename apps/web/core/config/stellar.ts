@@ -1,4 +1,4 @@
-import { env } from "./env";
+import { env } from "./env.ts";
 
 export const STELLAR_TESTNET_NETWORK_PASSPHRASE = "Test SDF Network ; September 2015";
 

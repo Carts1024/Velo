@@ -6,19 +6,15 @@ export async function POST(request: Request) {
     const body = (await request.json()) as {
       address?: string;
       challenge?: string;
-      message?: string;
-      signature?: string;
     };
 
-    if (!body.address || !body.challenge || !body.message || !body.signature) {
+    if (!body.address || !body.challenge) {
       return NextResponse.json({ error: "Missing wallet signature payload" }, { status: 400 });
     }
 
     const address = verifyWalletChallenge({
       address: body.address,
       challenge: body.challenge,
-      message: body.message,
-      signature: body.signature,
     });
 
     return NextResponse.json({ token: createWalletJwt(address), address });

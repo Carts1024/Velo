@@ -1,5 +1,7 @@
 import { hash, Keypair, xdr } from "@stellar/stellar-sdk";
 
+export { Keypair, WebAuth, Transaction, Networks } from "@stellar/stellar-sdk";
+
 /** SEP-53 prefix prepended to messages before hashing and signing. */
 const SEP53_PREFIX = "Stellar Signed Message:\n";
 

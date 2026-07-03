@@ -133,17 +133,14 @@ function useWalletConvexAuth() {
           }
           const challenge = (await challengeResponse.json()) as {
             challenge: string;
-            message: string;
           };
-          const signature = await wallet.signMessage(challenge.message);
+          const signedTxXdr = await wallet.signTransaction(challenge.challenge);
           const verifyResponse = await fetch("/api/auth/wallet/verify", {
             method: "POST",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({
               address: wallet.address,
-              challenge: challenge.challenge,
-              message: challenge.message,
-              signature,
+              challenge: signedTxXdr,
             }),
           });
           if (!verifyResponse.ok) {
