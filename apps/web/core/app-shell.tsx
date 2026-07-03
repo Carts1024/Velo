@@ -98,6 +98,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       id: p._id,
       name: p.name,
       status: p.status,
+      slug: p.slug,
     }));
   }, [rawProjects]);
 
@@ -137,6 +138,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           user={sidebarUser}
           projects={sidebarProjects}
           activeProjectId={activeProjectId}
+          currentPath={pathname}
           onSelectProject={handleSelectProject}
           onCreateProject={handleCreateProject}
           onEditProfile={handleEditProfile}

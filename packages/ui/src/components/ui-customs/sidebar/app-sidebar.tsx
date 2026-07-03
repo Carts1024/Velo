@@ -13,51 +13,100 @@ import {
   SidebarHeader,
   SidebarRail,
 } from "@repo/ui/components/ui/sidebar";
-import { LayoutDashboard, Terminal, FileCheck, MessageSquare } from "lucide-react";
+import {
+  ActivityIcon,
+  BookOpenIcon,
+  BracesIcon,
+  FileCheckIcon,
+  FileTextIcon,
+  LayoutDashboardIcon,
+  TerminalIcon,
+  WebhookIcon,
+} from "lucide-react";
 import * as React from "react";
 
 export type SidebarProps = React.ComponentProps<typeof Sidebar> & {
   user: SidebarUser | null;
   projects?: SwitcherProject[];
   activeProjectId?: string | null;
+  currentPath?: string;
   onSelectProject?: (id: string) => void;
   onCreateProject?: () => void;
   onEditProfile?: () => void;
   onDisconnect?: () => void;
 };
 
+function isPathActive(currentPath: string | undefined, url: string) {
+  if (!currentPath) return false;
+  if (url === "/dashboard") return currentPath === url;
+  return currentPath === url || currentPath.startsWith(`${url}/`);
+}
+
 export function AppSidebar({
   user,
   projects = [],
   activeProjectId,
+  currentPath,
   onSelectProject,
   onCreateProject,
   onEditProfile,
   onDisconnect,
   ...props
 }: SidebarProps) {
+  const activeProject = projects.find((project) => project.id === activeProjectId);
+  const projectBaseUrl = activeProject ? `/projects/${activeProject.id}` : "/dashboard";
+  const publicProofUrl = activeProject?.slug ? `/verify/${activeProject.slug}` : "/dashboard";
+
   const navMain = [
     {
       title: "Dashboard",
       url: "/dashboard",
-      icon: LayoutDashboard,
+      icon: LayoutDashboardIcon,
+    },
+    {
+      title: "Contracts",
+      url: `${projectBaseUrl}/contracts`,
+      icon: FileCheckIcon,
+      disabled: !activeProject,
+    },
+    {
+      title: "Events",
+      url: `${projectBaseUrl}/events`,
+      icon: ActivityIcon,
+      disabled: !activeProject,
+    },
+    {
+      title: "Webhooks",
+      url: `${projectBaseUrl}/webhooks`,
+      icon: WebhookIcon,
+      disabled: !activeProject,
+    },
+    {
+      title: "Integration",
+      url: `${projectBaseUrl}/integration`,
+      icon: BracesIcon,
+      disabled: !activeProject,
+    },
+    {
+      title: "Public Proof",
+      url: publicProofUrl,
+      icon: FileTextIcon,
+      disabled: !activeProject?.slug,
     },
     {
       title: "Debug",
       url: "/debug",
-      icon: Terminal,
+      icon: TerminalIcon,
     },
     {
-      title: "Public Proof",
-      url: "/verify/demo",
-      icon: FileCheck,
+      title: "Pages",
+      url: "/docs",
+      icon: BookOpenIcon,
     },
-    {
-      title: "Feedback",
-      url: "/feedback",
-      icon: MessageSquare,
-    },
-  ];
+  ].map((item) => ({
+    ...item,
+    isActive: !item.disabled && isPathActive(currentPath, item.url),
+  }));
 
   return (
     <Sidebar collapsible="icon" {...props}>
@@ -74,7 +123,12 @@ export function AppSidebar({
       </SidebarContent>
       <SidebarFooter>
         {user ? (
-          <NavUser user={user} onEditProfile={onEditProfile} onDisconnect={onDisconnect} />
+          <NavUser
+            user={user}
+            onEditProfile={onEditProfile}
+            onDisconnect={onDisconnect}
+            feedbackUrl="/feedback"
+          />
         ) : null}
       </SidebarFooter>
       <SidebarRail />

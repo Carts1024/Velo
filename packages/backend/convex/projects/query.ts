@@ -1,5 +1,7 @@
 import { v } from "convex/values";
 
+import type { QueryCtx } from "../_generated/server";
+
 import { query } from "../_generated/server";
 import { activeContractsForProject } from "../project_contracts/helpers";
 import {
@@ -11,31 +13,155 @@ import {
   safeWebsite,
 } from "./helpers";
 
+async function ownerProjects(ctx: QueryCtx, limit = 50) {
+  const identity = await requireIdentity(ctx);
+  const tokenProjects = await ctx.db
+    .query("projects")
+    .withIndex("by_owner_token_identifier", (q) =>
+      q.eq("ownerTokenIdentifier", identity.tokenIdentifier),
+    )
+    .order("desc")
+    .take(limit);
+
+  const legacyProjects = await ctx.db
+    .query("projects")
+    .withIndex("by_owner", (q) => q.eq("ownerAddress", normalizeAddress(identity.subject)))
+    .order("desc")
+    .take(limit);
+
+  const tokenProjectIds = new Set(tokenProjects.map((project) => project._id));
+  return [
+    ...tokenProjects,
+    ...legacyProjects.filter(
+      (project) => !project.ownerTokenIdentifier && !tokenProjectIds.has(project._id),
+    ),
+  ].slice(0, limit);
+}
+
 export const listByOwner = query({
   args: {},
   handler: async (ctx) => {
-    const identity = await requireIdentity(ctx);
-    const tokenProjects = await ctx.db
-      .query("projects")
-      .withIndex("by_owner_token_identifier", (q) =>
-        q.eq("ownerTokenIdentifier", identity.tokenIdentifier),
-      )
-      .order("desc")
-      .collect();
+    return await ownerProjects(ctx);
+  },
+});
 
-    const legacyProjects = await ctx.db
-      .query("projects")
-      .withIndex("by_owner", (q) => q.eq("ownerAddress", normalizeAddress(identity.subject)))
-      .order("desc")
-      .collect();
+export const getDashboardSummary = query({
+  args: {},
+  handler: async (ctx) => {
+    const projects = await ownerProjects(ctx);
+    const summary = {
+      projects: {
+        total: projects.length,
+        registered: 0,
+        pending: 0,
+        errors: 0,
+        draft: 0,
+      },
+      contracts: {
+        total: 0,
+        active: 0,
+      },
+      events: {
+        recent: 0,
+        lastObservedAt: undefined as number | undefined,
+      },
+      webhooks: {
+        configured: 0,
+        enabled: 0,
+        recentDeliveries: 0,
+        successfulDeliveries: 0,
+        failedDeliveries: 0,
+        lastDeliveryAt: undefined as number | undefined,
+      },
+      payments: {
+        recent: 0,
+        paid: 0,
+        pending: 0,
+        failed: 0,
+        created: 0,
+      },
+      recentProjects: projects.slice(0, 5).map((project) => ({
+        _id: project._id,
+        name: project.name,
+        slug: project.slug,
+        status: project.status,
+        updatedAt: project.updatedAt,
+        paymentAccessActive: project.paymentAccessActive ?? false,
+      })),
+    };
 
-    const tokenProjectIds = new Set(tokenProjects.map((project) => project._id));
-    return [
-      ...tokenProjects,
-      ...legacyProjects.filter(
-        (project) => !project.ownerTokenIdentifier && !tokenProjectIds.has(project._id),
-      ),
-    ];
+    for (const project of projects) {
+      if (project.status === "registered") summary.projects.registered++;
+      if (project.status === "pending_registration" || project.status === "stale") {
+        summary.projects.pending++;
+      }
+      if (project.status === "registration_error") summary.projects.errors++;
+      if (project.status === "draft") summary.projects.draft++;
+
+      const contracts = await ctx.db
+        .query("projectContracts")
+        .withIndex("by_project", (q) => q.eq("projectId", project._id))
+        .take(100);
+      summary.contracts.total += contracts.length;
+      summary.contracts.active += contracts.filter((contract) => contract.status === "active")
+        .length;
+
+      const events = await ctx.db
+        .query("contractEvents")
+        .withIndex("by_project_ledger", (q) => q.eq("projectId", project._id))
+        .order("desc")
+        .take(20);
+      summary.events.recent += events.length;
+      const latestEvent = events[0];
+      if (
+        latestEvent &&
+        (summary.events.lastObservedAt === undefined ||
+          latestEvent.observedAt > summary.events.lastObservedAt)
+      ) {
+        summary.events.lastObservedAt = latestEvent.observedAt;
+      }
+
+      const endpoint = await ctx.db
+        .query("webhookEndpoints")
+        .withIndex("by_project", (q) => q.eq("projectId", project._id))
+        .unique();
+      if (endpoint) summary.webhooks.configured++;
+      if (endpoint?.enabled) summary.webhooks.enabled++;
+
+      const deliveries = await ctx.db
+        .query("webhookDeliveries")
+        .withIndex("by_project_created_at", (q) => q.eq("projectId", project._id))
+        .order("desc")
+        .take(20);
+      summary.webhooks.recentDeliveries += deliveries.length;
+      summary.webhooks.successfulDeliveries += deliveries.filter(
+        (delivery) => delivery.status === "success",
+      ).length;
+      summary.webhooks.failedDeliveries += deliveries.filter(
+        (delivery) => delivery.status === "failed",
+      ).length;
+      const latestDelivery = deliveries[0];
+      if (
+        latestDelivery &&
+        (summary.webhooks.lastDeliveryAt === undefined ||
+          latestDelivery.lastAttemptAt > summary.webhooks.lastDeliveryAt)
+      ) {
+        summary.webhooks.lastDeliveryAt = latestDelivery.lastAttemptAt;
+      }
+
+      const payments = await ctx.db
+        .query("paymentIntents")
+        .withIndex("by_project_created_at", (q) => q.eq("projectId", project._id))
+        .order("desc")
+        .take(50);
+      summary.payments.recent += payments.length;
+      summary.payments.paid += payments.filter((payment) => payment.status === "paid").length;
+      summary.payments.pending += payments.filter((payment) => payment.status === "pending").length;
+      summary.payments.failed += payments.filter((payment) => payment.status === "failed").length;
+      summary.payments.created += payments.filter((payment) => payment.status === "created").length;
+    }
+
+    return summary;
   },
 });
 

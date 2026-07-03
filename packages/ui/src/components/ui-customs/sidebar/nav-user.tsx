@@ -16,7 +16,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@repo/ui/components/ui/sidebar";
-import { ChevronsUpDown, LogOut, Pencil } from "lucide-react";
+import { ChevronsUpDown, LogOut, MessageSquare, Pencil } from "lucide-react";
 
 export type SidebarUser = {
   name: string;
@@ -28,10 +28,12 @@ export function NavUser({
   user,
   onEditProfile,
   onDisconnect,
+  feedbackUrl = "/feedback",
 }: {
   user: SidebarUser;
   onEditProfile?: () => void;
   onDisconnect?: () => void;
+  feedbackUrl?: string;
 }) {
   const { isMobile } = useSidebar();
 
@@ -85,17 +87,21 @@ export function NavUser({
               </div>
             </DropdownMenuLabel>
 
-            {onEditProfile && (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuGroup>
-                  <DropdownMenuItem onClick={onEditProfile} className="cursor-pointer gap-2">
-                    <Pencil className="size-4" />
-                    <span>Edit Profile</span>
-                  </DropdownMenuItem>
-                </DropdownMenuGroup>
-              </>
-            )}
+            <DropdownMenuSeparator />
+            <DropdownMenuGroup>
+              {onEditProfile ? (
+                <DropdownMenuItem onClick={onEditProfile} className="cursor-pointer gap-2">
+                  <Pencil className="size-4" />
+                  <span>Edit Profile</span>
+                </DropdownMenuItem>
+              ) : null}
+              <DropdownMenuItem asChild className="cursor-pointer gap-2">
+                <a href={feedbackUrl}>
+                  <MessageSquare className="size-4" />
+                  <span>Feedback</span>
+                </a>
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
 
             {onDisconnect && (
               <>

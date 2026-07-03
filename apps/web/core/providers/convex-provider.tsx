@@ -8,6 +8,7 @@ import { ReactNode, useCallback, useEffect, useMemo, useRef } from "react";
 import { env } from "../config/env";
 
 const convex = new ConvexReactClient(env.NEXT_PUBLIC_CONVEX_URL!);
+const TOKEN_REFRESH_MARGIN_MS = 5 * 60 * 1000;
 
 type WalletToken = {
   token: string;
@@ -57,6 +58,17 @@ function writeStoredConvexToken(token: WalletToken | null) {
   }
 }
 
+function validTokenForWallet(
+  token: WalletToken | null,
+  address: string | null,
+): token is WalletToken {
+  if (!token || !address || token.address !== address) {
+    return false;
+  }
+
+  return jwtExpiresAt(token.token) - Date.now() > TOKEN_REFRESH_MARGIN_MS;
+}
+
 function isPublicRoute(path: string) {
   return (
     path === "/" ||
@@ -89,21 +101,20 @@ function useWalletConvexAuth() {
         return null;
       }
 
-      if (!wallet.address || isPublicRoute(pathnameRef.current)) {
+      if (!wallet.address) {
         tokenRef.current = null;
         pendingPromiseRef.current = null;
         return null;
       }
 
       const cached = tokenRef.current || readStoredConvexToken();
-      if (
-        cached &&
-        cached.address === wallet.address &&
-        !forceRefreshToken &&
-        jwtExpiresAt(cached.token) - Date.now() > 60_000
-      ) {
+      if (validTokenForWallet(cached, wallet.address)) {
         tokenRef.current = cached;
         return cached.token;
+      }
+
+      if (isPublicRoute(pathnameRef.current) && !forceRefreshToken) {
+        return null;
       }
 
       if (pendingPromiseRef.current) {

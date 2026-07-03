@@ -21,6 +21,7 @@ export type SwitcherProject = {
   id: string;
   name: string;
   status: string;
+  slug?: string;
 };
 
 export function ProjectSwitcher({
@@ -37,7 +38,7 @@ export function ProjectSwitcher({
   const { isMobile } = useSidebar();
 
   const activeProject = React.useMemo(() => {
-    return projects.find((p) => p.id === activeProjectId) || projects[0];
+    return projects.find((p) => p.id === activeProjectId);
   }, [projects, activeProjectId]);
 
   return (
@@ -54,10 +55,10 @@ export function ProjectSwitcher({
               </div>
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-medium">
-                  {activeProject ? activeProject.name : "No projects"}
+                  {activeProject ? activeProject.name : projects.length > 0 ? "Select project" : "No projects"}
                 </span>
                 <span className="truncate text-xs text-muted-foreground">
-                  {activeProject ? `Status: ${activeProject.status}` : "Create a new project"}
+                  {activeProject ? `Status: ${activeProject.status}` : projects.length > 0 ? "Choose from projects" : "Create a new project"}
                 </span>
               </div>
               <ChevronsUpDown className="ml-auto" />
