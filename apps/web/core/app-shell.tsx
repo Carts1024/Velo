@@ -11,8 +11,8 @@ import { AppSidebar } from "@repo/ui/components/ui-customs/sidebar/app-sidebar";
 import { Alert, AlertDescription, AlertTitle } from "@repo/ui/components/ui/alert";
 import { Separator } from "@repo/ui/components/ui/separator";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@repo/ui/components/ui/sidebar";
-import { useQuery } from "convex/react";
-import { PlugZapIcon } from "lucide-react";
+import { useQuery, useConvexAuth } from "convex/react";
+import { Loader2Icon, PlugZapIcon } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 
@@ -31,6 +31,7 @@ const walletStatusCopy = {
 
 export function AppShell({ children }: { children: ReactNode }) {
   const wallet = useWallet();
+  const { isAuthenticated: isConvexAuthenticated } = useConvexAuth();
   const { user, isNewUser, isLoading } = useUserProfile(wallet.address);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
@@ -72,13 +73,10 @@ export function AppShell({ children }: { children: ReactNode }) {
   }, []);
 
   // Fetch projects list for the sidebar switcher
-  const rawProjects = useQuery(api.projects.query.listByOwner, wallet.address ? {} : "skip");
-
-  // Parse activeProjectId from path if applicable (e.g. /projects/projectId)
-  const activeProjectId = useMemo(() => {
-    const match = pathname.match(/^\/projects\/([a-zA-Z0-9_-]+)/);
-    return match && match[1] !== "new" ? match[1] : null;
-  }, [pathname]);
+  const rawProjects = useQuery(
+    api.projects.query.listByOwner,
+    wallet.address && isConvexAuthenticated ? {} : "skip",
+  );
 
   const sidebarProjects = useMemo(() => {
     if (!rawProjects) return [];
@@ -89,6 +87,23 @@ export function AppShell({ children }: { children: ReactNode }) {
       slug: p.slug,
     }));
   }, [rawProjects]);
+
+  // Parse activeProjectId from path if applicable (e.g. /projects/projectId or /verify/slug)
+  const activeProjectId = useMemo(() => {
+    const projectsMatch = pathname.match(/^\/projects\/([a-zA-Z0-9_-]+)/);
+    if (projectsMatch && projectsMatch[1] !== "new") {
+      return projectsMatch[1];
+    }
+    const verifyMatch = pathname.match(/^\/verify\/([a-zA-Z0-9_-]+)/);
+    if (verifyMatch) {
+      const slug = verifyMatch[1];
+      const project = sidebarProjects.find((p) => p.slug === slug);
+      if (project) {
+        return project.id;
+      }
+    }
+    return null;
+  }, [pathname, sidebarProjects]);
 
   const sidebarUser = useMemo(() => {
     if (user) {
@@ -208,7 +223,13 @@ export function AppShell({ children }: { children: ReactNode }) {
               </Alert>
             ) : null}
 
-            {children}
+            {isProtectedRoute && !isConvexAuthenticated ? (
+              <div className="flex min-h-[50vh] items-center justify-center">
+                <Loader2Icon className="h-8 w-8 animate-spin text-zinc-400" />
+              </div>
+            ) : (
+              children
+            )}
           </main>
         </SidebarInset>
 

@@ -3,7 +3,7 @@
 import { useWallet } from "@/core/wallet/wallet-provider";
 import { ConvexProviderWithAuth, ConvexReactClient } from "convex/react";
 import { usePathname } from "next/navigation";
-import { ReactNode, useCallback, useEffect, useMemo, useRef } from "react";
+import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { env } from "../config/env";
 
@@ -86,12 +86,20 @@ function useWalletConvexAuth() {
   const pathnameRef = useRef(pathname);
   pathnameRef.current = pathname;
 
+  const [tokenState, setTokenState] = useState<WalletToken | null>(null);
+
+  // Sync tokenState with sessionStorage on mount / wallet address change
+  useEffect(() => {
+    setTokenState(wallet.address ? readStoredConvexToken() : null);
+  }, [wallet.address]);
+
   // Clear token if explicitly disconnected or rejected
   useEffect(() => {
     if (wallet.status === "disconnected" || wallet.status === "rejected") {
       tokenRef.current = null;
       pendingPromiseRef.current = null;
       writeStoredConvexToken(null);
+      setTokenState(null);
     }
   }, [wallet.status]);
 
@@ -110,6 +118,9 @@ function useWalletConvexAuth() {
       const cached = tokenRef.current || readStoredConvexToken();
       if (validTokenForWallet(cached, wallet.address)) {
         tokenRef.current = cached;
+        if (tokenState !== cached) {
+          setTokenState(cached);
+        }
         return cached.token;
       }
 
@@ -152,9 +163,11 @@ function useWalletConvexAuth() {
           const result = (await verifyResponse.json()) as { token: string; address: string };
           tokenRef.current = result;
           writeStoredConvexToken(result);
+          setTokenState(result);
           return result.token;
         } catch {
           writeStoredConvexToken(null);
+          setTokenState(null);
           wallet.disconnect();
           return null;
         } finally {
@@ -165,17 +178,19 @@ function useWalletConvexAuth() {
       pendingPromiseRef.current = fetchPromise;
       return fetchPromise;
     },
-    [wallet],
+    [wallet, tokenState],
   );
 
   return useMemo(
     () => ({
       isLoading: wallet.status === "initializing" || wallet.status === "connecting",
       isAuthenticated:
-        wallet.status === "connected" && Boolean(wallet.address) && !isPublicRoute(pathname),
+        wallet.status === "connected" &&
+        Boolean(wallet.address) &&
+        (!isPublicRoute(pathname) || validTokenForWallet(tokenState, wallet.address)),
       fetchAccessToken,
     }),
-    [fetchAccessToken, wallet.address, wallet.status, pathname],
+    [fetchAccessToken, wallet.address, wallet.status, pathname, tokenState],
   );
 }
 

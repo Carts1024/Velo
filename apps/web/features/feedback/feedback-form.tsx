@@ -5,7 +5,7 @@ import { api } from "@repo/backend/convex/_generated/api";
 import { Button } from "@repo/ui/components/ui/button";
 import { Label } from "@repo/ui/components/ui/label";
 import { Textarea } from "@repo/ui/components/ui/textarea";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation, useQuery, useConvexAuth } from "convex/react";
 import { Loader2Icon, SendIcon, WalletIcon } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -16,8 +16,12 @@ const COMMENT_MAX = 2000;
 
 export function FeedbackForm() {
   const wallet = useWallet();
+  const { isAuthenticated } = useConvexAuth();
   const submitFeedback = useMutation(api.feedback.mutation.submitFeedback);
-  const existingFeedback = useQuery(api.feedback.query.getByWallet, wallet.address ? {} : "skip");
+  const existingFeedback = useQuery(
+    api.feedback.query.getByWallet,
+    wallet.address && isAuthenticated ? {} : "skip",
+  );
 
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState("");

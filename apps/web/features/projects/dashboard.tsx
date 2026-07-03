@@ -14,7 +14,7 @@ import {
   EmptyTitle,
 } from "@repo/ui/components/ui/empty";
 import { Skeleton } from "@repo/ui/components/ui/skeleton";
-import { useQuery } from "convex/react";
+import { useQuery, useConvexAuth } from "convex/react";
 import {
   ActivityIcon,
   ArrowRightIcon,
@@ -77,7 +77,11 @@ function formatTime(value?: number) {
 
 export function ProjectDashboard() {
   const wallet = useWallet();
-  const summary = useQuery(api.projects.query.getDashboardSummary, wallet.address ? {} : "skip");
+  const { isAuthenticated } = useConvexAuth();
+  const summary = useQuery(
+    api.projects.query.getDashboardSummary,
+    wallet.address && isAuthenticated ? {} : "skip",
+  );
 
   if (!wallet.address) {
     return (
