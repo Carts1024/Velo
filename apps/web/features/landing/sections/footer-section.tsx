@@ -1,17 +1,27 @@
 "use client";
 
+import { useTheme } from "next-themes";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 
 export function FooterSection() {
   const currentYear = new Date().getFullYear();
+  const { resolvedTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const logoSrc = mounted && resolvedTheme === "light" ? "/iconv2-light.png" : "/iconv2.png";
 
   return (
     <footer className="border-t border-zinc-900 bg-zinc-950 px-6 py-12 text-zinc-500">
       <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-6 md:flex-row">
         {/* Logo label */}
         <div className="flex items-center gap-2.5">
-          <img src="/iconv2.png" alt="Velo Logo" className="h-6 w-6 rounded-md object-contain" />
-          <span className="font-sans text-sm font-semibold tracking-tight text-zinc-400">Velo</span>
+          <img src={logoSrc} alt="Velo Logo" className="h-10 w-10 object-contain" />
+          <span className="font-sans text-lg font-semibold tracking-tight text-zinc-400">Velo</span>
         </div>
 
         {/* copyright metadata */}

@@ -114,6 +114,46 @@
   }
 }
 
+/* Light mode overrides to map forced-dark landing elements to light theme */
+html:not(.dark) {
+  .bg-zinc-950 {
+    background-color: var(--background) !important;
+  }
+  .text-zinc-50 {
+    color: var(--foreground) !important;
+  }
+  .border-zinc-900 {
+    border-color: var(--border) !important;
+  }
+  .bg-zinc-900,
+  .bg-zinc-900\/60,
+  .bg-zinc-900\/30 {
+    background-color: var(--muted) !important;
+  }
+  .border-zinc-800,
+  .border-zinc-800\/60 {
+    border-color: var(--border) !important;
+  }
+  .text-zinc-400 {
+    color: var(--muted-foreground) !important;
+  }
+  .text-zinc-300 {
+    color: var(--foreground) !important;
+  }
+  .text-zinc-100 {
+    color: var(--foreground) !important;
+  }
+  .text-zinc-500 {
+    color: var(--muted-foreground) !important;
+  }
+  .hover\:bg-zinc-900\/50:hover {
+    background-color: var(--muted) !important;
+  }
+  .hover\:border-zinc-700\/60:hover {
+    border-color: var(--border) !important;
+  }
+}
+
 @theme inline {
   /* fonts */
   --font-sans: var(--font-geist-sans);

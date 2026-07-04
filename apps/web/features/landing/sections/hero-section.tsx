@@ -1,8 +1,10 @@
 "use client";
 
 import { ArrowRight, Terminal } from "lucide-react";
+import { useTheme } from "next-themes";
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 
 import type { PixelBlastProps } from "@repo/ui/components/ui-customs/pixel-blast/PixelBlast";
 
@@ -12,14 +14,24 @@ const PixelBlast = dynamic<PixelBlastProps>(
 );
 
 export function HeroSection() {
+  const { resolvedTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const pixelColor = mounted && resolvedTheme === "light" ? "#18181b" : "#ffffff";
+  const logoSrc = mounted && resolvedTheme === "light" ? "/iconv2-light.png" : "/iconv2.png";
+
   return (
-    <section className="relative flex min-h-[90vh] flex-col justify-between overflow-hidden border-b border-zinc-900 bg-zinc-950 text-zinc-50">
+    <section className="relative flex min-h-[90vh] flex-col justify-between overflow-hidden border-b border-border bg-background text-foreground">
       {/* Background PixelBlast Canvas */}
       <div className="pointer-events-auto absolute inset-0 z-0 opacity-80">
         <PixelBlast
           variant="circle"
           pixelSize={5}
-          color="#ffffff"
+          color={pixelColor}
           patternScale={3.5}
           patternDensity={1.1}
           pixelSizeJitter={0.3}
@@ -34,18 +46,14 @@ export function HeroSection() {
       </div>
 
       {/* Floating Decorative Grid or Glow overlay */}
-      <div className="pointer-events-none absolute inset-0 z-10 bg-[linear-gradient(to_bottom,transparent_40%,#09090b)]" />
+      <div className="pointer-events-none absolute inset-0 z-10 bg-[linear-gradient(to_bottom,transparent_40%,var(--background))]" />
 
       {/* Header / Mini Nav inside Hero */}
       <header className="relative z-20 mx-auto flex w-full max-w-7xl items-center justify-between px-6 py-6">
         <div className="flex items-center gap-3">
-          <img
-            src="/iconv2.png"
-            alt="Velo Logo"
-            className="h-8 w-8 rounded-lg object-contain shadow-[0_0_15px_rgba(167,139,250,0.3)]"
-          />
+          <img src={logoSrc} alt="Velo Logo" className="h-12 w-12 object-contain" />
           <div>
-            <span className="font-sans text-lg font-bold tracking-tight text-zinc-100">Velo</span>
+            <span className="font-sans text-2xl font-bold tracking-tight text-zinc-100">Velo</span>
           </div>
         </div>
 
@@ -88,7 +96,7 @@ export function HeroSection() {
         {/* Headings */}
         <h1 className="mb-6 text-4xl leading-none font-bold tracking-tight text-zinc-100 md:text-7xl">
           All-in-one infrastructure <br />
-          <span className="bg-gradient-to-r from-white to-zinc-400 bg-clip-text text-transparent">
+          <span className="bg-gradient-to-r from-zinc-950 to-zinc-500 dark:from-white dark:to-zinc-400 bg-clip-text text-transparent">
             for building on Stellar
           </span>
         </h1>
