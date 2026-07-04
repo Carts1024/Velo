@@ -20,6 +20,7 @@ const SIDEBAR_WIDTH_ICON = "3rem";
 const SIDEBAR_KEYBOARD_SHORTCUT = "b";
 
 let persistedSidebarOpen: boolean | null = null;
+let hasHydratedSidebarProvider = false;
 
 function getPersistedSidebarOpen(defaultOpen: boolean) {
   if (persistedSidebarOpen !== null) {
@@ -39,6 +40,14 @@ function getPersistedSidebarOpen(defaultOpen: boolean) {
   }
 
   return sidebarCookie.split("=")[1] === "true";
+}
+
+function getInitialSidebarOpen(defaultOpen: boolean) {
+  if (!hasHydratedSidebarProvider) {
+    return defaultOpen;
+  }
+
+  return getPersistedSidebarOpen(defaultOpen);
 }
 
 type SidebarContextProps = {
@@ -80,7 +89,7 @@ function SidebarProvider({
 
   // This is the internal state of the sidebar.
   // We use openProp and setOpenProp for control from outside the component.
-  const [_open, _setOpen] = React.useState(() => getPersistedSidebarOpen(defaultOpen));
+  const [_open, _setOpen] = React.useState(() => getInitialSidebarOpen(defaultOpen));
   const open = openProp ?? _open;
   const setOpen = React.useCallback(
     (value: boolean | ((value: boolean) => boolean)) => {
@@ -98,6 +107,17 @@ function SidebarProvider({
     },
     [setOpenProp, open],
   );
+
+  React.useEffect(() => {
+    hasHydratedSidebarProvider = true;
+
+    if (openProp !== undefined) {
+      persistedSidebarOpen = openProp;
+      return;
+    }
+
+    _setOpen(getPersistedSidebarOpen(defaultOpen));
+  }, [defaultOpen, openProp]);
 
   // Helper to toggle the sidebar.
   const toggleSidebar = React.useCallback(() => {

@@ -40,9 +40,14 @@ test("project settings route renders inside app shell sidebar", () => {
   assert.match(settingsPageSource, /<ProjectSettings projectId=\{projectId\} \/>/);
 });
 
-test("sidebar provider preserves collapsed state across route remounts", () => {
+test("sidebar provider preserves collapsed state without hydration mismatch", () => {
   assert.match(sidebarSource, /persistedSidebarOpen/);
-  assert.match(sidebarSource, /getPersistedSidebarOpen\(defaultOpen\)/);
+  assert.match(sidebarSource, /hasHydratedSidebarProvider/);
+  assert.match(sidebarSource, /getInitialSidebarOpen\(defaultOpen\)/);
+  assert.match(
+    sidebarSource,
+    /React\.useEffect\(\(\) => \{[\s\S]*getPersistedSidebarOpen\(defaultOpen\)/,
+  );
   assert.match(sidebarSource, /document\.cookie[\s\S]*SIDEBAR_COOKIE_NAME/);
   assert.match(sidebarSource, /persistedSidebarOpen = openState/);
 });
