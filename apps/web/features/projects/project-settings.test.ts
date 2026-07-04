@@ -12,6 +12,7 @@ const navUserSource = fs.readFileSync(
   "../../packages/ui/src/components/ui-customs/sidebar/nav-user.tsx",
   "utf8",
 );
+const sidebarSource = fs.readFileSync("../../packages/ui/src/components/ui/sidebar.tsx", "utf8");
 
 test("project settings supports Convex Storage logo upload", () => {
   assert.match(settingsSource, /generateLogoUploadUrl/);
@@ -25,6 +26,8 @@ test("project settings supports Convex Storage logo upload", () => {
 test("sidebar renders project logos and exposes settings navigation", () => {
   assert.match(switcherSource, /logoUrl\?: string/);
   assert.match(switcherSource, /activeProject\.logoUrl/);
+  assert.match(switcherSource, /size-8 shrink-0/);
+  assert.match(switcherSource, /size-6 shrink-0/);
   assert.match(switcherSource, /<FolderIcon className="size-4" \/>/);
   assert.match(navUserSource, /SettingsIcon/);
   assert.match(navUserSource, /settingsUrl/);
@@ -35,4 +38,11 @@ test("project settings route renders inside app shell sidebar", () => {
   assert.match(settingsPageSource, /import \{ AppShell \}/);
   assert.match(settingsPageSource, /<AppShell>/);
   assert.match(settingsPageSource, /<ProjectSettings projectId=\{projectId\} \/>/);
+});
+
+test("sidebar provider preserves collapsed state across route remounts", () => {
+  assert.match(sidebarSource, /persistedSidebarOpen/);
+  assert.match(sidebarSource, /getPersistedSidebarOpen\(defaultOpen\)/);
+  assert.match(sidebarSource, /document\.cookie[\s\S]*SIDEBAR_COOKIE_NAME/);
+  assert.match(sidebarSource, /persistedSidebarOpen = openState/);
 });
