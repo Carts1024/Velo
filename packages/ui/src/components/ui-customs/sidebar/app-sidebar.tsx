@@ -68,6 +68,7 @@ export function AppSidebar({
   const activeProject = projects.find((project) => project.id === activeProjectId);
   const projectBaseUrl = activeProject ? `/projects/${activeProject.id}` : "/dashboard";
   const publicProofUrl = activeProject?.slug ? `/verify/${activeProject.slug}` : "/dashboard";
+  const settingsUrl = activeProject ? `/projects/${activeProject.id}/settings` : undefined;
 
   const navMain = [
     {
@@ -140,6 +141,7 @@ export function AppSidebar({
             onEditProfile={onEditProfile}
             onDisconnect={onDisconnect}
             feedbackUrl="/feedback"
+            settingsUrl={settingsUrl}
             onNavigate={onNavigate}
           />
         ) : onConnect ? (

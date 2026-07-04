@@ -14,12 +14,16 @@ const badgeVariants = cva(
         destructive:
           "border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/80",
         outline: "text-foreground",
-        success: "border-green-300 bg-green-100 text-green-800 dark:text-slate-50",
-        warning: "border-yellow-300 bg-yellow-100 text-yellow-800 dark:text-slate-50",
-        info: "border-blue-300 bg-blue-100 text-blue-800 dark:text-slate-50",
-        error: "border-red-300 bg-red-100 text-red-800 dark:text-slate-50",
-        gray: "border-gray-300 bg-gray-100 text-gray-800 dark:text-slate-50",
-        orange: "border-orange-300 bg-orange-100 text-orange-800 dark:text-slate-50",
+        success:
+          "border-green-300 bg-green-100 text-green-800 dark:border-green-900/50 dark:bg-green-950/30 dark:text-green-400",
+        warning:
+          "border-yellow-300 bg-yellow-100 text-yellow-800 dark:border-yellow-900/50 dark:bg-yellow-950/30 dark:text-yellow-400",
+        info: "border-blue-300 bg-blue-100 text-blue-800 dark:border-blue-900/50 dark:bg-blue-950/30 dark:text-blue-400",
+        error:
+          "border-red-300 bg-red-100 text-red-800 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-400",
+        gray: "border-gray-300 bg-gray-100 text-gray-800 dark:border-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-400",
+        orange:
+          "border-orange-300 bg-orange-100 text-orange-800 dark:border-orange-900/50 dark:bg-orange-950/30 dark:text-orange-400",
       },
     },
     defaultVariants: {

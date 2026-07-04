@@ -2,8 +2,8 @@
 
 .landing-container {
   min-height: 100vh;
-  background-color: #09090b; /* zinc-950 */
-  color: #fafafa; /* zinc-50 */
+  background-color: var(--background);
+  color: var(--foreground);
   font-family: var(--font-geist-sans), sans-serif;
   overflow-x: hidden;
 }

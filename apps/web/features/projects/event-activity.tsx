@@ -58,8 +58,8 @@ export function EventActivityTable({
           <TableRow>
             <TableHead>Event</TableHead>
             <TableHead>Contract</TableHead>
-            <TableHead>Transaction</TableHead>
-            <TableHead>Ledger</TableHead>
+            <TableHead className="hidden sm:table-cell">Transaction</TableHead>
+            <TableHead className="hidden md:table-cell">Ledger</TableHead>
             <TableHead className="text-right">Observed</TableHead>
           </TableRow>
         </TableHeader>
@@ -87,13 +87,15 @@ export function EventActivityTable({
                     <CopyButton value={event.contractId} label="contract ID" />
                   </div>
                 </TableCell>
-                <TableCell className="font-mono text-xs">
+                <TableCell className="hidden sm:table-cell font-mono text-xs">
                   <div className="flex items-center gap-1">
                     <span title={event.transactionHash}>{shortValue(event.transactionHash)}</span>
                     <CopyButton value={event.transactionHash} label="transaction hash" />
                   </div>
                 </TableCell>
-                <TableCell className="font-mono text-xs">{event.ledger}</TableCell>
+                <TableCell className="hidden md:table-cell font-mono text-xs">
+                  {event.ledger}
+                </TableCell>
                 <TableCell className="text-right text-sm text-zinc-600">
                   {formatTimestamp(event)}
                 </TableCell>

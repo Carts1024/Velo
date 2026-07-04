@@ -16,7 +16,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@repo/ui/components/ui/sidebar";
-import { ChevronsUpDown, LogOut, MessageSquare, Pencil } from "lucide-react";
+import { ChevronsUpDown, LogOut, MessageSquare, Pencil, SettingsIcon } from "lucide-react";
 
 export type SidebarUser = {
   name: string;
@@ -29,12 +29,14 @@ export function NavUser({
   onEditProfile,
   onDisconnect,
   feedbackUrl = "/feedback",
+  settingsUrl,
   onNavigate,
 }: {
   user: SidebarUser;
   onEditProfile?: () => void;
   onDisconnect?: () => void;
   feedbackUrl?: string;
+  settingsUrl?: string;
   onNavigate?: (url: string) => void;
 }) {
   const { isMobile } = useSidebar();
@@ -95,6 +97,30 @@ export function NavUser({
                 <DropdownMenuItem onClick={onEditProfile} className="cursor-pointer gap-2">
                   <Pencil className="size-4" />
                   <span>Edit Profile</span>
+                </DropdownMenuItem>
+              ) : null}
+              {settingsUrl ? (
+                <DropdownMenuItem asChild className="cursor-pointer gap-2">
+                  <a
+                    href={settingsUrl}
+                    onClick={(event) => {
+                      if (
+                        !onNavigate ||
+                        event.metaKey ||
+                        event.ctrlKey ||
+                        event.shiftKey ||
+                        event.altKey
+                      ) {
+                        return;
+                      }
+
+                      event.preventDefault();
+                      onNavigate(settingsUrl);
+                    }}
+                  >
+                    <SettingsIcon className="size-4" />
+                    <span>Settings</span>
+                  </a>
                 </DropdownMenuItem>
               ) : null}
               <DropdownMenuItem asChild className="cursor-pointer gap-2">
