@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 
+import type { Doc } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
 
 import { query } from "../_generated/server";
@@ -38,10 +39,23 @@ async function ownerProjects(ctx: QueryCtx, limit = 50) {
   ].slice(0, limit);
 }
 
+async function projectWithLogoUrl(ctx: QueryCtx, project: Doc<"projects">) {
+  const logoUrl = project.logoStorageId
+    ? ((await ctx.storage.getUrl(project.logoStorageId)) ?? undefined)
+    : undefined;
+
+  return {
+    ...project,
+    logoUrl,
+  };
+}
+
 export const listByOwner = query({
   args: {},
   handler: async (ctx) => {
-    return await ownerProjects(ctx);
+    const projects = await ownerProjects(ctx);
+
+    return await Promise.all(projects.map((project) => projectWithLogoUrl(ctx, project)));
   },
 });
 
@@ -181,7 +195,9 @@ export const getById = query({
     id: v.id("projects"),
   },
   handler: async (ctx, args) => {
-    return await ownerProjectOrNull(ctx, args.id);
+    const project = await ownerProjectOrNull(ctx, args.id);
+
+    return project ? await projectWithLogoUrl(ctx, project) : null;
   },
 });
 

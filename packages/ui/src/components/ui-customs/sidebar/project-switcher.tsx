@@ -22,6 +22,7 @@ export type SwitcherProject = {
   name: string;
   status: string;
   slug?: string;
+  logoUrl?: string;
 };
 
 export function ProjectSwitcher({
@@ -50,8 +51,16 @@ export function ProjectSwitcher({
               size="lg"
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
             >
-              <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                <FolderIcon className="size-4" />
+              <div className="flex aspect-square size-8 overflow-hidden items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+                {activeProject?.logoUrl ? (
+                  <img
+                    src={activeProject.logoUrl}
+                    alt=""
+                    className="size-full object-cover"
+                  />
+                ) : (
+                  <FolderIcon className="size-4" />
+                )}
               </div>
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-medium">
@@ -87,8 +96,12 @@ export function ProjectSwitcher({
                 onClick={() => onSelectProject?.(project.id)}
                 className="gap-2 p-2"
               >
-                <div className="flex size-6 items-center justify-center rounded-md border">
-                  <FolderIcon className="size-3.5 shrink-0" />
+                <div className="flex size-6 overflow-hidden items-center justify-center rounded-md border">
+                  {project.logoUrl ? (
+                    <img src={project.logoUrl} alt="" className="size-full object-cover" />
+                  ) : (
+                    <FolderIcon className="size-3.5 shrink-0" />
+                  )}
                 </div>
                 <div className="flex flex-col flex-1">
                   <span className="font-medium text-sm">{project.name}</span>

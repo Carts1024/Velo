@@ -177,6 +177,88 @@ export const updateDraft = mutation({
   },
 });
 
+export const updateSettings = mutation({
+  args: {
+    id: v.id("projects"),
+    name: v.string(),
+    description: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await requireProjectOwner(ctx, args.id);
+
+    const name = args.name.trim();
+    const description = args.description.trim();
+
+    if (!name) {
+      throw new Error("Project name is required");
+    }
+
+    if (!description) {
+      throw new Error("Project description is required");
+    }
+
+    await ctx.db.patch(args.id, {
+      name,
+      description,
+      updatedAt: Date.now(),
+    });
+
+    await ctx.scheduler.runAfter(0, internal.webhookDelivery.trigger, {
+      projectId: args.id,
+      eventType: "project.updated",
+    });
+  },
+});
+
+export const generateLogoUploadUrl = mutation({
+  args: {
+    id: v.id("projects"),
+  },
+  handler: async (ctx, args) => {
+    await requireProjectOwner(ctx, args.id);
+
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
+export const setLogo = mutation({
+  args: {
+    id: v.id("projects"),
+    logoStorageId: v.id("_storage"),
+  },
+  handler: async (ctx, args) => {
+    const project = await requireProjectOwner(ctx, args.id);
+    const previousLogoStorageId = project.logoStorageId;
+
+    await ctx.db.patch(args.id, {
+      logoStorageId: args.logoStorageId,
+      updatedAt: Date.now(),
+    });
+
+    if (previousLogoStorageId && previousLogoStorageId !== args.logoStorageId) {
+      await ctx.storage.delete(previousLogoStorageId);
+    }
+  },
+});
+
+export const removeLogo = mutation({
+  args: {
+    id: v.id("projects"),
+  },
+  handler: async (ctx, args) => {
+    const project = await requireProjectOwner(ctx, args.id);
+
+    await ctx.db.patch(args.id, {
+      logoStorageId: undefined,
+      updatedAt: Date.now(),
+    });
+
+    if (project.logoStorageId) {
+      await ctx.storage.delete(project.logoStorageId);
+    }
+  },
+});
+
 export const generateApiKey = mutation({
   args: {
     id: v.id("projects"),

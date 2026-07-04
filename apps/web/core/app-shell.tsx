@@ -112,6 +112,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       name: p.name,
       status: p.status,
       slug: p.slug,
+      logoUrl: p.logoUrl,
     }));
   }, [rawProjects]);
 
@@ -251,6 +252,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         `/projects/${activeProject.id}/events`,
         `/projects/${activeProject.id}/webhooks`,
         `/projects/${activeProject.id}/integration`,
+        `/projects/${activeProject.id}/settings`,
       );
 
       if (activeProject.slug) {
