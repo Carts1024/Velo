@@ -8,6 +8,7 @@ export default defineTable({
   website: v.optional(v.string()),
   metadataJson: v.string(),
   metadataHash: v.string(),
+  logoStorageId: v.optional(v.id("_storage")),
   ownerAddress: v.string(),
   ownerTokenIdentifier: v.optional(v.string()),
   status: v.union(

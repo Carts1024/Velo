@@ -624,18 +624,18 @@ export function ProjectWebhooks({ projectId }: { projectId: string }) {
               <TableRow>
                 <TableHead>Time</TableHead>
                 <TableHead>Event type</TableHead>
-                <TableHead>Destination</TableHead>
+                <TableHead className="hidden md:table-cell">Destination</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>HTTP</TableHead>
-                <TableHead>Latency</TableHead>
-                <TableHead>Attempts</TableHead>
+                <TableHead className="hidden sm:table-cell">HTTP</TableHead>
+                <TableHead className="hidden sm:table-cell">Latency</TableHead>
+                <TableHead className="hidden md:table-cell">Attempts</TableHead>
                 <TableHead className="text-right">Payload</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {!deliveries?.length ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-10 text-center text-sm text-zinc-600">
+                  <TableCell colSpan={8} className="py-10 text-center text-sm text-zinc-600">
                     {wallet.address
                       ? "No webhook delivery attempts yet."
                       : "Connect the owner wallet to view private delivery logs."}
@@ -648,19 +648,21 @@ export function ProjectWebhooks({ projectId }: { projectId: string }) {
                       {formatTimestamp(delivery.lastAttemptAt)}
                     </TableCell>
                     <TableCell className="font-mono text-xs">{delivery.eventType}</TableCell>
-                    <TableCell className="max-w-64 font-mono text-xs truncate break-all">
+                    <TableCell className="hidden md:table-cell max-w-64 font-mono text-xs truncate break-all">
                       <span title={delivery.destinationHost}>{delivery.destinationHost}</span>
                     </TableCell>
                     <TableCell>
                       <Badge variant={deliveryVariant[delivery.status]}>{delivery.status}</Badge>
                     </TableCell>
-                    <TableCell className="font-mono text-xs">
+                    <TableCell className="hidden sm:table-cell font-mono text-xs">
                       {delivery.httpStatus ?? "-"}
                     </TableCell>
-                    <TableCell className="font-mono text-xs">
+                    <TableCell className="hidden sm:table-cell font-mono text-xs">
                       {delivery.responseTimeMs ? `${delivery.responseTimeMs} ms` : "-"}
                     </TableCell>
-                    <TableCell className="font-mono text-xs">{delivery.attemptCount}</TableCell>
+                    <TableCell className="hidden md:table-cell font-mono text-xs">
+                      {delivery.attemptCount}
+                    </TableCell>
                     <TableCell className="text-right">
                       <Sheet>
                         <SheetTrigger asChild>

@@ -73,6 +73,85 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(0.269 0 0);
   --sidebar-ring: oklch(0.439 0 0);
+
+  /* Global light-theme utility class overrides for dark-mode */
+  .bg-white {
+    background-color: var(--card) !important;
+  }
+  .border-zinc-200,
+  .border-zinc-150 {
+    border-color: var(--border) !important;
+  }
+  .text-zinc-950,
+  .text-zinc-900,
+  .text-zinc-800 {
+    color: var(--foreground) !important;
+  }
+  .text-zinc-700,
+  .text-zinc-600,
+  .text-zinc-500 {
+    color: var(--muted-foreground) !important;
+  }
+  .bg-zinc-50 {
+    background-color: var(--background) !important;
+  }
+  .bg-zinc-100 {
+    background-color: var(--muted) !important;
+  }
+  .bg-amber-50 {
+    background-color: rgba(245, 158, 11, 0.15) !important;
+  }
+  .border-amber-200 {
+    border-color: rgba(245, 158, 11, 0.3) !important;
+  }
+  .text-amber-950,
+  .text-amber-900,
+  .text-amber-800 {
+    color: #fbbf24 !important;
+  }
+  .text-amber-600 {
+    color: #f59e0b !important;
+  }
+}
+
+/* Light mode overrides to map forced-dark landing elements to light theme */
+html:not(.dark) {
+  .bg-zinc-950 {
+    background-color: var(--background) !important;
+  }
+  .text-zinc-50 {
+    color: var(--foreground) !important;
+  }
+  .border-zinc-900 {
+    border-color: var(--border) !important;
+  }
+  .bg-zinc-900,
+  .bg-zinc-900\/60,
+  .bg-zinc-900\/30 {
+    background-color: var(--muted) !important;
+  }
+  .border-zinc-800,
+  .border-zinc-800\/60 {
+    border-color: var(--border) !important;
+  }
+  .text-zinc-400 {
+    color: var(--muted-foreground) !important;
+  }
+  .text-zinc-300 {
+    color: var(--foreground) !important;
+  }
+  .text-zinc-100 {
+    color: var(--foreground) !important;
+  }
+  .text-zinc-500 {
+    color: var(--muted-foreground) !important;
+  }
+  .hover\:bg-zinc-900\/50:hover {
+    background-color: var(--muted) !important;
+  }
+  .hover\:border-zinc-700\/60:hover {
+    border-color: var(--border) !important;
+  }
 }
 
 @theme inline {

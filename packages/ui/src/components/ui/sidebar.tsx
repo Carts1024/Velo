@@ -19,6 +19,37 @@ const SIDEBAR_WIDTH_MOBILE = "18rem";
 const SIDEBAR_WIDTH_ICON = "3rem";
 const SIDEBAR_KEYBOARD_SHORTCUT = "b";
 
+let persistedSidebarOpen: boolean | null = null;
+let hasHydratedSidebarProvider = false;
+
+function getPersistedSidebarOpen(defaultOpen: boolean) {
+  if (persistedSidebarOpen !== null) {
+    return persistedSidebarOpen;
+  }
+
+  if (typeof document === "undefined") {
+    return defaultOpen;
+  }
+
+  const sidebarCookie = document.cookie
+    .split("; ")
+    .find((cookie) => cookie.startsWith(`${SIDEBAR_COOKIE_NAME}=`));
+
+  if (!sidebarCookie) {
+    return defaultOpen;
+  }
+
+  return sidebarCookie.split("=")[1] === "true";
+}
+
+function getInitialSidebarOpen(defaultOpen: boolean) {
+  if (!hasHydratedSidebarProvider) {
+    return defaultOpen;
+  }
+
+  return getPersistedSidebarOpen(defaultOpen);
+}
+
 type SidebarContextProps = {
   state: "expanded" | "collapsed";
   open: boolean;
@@ -58,7 +89,7 @@ function SidebarProvider({
 
   // This is the internal state of the sidebar.
   // We use openProp and setOpenProp for control from outside the component.
-  const [_open, _setOpen] = React.useState(defaultOpen);
+  const [_open, _setOpen] = React.useState(() => getInitialSidebarOpen(defaultOpen));
   const open = openProp ?? _open;
   const setOpen = React.useCallback(
     (value: boolean | ((value: boolean) => boolean)) => {
@@ -69,11 +100,24 @@ function SidebarProvider({
         _setOpen(openState);
       }
 
+      persistedSidebarOpen = openState;
+
       // This sets the cookie to keep the sidebar state.
       document.cookie = `${SIDEBAR_COOKIE_NAME}=${openState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`;
     },
     [setOpenProp, open],
   );
+
+  React.useEffect(() => {
+    hasHydratedSidebarProvider = true;
+
+    if (openProp !== undefined) {
+      persistedSidebarOpen = openProp;
+      return;
+    }
+
+    _setOpen(getPersistedSidebarOpen(defaultOpen));
+  }, [defaultOpen, openProp]);
 
   // Helper to toggle the sidebar.
   const toggleSidebar = React.useCallback(() => {
