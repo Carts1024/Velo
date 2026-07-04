@@ -64,6 +64,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [storedSelectedProjectId, setStoredSelectedProjectId] = useState<string | null>(null);
+  const [loadedSelectedProjectStorageKey, setLoadedSelectedProjectStorageKey] = useState<
+    string | null
+  >(null);
 
   const showWalletNotice = ["unavailable", "unsupported", "rejected", "stale", "error"].includes(
     wallet.status,
@@ -119,14 +122,19 @@ export function AppShell({ children }: { children: ReactNode }) {
   const selectedProjectStorageKey = useMemo(() => {
     return wallet.address ? `${selectedProjectStoragePrefix}:${wallet.address}` : null;
   }, [wallet.address]);
+  const hasLoadedStoredSelectedProject =
+    selectedProjectStorageKey === null ||
+    loadedSelectedProjectStorageKey === selectedProjectStorageKey;
 
   useEffect(() => {
     if (!selectedProjectStorageKey) {
       setStoredSelectedProjectId(null);
+      setLoadedSelectedProjectStorageKey(null);
       return;
     }
 
     setStoredSelectedProjectId(window.localStorage.getItem(selectedProjectStorageKey));
+    setLoadedSelectedProjectStorageKey(selectedProjectStorageKey);
   }, [selectedProjectStorageKey]);
 
   // Parse route project from path if applicable (e.g. /projects/projectId or /verify/slug)
@@ -155,9 +163,19 @@ export function AppShell({ children }: { children: ReactNode }) {
       return storedSelectedProjectId;
     }
 
+    if (!hasLoadedStoredSelectedProject) {
+      return null;
+    }
+
     const storedProject = sidebarProjects.find((project) => project.id === storedSelectedProjectId);
     return storedProject?.id ?? sidebarProjects[0]?.id ?? null;
-  }, [rawProjects, routeProjectId, sidebarProjects, storedSelectedProjectId]);
+  }, [
+    hasLoadedStoredSelectedProject,
+    rawProjects,
+    routeProjectId,
+    sidebarProjects,
+    storedSelectedProjectId,
+  ]);
 
   const rememberSelectedProject = useCallback(
     (id: string) => {
@@ -175,11 +193,17 @@ export function AppShell({ children }: { children: ReactNode }) {
       return;
     }
 
-    if (rawProjects && activeProjectId && activeProjectId !== storedSelectedProjectId) {
+    if (
+      rawProjects &&
+      hasLoadedStoredSelectedProject &&
+      activeProjectId &&
+      activeProjectId !== storedSelectedProjectId
+    ) {
       rememberSelectedProject(activeProjectId);
     }
   }, [
     activeProjectId,
+    hasLoadedStoredSelectedProject,
     rawProjects,
     rememberSelectedProject,
     routeProjectId,
@@ -229,9 +253,12 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const handleNavigate = useCallback(
     (url: string) => {
+      if (url === "/dashboard" && activeProjectId) {
+        rememberSelectedProject(activeProjectId);
+      }
       router.push(url);
     },
-    [router],
+    [activeProjectId, rememberSelectedProject, router],
   );
 
   const handlePrefetch = useCallback(
@@ -272,7 +299,9 @@ export function AppShell({ children }: { children: ReactNode }) {
           value={{
             selectedProjectId: activeProjectId,
             projectCount: sidebarProjects.length,
-            projectsLoaded: rawProjects !== undefined,
+            projectsLoaded:
+              rawProjects !== undefined &&
+              (routeProjectId !== null || hasLoadedStoredSelectedProject),
           }}
         >
           <AppSidebar
