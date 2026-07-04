@@ -14,7 +14,33 @@ import { SidebarInset, SidebarProvider, SidebarTrigger } from "@repo/ui/componen
 import { useQuery, useConvexAuth } from "convex/react";
 import { Loader2Icon, PlugZapIcon } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
-import { ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import {
+  createContext,
+  ReactNode,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
+const selectedProjectStoragePrefix = "velo:selected-project";
+
+type SelectedProjectContextValue = {
+  selectedProjectId: string | null;
+  projectCount: number;
+  projectsLoaded: boolean;
+};
+
+const SelectedProjectContext = createContext<SelectedProjectContextValue>({
+  selectedProjectId: null,
+  projectCount: 0,
+  projectsLoaded: false,
+});
+
+export function useSelectedProject() {
+  return useContext(SelectedProjectContext);
+}
 
 const walletStatusCopy = {
   initializing: "Loading wallet support",
@@ -37,6 +63,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
+  const [storedSelectedProjectId, setStoredSelectedProjectId] = useState<string | null>(null);
 
   const showWalletNotice = ["unavailable", "unsupported", "rejected", "stale", "error"].includes(
     wallet.status,
@@ -88,8 +115,21 @@ export function AppShell({ children }: { children: ReactNode }) {
     }));
   }, [rawProjects]);
 
-  // Parse activeProjectId from path if applicable (e.g. /projects/projectId or /verify/slug)
-  const activeProjectId = useMemo(() => {
+  const selectedProjectStorageKey = useMemo(() => {
+    return wallet.address ? `${selectedProjectStoragePrefix}:${wallet.address}` : null;
+  }, [wallet.address]);
+
+  useEffect(() => {
+    if (!selectedProjectStorageKey) {
+      setStoredSelectedProjectId(null);
+      return;
+    }
+
+    setStoredSelectedProjectId(window.localStorage.getItem(selectedProjectStorageKey));
+  }, [selectedProjectStorageKey]);
+
+  // Parse route project from path if applicable (e.g. /projects/projectId or /verify/slug)
+  const routeProjectId = useMemo(() => {
     const projectsMatch = pathname.match(/^\/projects\/([a-zA-Z0-9_-]+)/);
     if (projectsMatch && projectsMatch[1] !== "new") {
       return projectsMatch[1];
@@ -104,6 +144,46 @@ export function AppShell({ children }: { children: ReactNode }) {
     }
     return null;
   }, [pathname, sidebarProjects]);
+
+  const activeProjectId = useMemo(() => {
+    if (routeProjectId) {
+      return routeProjectId;
+    }
+
+    if (!rawProjects) {
+      return storedSelectedProjectId;
+    }
+
+    const storedProject = sidebarProjects.find((project) => project.id === storedSelectedProjectId);
+    return storedProject?.id ?? sidebarProjects[0]?.id ?? null;
+  }, [rawProjects, routeProjectId, sidebarProjects, storedSelectedProjectId]);
+
+  const rememberSelectedProject = useCallback(
+    (id: string) => {
+      setStoredSelectedProjectId(id);
+      if (selectedProjectStorageKey) {
+        window.localStorage.setItem(selectedProjectStorageKey, id);
+      }
+    },
+    [selectedProjectStorageKey],
+  );
+
+  useEffect(() => {
+    if (routeProjectId) {
+      rememberSelectedProject(routeProjectId);
+      return;
+    }
+
+    if (rawProjects && activeProjectId && activeProjectId !== storedSelectedProjectId) {
+      rememberSelectedProject(activeProjectId);
+    }
+  }, [
+    activeProjectId,
+    rawProjects,
+    rememberSelectedProject,
+    routeProjectId,
+    storedSelectedProjectId,
+  ]);
 
   const sidebarUser = useMemo(() => {
     if (user) {
@@ -125,9 +205,21 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const handleSelectProject = useCallback(
     (id: string) => {
+      rememberSelectedProject(id);
+
+      if (pathname === "/dashboard") {
+        return;
+      }
+
+      const projectRouteMatch = pathname.match(/^\/projects\/[a-zA-Z0-9_-]+(\/.*)?$/);
+      if (projectRouteMatch) {
+        router.push(`/projects/${id}${projectRouteMatch[1] ?? ""}`);
+        return;
+      }
+
       router.push(`/projects/${id}`);
     },
-    [router],
+    [pathname, rememberSelectedProject, router],
   );
 
   const handleCreateProject = useCallback(() => {
@@ -174,71 +266,81 @@ export function AppShell({ children }: { children: ReactNode }) {
   if (showSidebar) {
     return (
       <SidebarProvider>
-        <AppSidebar
-          user={sidebarUser}
-          projects={sidebarProjects}
-          activeProjectId={activeProjectId}
-          currentPath={pathname}
-          onSelectProject={handleSelectProject}
-          onCreateProject={handleCreateProject}
-          onNavigate={handleNavigate}
-          onPrefetch={handlePrefetch}
-          onEditProfile={handleEditProfile}
-          onDisconnect={wallet.disconnect}
-          onConnect={wallet.connect}
-          isConnecting={wallet.status === "connecting"}
-        />
-        <SidebarInset className="flex flex-col min-h-svh bg-zinc-50 text-zinc-950">
-          {/* Top Bar for Protected Pages */}
-          <header className="flex h-16 shrink-0 items-center gap-4 border-b border-zinc-200 px-6 bg-white">
-            <SidebarTrigger className="-ml-1" />
-            <Separator orientation="vertical" className="mr-2 h-4" />
+        <SelectedProjectContext
+          value={{
+            selectedProjectId: activeProjectId,
+            projectCount: sidebarProjects.length,
+            projectsLoaded: rawProjects !== undefined,
+          }}
+        >
+          <AppSidebar
+            user={sidebarUser}
+            projects={sidebarProjects}
+            activeProjectId={activeProjectId}
+            currentPath={pathname}
+            onSelectProject={handleSelectProject}
+            onCreateProject={handleCreateProject}
+            onNavigate={handleNavigate}
+            onPrefetch={handlePrefetch}
+            onEditProfile={handleEditProfile}
+            onDisconnect={wallet.disconnect}
+            onConnect={wallet.connect}
+            isConnecting={wallet.status === "connecting"}
+          />
+          <SidebarInset className="flex flex-col min-h-svh bg-zinc-50 text-zinc-950">
+            {/* Top Bar for Protected Pages */}
+            <header className="flex h-16 shrink-0 items-center gap-4 border-b border-zinc-200 px-6 bg-white">
+              <SidebarTrigger className="-ml-1" />
+              <Separator orientation="vertical" className="mr-2 h-4" />
 
-            <div className="flex flex-wrap items-center gap-2 ml-auto">
-              <Badge variant="info">{stellarConfig.networkLabel}</Badge>
-              <Badge
-                variant={
-                  wallet.address ? "success" : wallet.status === "stale" ? "warning" : "gray"
-                }
-              >
-                {wallet.walletName ?? "No wallet"}
-              </Badge>
-              <Badge variant={wallet.address ? "success" : "warning"}>
-                {wallet.address ? shortenAddress(wallet.address) : walletStatusCopy[wallet.status]}
-              </Badge>
-            </div>
-          </header>
-
-          <main className="flex-1 p-6 lg:p-8 overflow-y-auto">
-            {showWalletNotice ? (
-              <Alert className="mb-6">
-                <PlugZapIcon />
-                <AlertTitle>{walletStatusCopy[wallet.status]}</AlertTitle>
-                <AlertDescription>
-                  {wallet.error ??
-                    (wallet.staleAddress
-                      ? `Reconnect ${shortenAddress(wallet.staleAddress)} to continue with owner-scoped projects.`
-                      : "Use a Stellar Testnet wallet to create and manage draft projects.")}
-                </AlertDescription>
-              </Alert>
-            ) : null}
-
-            {isProtectedRoute && !isConvexAuthenticated ? (
-              <div className="flex min-h-[50vh] items-center justify-center">
-                <Loader2Icon className="h-8 w-8 animate-spin text-zinc-400" />
+              <div className="flex flex-wrap items-center gap-2 ml-auto">
+                <Badge variant="info">{stellarConfig.networkLabel}</Badge>
+                <Badge
+                  variant={
+                    wallet.address ? "success" : wallet.status === "stale" ? "warning" : "gray"
+                  }
+                >
+                  {wallet.walletName ?? "No wallet"}
+                </Badge>
+                <Badge variant={wallet.address ? "success" : "warning"}>
+                  {wallet.address
+                    ? shortenAddress(wallet.address)
+                    : walletStatusCopy[wallet.status]}
+                </Badge>
               </div>
-            ) : (
-              children
-            )}
-          </main>
-        </SidebarInset>
+            </header>
 
-        {/* Onboarding / Profile Edit Dialog */}
-        <OnboardingDialog
-          open={showOnboarding}
-          onComplete={handleOnboardingComplete}
-          existingProfile={isEditingProfile ? user : undefined}
-        />
+            <main className="flex-1 p-6 lg:p-8 overflow-y-auto">
+              {showWalletNotice ? (
+                <Alert className="mb-6">
+                  <PlugZapIcon />
+                  <AlertTitle>{walletStatusCopy[wallet.status]}</AlertTitle>
+                  <AlertDescription>
+                    {wallet.error ??
+                      (wallet.staleAddress
+                        ? `Reconnect ${shortenAddress(wallet.staleAddress)} to continue with owner-scoped projects.`
+                        : "Use a Stellar Testnet wallet to create and manage draft projects.")}
+                  </AlertDescription>
+                </Alert>
+              ) : null}
+
+              {isProtectedRoute && !isConvexAuthenticated ? (
+                <div className="flex min-h-[50vh] items-center justify-center">
+                  <Loader2Icon className="h-8 w-8 animate-spin text-zinc-400" />
+                </div>
+              ) : (
+                children
+              )}
+            </main>
+          </SidebarInset>
+
+          {/* Onboarding / Profile Edit Dialog */}
+          <OnboardingDialog
+            open={showOnboarding}
+            onComplete={handleOnboardingComplete}
+            existingProfile={isEditingProfile ? user : undefined}
+          />
+        </SelectedProjectContext>
       </SidebarProvider>
     );
   }

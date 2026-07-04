@@ -1,5 +1,6 @@
 "use client";
 
+import { useSelectedProject } from "@/core/app-shell";
 import { shortenAddress } from "@/core/wallet/format";
 import { useWallet } from "@/core/wallet/wallet-provider";
 import { api } from "@repo/backend/convex/_generated/api";
@@ -13,23 +14,25 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@repo/ui/components/ui/empty";
+import { Progress } from "@repo/ui/components/ui/progress";
 import { Skeleton } from "@repo/ui/components/ui/skeleton";
-import { useQuery, useConvexAuth } from "convex/react";
+import { useQuery } from "convex/react";
 import {
   ActivityIcon,
-  ArrowRightIcon,
   CheckCircle2Icon,
+  CircleIcon,
   FileCheckIcon,
-  FolderPlusIcon,
   GaugeIcon,
-  KeyRoundIcon,
-  LinkIcon,
-  PlugZapIcon,
   RadioTowerIcon,
   WalletIcon,
   WebhookIcon,
 } from "lucide-react";
-import Link from "next/link";
+
+import type { Id } from "@repo/backend/convex/_generated/dataModel";
+import type { ElementType } from "react";
+
+import { getDemoReadiness } from "./demo-readiness";
+import { EventActivityTable } from "./event-activity";
 
 const statusLabel = {
   draft: "Draft",
@@ -51,7 +54,7 @@ type MetricCardProps = {
   title: string;
   value: string | number;
   detail: string;
-  icon: React.ElementType;
+  icon: ElementType;
 };
 
 function MetricCard({ title, value, detail, icon: Icon }: MetricCardProps) {
@@ -75,12 +78,36 @@ function formatTime(value?: number) {
   return value ? new Date(value).toLocaleString() : "No activity yet";
 }
 
+function formatVolume(value: number) {
+  return new Intl.NumberFormat(undefined, { maximumFractionDigits: 4 }).format(value);
+}
+
 export function ProjectDashboard() {
   const wallet = useWallet();
-  const { isAuthenticated } = useConvexAuth();
-  const summary = useQuery(
-    api.projects.query.getDashboardSummary,
-    wallet.address && isAuthenticated ? {} : "skip",
+  const { selectedProjectId, projectCount, projectsLoaded } = useSelectedProject();
+  const typedProjectId = selectedProjectId as Id<"projects"> | null;
+
+  const project = useQuery(
+    api.projects.query.getById,
+    wallet.address && projectsLoaded && typedProjectId ? { id: typedProjectId } : "skip",
+  );
+  const contracts = useQuery(
+    api.project_contracts.query.listByProject,
+    wallet.address && projectsLoaded && typedProjectId ? { projectId: typedProjectId } : "skip",
+  );
+  const activity = useQuery(
+    api.contract_events.query.listByProject,
+    wallet.address && projectsLoaded && typedProjectId
+      ? { projectId: typedProjectId, limit: 5 }
+      : "skip",
+  );
+  const webhookSummary = useQuery(
+    api.webhook_endpoints.query.getSummary,
+    wallet.address && projectsLoaded && typedProjectId ? { projectId: typedProjectId } : "skip",
+  );
+  const stats = useQuery(
+    api.payment_intents.queries.getProjectStats,
+    wallet.address && projectsLoaded && typedProjectId ? { projectId: typedProjectId } : "skip",
   );
 
   if (!wallet.address) {
@@ -113,7 +140,7 @@ export function ProjectDashboard() {
     );
   }
 
-  if (summary === undefined) {
+  if (!projectsLoaded) {
     return (
       <section className="grid gap-6">
         <div className="space-y-3">
@@ -131,19 +158,7 @@ export function ProjectDashboard() {
     );
   }
 
-  const webhookRate =
-    summary.webhooks.recentDeliveries > 0
-      ? Math.round(
-          (summary.webhooks.successfulDeliveries / summary.webhooks.recentDeliveries) * 100,
-        )
-      : 100;
-  const paidRate =
-    summary.payments.recent > 0
-      ? Math.round((summary.payments.paid / summary.payments.recent) * 100)
-      : 0;
-  const firstProject = summary.recentProjects[0];
-
-  if (summary.projects.total === 0) {
+  if (projectCount === 0) {
     return (
       <section className="flex flex-col gap-6">
         <div>
@@ -155,174 +170,280 @@ export function ProjectDashboard() {
         <Empty className="border border-zinc-200 bg-white">
           <EmptyHeader>
             <EmptyMedia variant="icon">
-              <FolderPlusIcon />
+              <GaugeIcon />
             </EmptyMedia>
-            <EmptyTitle>Create your first project</EmptyTitle>
+            <EmptyTitle>No projects available</EmptyTitle>
             <EmptyDescription>
-              Projects unlock contract verification, event tracking, webhook delivery, and payment
-              telemetry.
+              Create a project from the sidebar project switcher to start collecting telemetry.
             </EmptyDescription>
           </EmptyHeader>
-          <EmptyContent>
-            <Button asChild>
-              <Link href="/projects/new">
-                <FolderPlusIcon />
-                New project
-              </Link>
-            </Button>
-          </EmptyContent>
         </Empty>
       </section>
     );
   }
 
+  if (!selectedProjectId) {
+    return (
+      <section className="flex flex-col gap-6">
+        <div>
+          <h1 className="text-3xl font-semibold tracking-normal">Dashboard</h1>
+          <p className="mt-2 max-w-2xl text-sm text-zinc-600">
+            Select a project from the sidebar project switcher to view its telemetry.
+          </p>
+        </div>
+        <Empty className="border border-zinc-200 bg-white">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <GaugeIcon />
+            </EmptyMedia>
+            <EmptyTitle>No selected project</EmptyTitle>
+            <EmptyDescription>
+              Dashboard metrics are scoped to the current sidebar project selection.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      </section>
+    );
+  }
+
+  if (
+    project === undefined ||
+    contracts === undefined ||
+    activity === undefined ||
+    webhookSummary === undefined ||
+    stats === undefined
+  ) {
+    return (
+      <section className="grid gap-6">
+        <div className="space-y-3">
+          <Skeleton className="h-10 w-64" />
+          <Skeleton className="h-5 w-96 max-w-full" />
+        </div>
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <Skeleton className="h-36 w-full" />
+          <Skeleton className="h-36 w-full" />
+          <Skeleton className="h-36 w-full" />
+          <Skeleton className="h-36 w-full" />
+        </div>
+        <Skeleton className="h-72 w-full" />
+      </section>
+    );
+  }
+
+  if (project === null) {
+    return (
+      <section className="grid gap-4">
+        <h1 className="text-3xl font-semibold tracking-normal">Project unavailable</h1>
+        <p className="max-w-2xl text-sm text-zinc-600">
+          The selected project does not exist or the connected wallet is not its owner. Choose a
+          valid project from the sidebar project switcher.
+        </p>
+      </section>
+    );
+  }
+
+  const events = activity?.events ?? [];
+  const activeContractCount = contracts.filter((contract) => contract.status === "active").length;
+  const webhookRate = webhookSummary?.recentCount
+    ? Math.round(((webhookSummary.successCount ?? 0) / webhookSummary.recentCount) * 100)
+    : 100;
+  const totalPayments = stats?.counts.total ?? 0;
+  const paidPayments = stats?.counts.paid ?? 0;
+  const paidRate = totalPayments > 0 ? Math.round((paidPayments / totalPayments) * 100) : 0;
+  const lastObservedAt = events[0]?.observedAt;
+  const readiness = getDemoReadiness({
+    project,
+    activeContractCount,
+    eventCount: events.length,
+    webhookConfigured: webhookSummary?.configured ?? false,
+    deliveryCount: webhookSummary?.recentCount ?? 0,
+  });
+  const recentEvents = events.map((event) => ({
+    eventId: event.eventId,
+    contractId: event.contractId,
+    transactionHash: event.transactionHash,
+    ledger: event.ledger,
+    timestamp: event.timestamp,
+    topic: event.topic,
+    type: event.type,
+    decoded: event.decoded,
+    observedAt: event.observedAt,
+  }));
+
   return (
     <section className="grid gap-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-3xl font-semibold tracking-normal">Dashboard</h1>
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-3xl font-semibold tracking-normal">Dashboard</h1>
+            <Badge variant={statusVariant[project.status]}>{statusLabel[project.status]}</Badge>
+          </div>
           <p className="mt-2 max-w-2xl text-sm text-zinc-600">
-            Telemetry for {shortenAddress(wallet.address)} across project setup, contracts, events,
-            webhooks, and payments.
+            Telemetry for {project.name} /{project.slug}, owned by{" "}
+            {shortenAddress(project.ownerAddress)}.
           </p>
         </div>
-        <Button asChild>
-          <Link href="/projects/new">
-            <FolderPlusIcon />
-            New project
-          </Link>
-        </Button>
+        {project.paymentAccessActive ? (
+          <Badge variant="success">
+            <CheckCircle2Icon className="size-3" />
+            Payments active
+          </Badge>
+        ) : null}
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <MetricCard
-          title="Projects"
-          value={summary.projects.total}
-          detail={`${summary.projects.registered} registered, ${summary.projects.pending} pending, ${summary.projects.errors} errors`}
-          icon={GaugeIcon}
-        />
-        <MetricCard
           title="Contracts"
-          value={summary.contracts.active}
-          detail={`${summary.contracts.total} tracked contracts across selected projects`}
+          value={activeContractCount}
+          detail={`${contracts.length} tracked contracts for this project`}
           icon={FileCheckIcon}
         />
         <MetricCard
           title="Events"
-          value={summary.events.recent}
-          detail={`Last observed: ${formatTime(summary.events.lastObservedAt)}`}
+          value={events.length}
+          detail={`Last observed: ${formatTime(lastObservedAt)}`}
           icon={RadioTowerIcon}
         />
         <MetricCard
           title="Webhook health"
           value={`${webhookRate}%`}
-          detail={`${summary.webhooks.successfulDeliveries} successful, ${summary.webhooks.failedDeliveries} failed attempts`}
+          detail={`${webhookSummary?.successCount ?? 0} successful, ${webhookSummary?.failedCount ?? 0} failed recent deliveries`}
           icon={WebhookIcon}
+        />
+        <MetricCard
+          title="Payments"
+          value={totalPayments}
+          detail={`${paidRate}% paid conversion across this project`}
+          icon={ActivityIcon}
         />
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[1.3fr_0.7fr]">
-        <div className="rounded-lg border border-zinc-200 bg-white">
-          <div className="flex items-center justify-between gap-3 border-b border-zinc-200 p-5">
-            <div>
-              <h2 className="text-lg font-semibold tracking-normal">Recent projects</h2>
-              <p className="text-sm text-zinc-600">Project picker remains in the sidebar.</p>
-            </div>
-            <Badge variant="info">{summary.projects.draft} draft</Badge>
+      <div className="grid gap-4 xl:grid-cols-[1fr_1fr]">
+        <div className="rounded-lg border border-zinc-200 bg-white p-5">
+          <div className="flex items-center gap-2">
+            <ActivityIcon className="size-5 text-zinc-700" />
+            <h2 className="text-lg font-semibold tracking-normal">Payment activity</h2>
           </div>
-          <div className="divide-y divide-zinc-200">
-            {summary.recentProjects.map((project) => (
-              <Link
-                key={project._id}
-                href={`/projects/${project._id}`}
-                className="flex flex-col gap-3 p-5 transition-colors hover:bg-zinc-50 sm:flex-row sm:items-center sm:justify-between"
-              >
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-medium text-zinc-950">{project.name}</span>
-                    <Badge variant={statusVariant[project.status]}>
-                      {statusLabel[project.status]}
-                    </Badge>
-                    {project.paymentAccessActive ? (
-                      <Badge variant="success">
-                        <CheckCircle2Icon className="size-3" />
-                        Payments active
-                      </Badge>
-                    ) : null}
-                  </div>
-                  <p className="mt-1 text-sm text-zinc-600">/{project.slug}</p>
+          <div className="mt-5 grid grid-cols-2 gap-3 text-sm">
+            <div className="rounded-md bg-zinc-50 p-3">
+              <p className="text-zinc-600">Paid</p>
+              <p className="mt-1 text-2xl font-semibold">{paidPayments}</p>
+            </div>
+            <div className="rounded-md bg-zinc-50 p-3">
+              <p className="text-zinc-600">Pending</p>
+              <p className="mt-1 text-2xl font-semibold">{stats?.counts.pending ?? 0}</p>
+            </div>
+            <div className="rounded-md bg-zinc-50 p-3">
+              <p className="text-zinc-600">Created</p>
+              <p className="mt-1 text-2xl font-semibold">{stats?.counts.created ?? 0}</p>
+            </div>
+            <div className="rounded-md bg-zinc-50 p-3">
+              <p className="text-zinc-600">Failed</p>
+              <p className="mt-1 text-2xl font-semibold">{stats?.counts.failed ?? 0}</p>
+            </div>
+          </div>
+          <div className="mt-5 grid gap-2 text-sm">
+            <p className="font-medium text-zinc-950">Paid volume</p>
+            {stats?.volumes.length ? (
+              stats.volumes.map((volume) => (
+                <div
+                  key={volume.asset}
+                  className="flex items-center justify-between gap-3 text-zinc-600"
+                >
+                  <span>{volume.asset}</span>
+                  <span className="font-mono text-zinc-950">{formatVolume(volume.volume)}</span>
                 </div>
-                <span className="flex items-center gap-1 text-sm text-zinc-600">
-                  Updated {new Date(project.updatedAt).toLocaleDateString()}
-                  <ArrowRightIcon className="size-4" />
-                </span>
-              </Link>
-            ))}
+              ))
+            ) : (
+              <p className="text-zinc-600">No paid payment volume yet.</p>
+            )}
           </div>
         </div>
 
-        <div className="grid gap-4">
-          <div className="rounded-lg border border-zinc-200 bg-white p-5">
-            <div className="flex items-center gap-2">
-              <ActivityIcon className="size-5 text-zinc-700" />
-              <h2 className="text-lg font-semibold tracking-normal">Payment activity</h2>
+        <div className="rounded-lg border border-zinc-200 bg-white p-5">
+          <div className="flex items-center gap-2">
+            <WebhookIcon className="size-5 text-zinc-700" />
+            <h2 className="text-lg font-semibold tracking-normal">Webhook health</h2>
+          </div>
+          <div className="mt-5 grid gap-3 text-sm">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-zinc-600">Endpoint</span>
+              <Badge variant={webhookSummary?.configured ? "success" : "gray"}>
+                {webhookSummary?.configured ? "Configured" : "Not configured"}
+              </Badge>
             </div>
-            <div className="mt-5 grid grid-cols-2 gap-3 text-sm">
-              <div className="rounded-md bg-zinc-50 p-3">
-                <p className="text-zinc-600">Recent intents</p>
-                <p className="mt-1 text-2xl font-semibold">{summary.payments.recent}</p>
-              </div>
-              <div className="rounded-md bg-zinc-50 p-3">
-                <p className="text-zinc-600">Paid rate</p>
-                <p className="mt-1 text-2xl font-semibold">{paidRate}%</p>
-              </div>
-              <div className="rounded-md bg-zinc-50 p-3">
-                <p className="text-zinc-600">Pending</p>
-                <p className="mt-1 text-2xl font-semibold">{summary.payments.pending}</p>
-              </div>
-              <div className="rounded-md bg-zinc-50 p-3">
-                <p className="text-zinc-600">Failed</p>
-                <p className="mt-1 text-2xl font-semibold">{summary.payments.failed}</p>
-              </div>
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-zinc-600">Delivery status</span>
+              <Badge variant={webhookSummary?.enabled ? "success" : "warning"}>
+                {webhookSummary?.enabled ? "Enabled" : "Disabled"}
+              </Badge>
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-zinc-600">Destination</span>
+              <span className="max-w-64 truncate text-right font-mono text-xs text-zinc-950">
+                {webhookSummary?.destinationHost ?? "No host"}
+              </span>
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-zinc-600">Recent deliveries</span>
+              <span className="font-medium text-zinc-950">{webhookSummary?.recentCount ?? 0}</span>
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-zinc-600">Average latency</span>
+              <span className="font-medium text-zinc-950">
+                {Math.round(stats?.webhooks.averageLatency ?? 0)}ms
+              </span>
             </div>
           </div>
+        </div>
+      </div>
 
-          <div className="rounded-lg border border-zinc-200 bg-white p-5">
-            <div className="flex items-center gap-2">
-              <PlugZapIcon className="size-5 text-zinc-700" />
-              <h2 className="text-lg font-semibold tracking-normal">Setup actions</h2>
+      <div className="grid gap-4 xl:grid-cols-[0.8fr_1.2fr]">
+        <div className="rounded-lg border border-zinc-200 bg-white p-5">
+          <div className="flex items-center gap-2">
+            <GaugeIcon className="size-5 text-zinc-700" />
+            <h2 className="text-lg font-semibold tracking-normal">Project readiness</h2>
+          </div>
+          <div className="mt-4 grid gap-4">
+            <div>
+              <div className="mb-2 flex items-center justify-between gap-3 text-sm">
+                <span className="text-zinc-600">Completion</span>
+                <span className="font-medium text-zinc-950">
+                  {readiness.completedCount}/{readiness.totalCount} steps
+                </span>
+              </div>
+              <Progress value={readiness.percent} />
             </div>
-            <div className="mt-4 grid gap-2">
-              <Button variant="outline" className="justify-start" asChild disabled={!firstProject}>
-                <Link
-                  href={firstProject ? `/projects/${firstProject._id}/contracts` : "/dashboard"}
-                >
-                  <FileCheckIcon />
-                  Manage contracts
-                </Link>
-              </Button>
-              <Button variant="outline" className="justify-start" asChild disabled={!firstProject}>
-                <Link href={firstProject ? `/projects/${firstProject._id}/webhooks` : "/dashboard"}>
-                  <WebhookIcon />
-                  Configure webhooks
-                </Link>
-              </Button>
-              <Button variant="outline" className="justify-start" asChild disabled={!firstProject}>
-                <Link
-                  href={firstProject ? `/projects/${firstProject._id}/integration` : "/dashboard"}
-                >
-                  <KeyRoundIcon />
-                  Integration keys
-                </Link>
-              </Button>
-              <Button variant="outline" className="justify-start" asChild>
-                <Link href="/debug">
-                  <LinkIcon />
-                  Debug transaction
-                </Link>
-              </Button>
+            <div className="grid gap-3">
+              {readiness.items.map((item) => (
+                <div key={item.id} className="flex items-start gap-3 text-sm">
+                  {item.complete ? (
+                    <CheckCircle2Icon className="mt-0.5 size-4 shrink-0 text-emerald-600" />
+                  ) : (
+                    <CircleIcon className="mt-0.5 size-4 shrink-0 text-zinc-400" />
+                  )}
+                  <div>
+                    <p className="font-medium text-zinc-950">{item.label}</p>
+                    <p className="text-zinc-600">{item.description}</p>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
+        </div>
+
+        <div className="rounded-lg border border-zinc-200 bg-white">
+          <div className="border-b border-zinc-200 p-5">
+            <div className="flex items-center gap-2">
+              <RadioTowerIcon className="size-5 text-zinc-700" />
+              <h2 className="text-lg font-semibold tracking-normal">Recent events</h2>
+            </div>
+            <p className="mt-1 text-sm text-zinc-600">Latest cached activity for this project.</p>
+          </div>
+          <EventActivityTable
+            events={recentEvents}
+            emptyMessage="No recent events for this project."
+          />
         </div>
       </div>
     </section>
