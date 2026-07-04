@@ -372,8 +372,8 @@ export function ProjectContracts({ projectId }: ProjectContractsProps) {
               <TableRow>
                 <TableHead>Contract ID</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Transaction</TableHead>
-                <TableHead>Last sync</TableHead>
+                <TableHead className="hidden md:table-cell">Transaction</TableHead>
+                <TableHead className="hidden sm:table-cell">Last sync</TableHead>
                 <TableHead className="text-right">Action</TableHead>
               </TableRow>
             </TableHeader>
@@ -396,7 +396,7 @@ export function ProjectContracts({ projectId }: ProjectContractsProps) {
                     <TableCell>
                       <Badge variant={statusVariant[link.status]}>{statusLabel[link.status]}</Badge>
                     </TableCell>
-                    <TableCell className="font-mono text-xs">
+                    <TableCell className="hidden md:table-cell font-mono text-xs">
                       <div className="flex items-center gap-1">
                         <span>
                           {(link.removeTxHash ?? link.addTxHash)?.slice(0, 16) ?? "Not submitted"}
@@ -410,7 +410,7 @@ export function ProjectContracts({ projectId }: ProjectContractsProps) {
                         ) : null}
                       </div>
                     </TableCell>
-                    <TableCell className="text-sm text-zinc-600">
+                    <TableCell className="hidden sm:table-cell text-sm text-zinc-600">
                       {formatTimestamp(link.lastSyncAt)}
                     </TableCell>
                     <TableCell className="text-right">

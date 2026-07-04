@@ -318,9 +318,9 @@ export function AppShell({ children }: { children: ReactNode }) {
             onConnect={wallet.connect}
             isConnecting={wallet.status === "connecting"}
           />
-          <SidebarInset className="flex flex-col min-h-svh bg-zinc-50 text-zinc-950">
+          <SidebarInset className="flex flex-col min-h-svh bg-background text-foreground">
             {/* Top Bar for Protected Pages */}
-            <header className="flex h-16 shrink-0 items-center gap-4 border-b border-zinc-200 px-6 bg-white">
+            <header className="flex h-16 shrink-0 items-center gap-4 border-b border-border px-4 sm:px-6 bg-card">
               <SidebarTrigger className="-ml-1" />
               <Separator orientation="vertical" className="mr-2 h-4" />
 
@@ -330,6 +330,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   variant={
                     wallet.address ? "success" : wallet.status === "stale" ? "warning" : "gray"
                   }
+                  className="hidden sm:inline-flex"
                 >
                   {wallet.walletName ?? "No wallet"}
                 </Badge>
@@ -341,7 +342,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               </div>
             </header>
 
-            <main className="flex-1 p-6 lg:p-8 overflow-y-auto">
+            <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto">
               {showWalletNotice ? (
                 <Alert className="mb-6">
                   <PlugZapIcon />
@@ -377,7 +378,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   }
 
   return (
-    <main className="min-h-svh bg-zinc-50 text-zinc-950 flex flex-col justify-center">
+    <main className="min-h-svh bg-background text-foreground flex flex-col justify-center">
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-5 sm:px-6 lg:px-8">
         {showWalletNotice ? (
           <Alert>

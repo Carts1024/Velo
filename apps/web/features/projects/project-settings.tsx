@@ -10,6 +10,7 @@ import { Skeleton } from "@repo/ui/components/ui/skeleton";
 import { Textarea } from "@repo/ui/components/ui/textarea";
 import { useMutation, useQuery } from "convex/react";
 import { AlertCircleIcon, CheckCircle2Icon, ImageIcon, Trash2Icon, WalletIcon } from "lucide-react";
+import { useTheme } from "next-themes";
 import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
@@ -22,6 +23,13 @@ function errorMessage(error: unknown) {
 }
 
 export function ProjectSettings({ projectId }: { projectId: string }) {
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const wallet = useWallet();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const typedProjectId = projectId as Id<"projects">;
@@ -272,6 +280,27 @@ export function ProjectSettings({ projectId }: { projectId: string }) {
             </div>
           </div>
         </form>
+
+        <div className="rounded-lg border border-zinc-200 bg-white p-5">
+          <div>
+            <h2 className="text-lg font-semibold tracking-normal">Appearance</h2>
+            <p className="mt-1 text-sm text-zinc-600">Customize how Velo looks on your device.</p>
+          </div>
+          <div className="mt-4 grid gap-2 max-w-xs">
+            <Label htmlFor="settings-theme">Theme</Label>
+            <select
+              id="settings-theme"
+              value={mounted ? theme : "system"}
+              onChange={(e) => setTheme(e.target.value)}
+              disabled={!mounted}
+              className="flex h-9 w-full rounded-md border border-zinc-200 bg-white px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-zinc-400 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <option value="system">System preference</option>
+              <option value="light">Light mode</option>
+              <option value="dark">Dark mode</option>
+            </select>
+          </div>
+        </div>
       </div>
 
       <aside className="flex flex-col gap-4 rounded-lg border border-zinc-200 bg-white p-5">
