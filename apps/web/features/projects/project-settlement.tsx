@@ -43,6 +43,8 @@ import {
   ArrowLeftRightIcon,
   HistoryIcon,
   ActivityIcon,
+  SearchIcon,
+  ArrowUpDownIcon,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
@@ -126,6 +128,41 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
   const [balances, setBalances] = useState<BalanceItem[] | null>(null);
   const [balancesLoading, setBalancesLoading] = useState(false);
   const [balancesError, setBalancesError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortField, setSortField] = useState<"currency" | "available" | "hold" | "total" | null>(
+    null,
+  );
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+
+  const handleSort = (field: "currency" | "available" | "hold" | "total") => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortDirection("asc");
+    }
+  };
+
+  const filteredAndSortedBalances = (balances || [])
+    .filter((item) => item.currency.toLowerCase().includes(searchQuery.toLowerCase()))
+    .sort((a, b) => {
+      if (!sortField) return 0;
+
+      let valA: string | number = a[sortField];
+      let valB: string | number = b[sortField];
+
+      if (sortField !== "currency") {
+        valA = parseFloat(valA);
+        valB = parseFloat(valB);
+      } else {
+        valA = (valA as string).toLowerCase();
+        valB = (valB as string).toLowerCase();
+      }
+
+      if (valA < valB) return sortDirection === "asc" ? -1 : 1;
+      if (valA > valB) return sortDirection === "asc" ? 1 : -1;
+      return 0;
+    });
 
   // Connection state
   const [connecting, setConnecting] = useState(false);
@@ -493,43 +530,129 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
                 <p className="text-sm">Connect provider to display sandbox assets.</p>
               </div>
             ) : balancesLoading && !balances ? (
-              <div className="grid grid-cols-3 gap-4">
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="h-20 bg-muted/40 rounded-lg animate-pulse" />
-                ))}
+              <div className="space-y-2">
+                <div className="h-10 bg-muted/40 rounded-lg animate-pulse" />
+                <div className="h-12 bg-muted/20 rounded-lg animate-pulse" />
+                <div className="h-12 bg-muted/20 rounded-lg animate-pulse" />
               </div>
             ) : balancesError ? (
               <p className="text-xs text-destructive">{balancesError}</p>
             ) : balances && balances.length > 0 ? (
-              <div className="grid gap-4 sm:grid-cols-3">
-                {balances.map((item) => (
-                  <div
-                    key={item.currency}
-                    className="p-4 rounded-xl border bg-card/50 hover:bg-card flex flex-col justify-between transition-colors shadow-sm"
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="font-bold text-sm tracking-wide">{item.currency}</span>
-                      <Badge
-                        variant={item.asset_type === "FIAT" ? "info" : "success"}
-                        className="text-[10px] px-1.5 py-0"
-                      >
-                        {item.asset_type}
-                      </Badge>
-                    </div>
-                    <div>
-                      <div className="text-lg font-bold tracking-tight">
-                        {parseFloat(item.available).toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}
-                      </div>
-                      <div className="text-[10px] text-muted-foreground mt-0.5">
-                        Hold: {parseFloat(item.hold).toLocaleString()} | Total:{" "}
-                        {parseFloat(item.total).toLocaleString()}
-                      </div>
-                    </div>
-                  </div>
-                ))}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 relative max-w-[240px]">
+                  <SearchIcon className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                  <Input
+                    placeholder="Search assets by ticker..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-8 h-8 text-xs bg-muted/30 focus-visible:bg-background transition-colors"
+                  />
+                </div>
+
+                <div className="rounded-lg border border-zinc-200 dark:border-zinc-800 [&_[data-slot=table-container]]:max-h-[280px] [&_[data-slot=table-container]]:overflow-y-auto">
+                  <Table>
+                    <TableHeader className="sticky top-0 z-10">
+                      <TableRow className="hover:bg-transparent">
+                        <TableHead
+                          className="sticky top-0 bg-card z-10 font-semibold text-zinc-900 dark:text-zinc-100 cursor-pointer select-none group py-2"
+                          onClick={() => handleSort("currency")}
+                        >
+                          <div className="flex items-center gap-1">
+                            <span>Ticker</span>
+                            <ArrowUpDownIcon
+                              className={`size-3 transition-opacity ${sortField === "currency" ? "opacity-100 text-primary" : "opacity-40 group-hover:opacity-85"}`}
+                            />
+                          </div>
+                        </TableHead>
+                        <TableHead className="sticky top-0 bg-card z-10 font-semibold text-zinc-900 dark:text-zinc-100">
+                          Type
+                        </TableHead>
+                        <TableHead
+                          className="sticky top-0 bg-card z-10 font-semibold text-zinc-900 dark:text-zinc-100 cursor-pointer select-none group py-2 text-right"
+                          onClick={() => handleSort("available")}
+                        >
+                          <div className="flex items-center justify-end gap-1">
+                            <span>Available</span>
+                            <ArrowUpDownIcon
+                              className={`size-3 transition-opacity ${sortField === "available" ? "opacity-100 text-primary" : "opacity-40 group-hover:opacity-85"}`}
+                            />
+                          </div>
+                        </TableHead>
+                        <TableHead
+                          className="sticky top-0 bg-card z-10 font-semibold text-zinc-900 dark:text-zinc-100 cursor-pointer select-none group py-2 text-right"
+                          onClick={() => handleSort("hold")}
+                        >
+                          <div className="flex items-center justify-end gap-1">
+                            <span>On Hold</span>
+                            <ArrowUpDownIcon
+                              className={`size-3 transition-opacity ${sortField === "hold" ? "opacity-100 text-primary" : "opacity-40 group-hover:opacity-85"}`}
+                            />
+                          </div>
+                        </TableHead>
+                        <TableHead
+                          className="sticky top-0 bg-card z-10 font-semibold text-zinc-900 dark:text-zinc-100 cursor-pointer select-none group py-2 text-right"
+                          onClick={() => handleSort("total")}
+                        >
+                          <div className="flex items-center justify-end gap-1">
+                            <span>Total</span>
+                            <ArrowUpDownIcon
+                              className={`size-3 transition-opacity ${sortField === "total" ? "opacity-100 text-primary" : "opacity-40 group-hover:opacity-85"}`}
+                            />
+                          </div>
+                        </TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredAndSortedBalances.length === 0 ? (
+                        <TableRow>
+                          <TableCell
+                            colSpan={5}
+                            className="py-6 text-center text-xs text-muted-foreground"
+                          >
+                            No matching assets found for &ldquo;{searchQuery}&rdquo;
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        filteredAndSortedBalances.map((item) => (
+                          <TableRow
+                            key={item.currency}
+                            className="hover:bg-zinc-50/50 dark:hover:bg-zinc-900/50 transition-colors"
+                          >
+                            <TableCell className="font-bold text-sm tracking-wide text-zinc-900 dark:text-zinc-100">
+                              {item.currency}
+                            </TableCell>
+                            <TableCell>
+                              <Badge
+                                variant={item.asset_type === "FIAT" ? "info" : "success"}
+                                className="text-[10px] px-1.5 py-0"
+                              >
+                                {item.asset_type}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-right font-mono text-sm">
+                              {parseFloat(item.available).toLocaleString(undefined, {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 4,
+                              })}
+                            </TableCell>
+                            <TableCell className="text-right font-mono text-sm text-muted-foreground">
+                              {parseFloat(item.hold).toLocaleString(undefined, {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 4,
+                              })}
+                            </TableCell>
+                            <TableCell className="text-right font-mono text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                              {parseFloat(item.total).toLocaleString(undefined, {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 4,
+                              })}
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">No supported assets found.</p>

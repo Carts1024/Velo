@@ -221,10 +221,11 @@ export const executeTrade = action({
     } catch (err) {
       if (err instanceof PdaxError) {
         const bodyStr = typeof err.body === "string" ? err.body : JSON.stringify(err.body);
-        console.error(
-          `PDAX executeTrade failed [${err.status}]: ${bodyStr}`,
-          { quoteId: args.quoteId, side: quote.side, idempotencyId: pdaxIdempotencyId },
-        );
+        console.error(`PDAX executeTrade failed [${err.status}]: ${bodyStr}`, {
+          quoteId: args.quoteId,
+          side: quote.side,
+          idempotencyId: pdaxIdempotencyId,
+        });
         // If quote expired on PDAX side, mark it expired locally too
         if (err.status === 400) {
           await ctx.runMutation(internal.settlement_quotes.mutation.updateStatus, {
@@ -232,9 +233,7 @@ export const executeTrade = action({
             status: "expired",
           });
         }
-        throw new Error(
-          `PDAX trade failed (${err.status}): ${bodyStr}`,
-        );
+        throw new Error(`PDAX trade failed (${err.status}): ${bodyStr}`);
       }
       throw err;
     }
