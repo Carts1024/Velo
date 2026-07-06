@@ -2,6 +2,8 @@
 import { convexTest } from "convex-test";
 import { expect, test } from "vitest";
 
+import type { Doc } from "./_generated/dataModel";
+
 import { api, internal } from "./_generated/api";
 import schema from "./schema";
 
@@ -416,7 +418,7 @@ test("public retrieve and list are scoped to the API key project", async () => {
   });
   expect(list.authorized).toBe(true);
   if (!list.authorized) throw new Error("expected list");
-  expect(list.page.page.map((intent) => intent._id).sort()).toEqual(
+  expect(list.page.page.map((intent: Doc<"paymentIntents">) => intent._id).sort()).toEqual(
     [a1.intent._id, a2.intent._id].sort(),
   );
 

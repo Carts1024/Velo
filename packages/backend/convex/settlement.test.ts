@@ -215,3 +215,266 @@ test("settlement provider foundation lifecycle", async () => {
   });
   expect(finalPublicConn?.status).toBe("disconnected");
 });
+
+test("settlement actions workflow integration", async () => {
+  const t = convexTest(schema, modules);
+
+  const ownerAddress = "GD7O2C226SF2677PFFUVD6O2ICFOBNCWPI5Z46N43ZSFQGLM65U3I2SP";
+  const owner = asWallet(t, ownerAddress);
+
+  // Set UAT credentials in env
+  process.env.PDAX_UAT_USERNAME = "merchant@test.com";
+  process.env.PDAX_UAT_PASSWORD = "password123";
+  process.env.PDAX_UAT_BASE_URL = "https://uat.services.sandbox.pdax.ph/api/pdax-api";
+
+  // Create project
+  const projectId = await owner.mutation(api.projects.mutation.createDraft, {
+    name: "Merchant Actions Store",
+    slug: "merchant-actions-store",
+    description: "Testing settlement actions",
+    metadataJson: "{}",
+    metadataHash: "0000000000000000000000000000000000000000000000000000000000000000",
+    ownerAddress,
+  });
+
+  const originalFetch = globalThis.fetch;
+
+  // Mock fetch responses
+  globalThis.fetch = async (input, init) => {
+    const url = input.toString();
+    const body = init?.body ? JSON.parse(init.body as string) : null;
+
+    if (url.includes("/pdax-institution/v1/login")) {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          email: "merchant@test.com",
+          username: "merchant-username",
+          groups: ["exchange_user"],
+          token_type: "Bearer",
+          preferred_mfa: "SOFTWARE_TOKEN_MFA",
+          expiry: 600,
+          access_token: "mock-access-token",
+          id_token: "mock-id-token",
+          refresh_token: "mock-refresh-token",
+        }),
+      } as Response;
+    }
+
+    if (url.includes("/pdax-institution/v1/balances")) {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          status: "success",
+          data: [
+            {
+              currency: "USDCXLM",
+              available: "5000",
+              hold: "0",
+              total: "5000",
+              asset_type: "CRYPTO",
+            },
+            {
+              currency: "PHP",
+              available: "10000",
+              hold: "0",
+              total: "10000",
+              asset_type: "FIAT",
+            },
+          ],
+        }),
+      } as Response;
+    }
+
+    if (url.includes("/pdax-institution/v2/trade/quote")) {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          status: "success",
+          data: {
+            quote_id: "quote-12345",
+            expires_at: new Date(Date.now() + 15000).toISOString(),
+            quote_currency: body.quote_currency,
+            base_currency: body.base_currency,
+            side: body.side,
+            base_quantity: body.quantity,
+            price: 58.2,
+            total_amount: body.quantity * 58.2,
+          },
+        }),
+      } as Response;
+    }
+
+    if (url.includes("/pdax-institution/v1/trade")) {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          status: "success",
+          data: {
+            order_id: 98765,
+            status: "successful",
+            quote_currency: "USDCXLM",
+            base_currency: "PHP",
+            side: "sell",
+            base_quantity: 10,
+            price: 58.2,
+            total_amount: 582,
+            created_at: new Date().toISOString(),
+          },
+        }),
+      } as Response;
+    }
+
+    if (url.includes("/pdax-institution/v1/fiat/withdraw")) {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          status: "success",
+          data: {
+            identifier: body.identifier,
+            reference_number: "ref-withdraw-123",
+            amount: Number(body.amount),
+            method: "PAY-TO-ACCOUNT-REAL-TIME",
+            status: "PENDING",
+            fee: 15,
+          },
+        }),
+      } as Response;
+    }
+
+    if (url.includes("/pdax-institution/v1/orders/98765")) {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          status: "success",
+          data: {
+            order_id: 98765,
+            status: "SUCCESSFUL",
+            quote_currency: "USDCXLM",
+            base_currency: "PHP",
+            side: "sell",
+            base_quantity: 10,
+            price: 58.2,
+            total_amount: 582,
+            created_at: new Date().toISOString(),
+          },
+        }),
+      } as Response;
+    }
+
+    throw new Error(`Unexpected fetch URL: ${url}`);
+  };
+
+  try {
+    // 1. Connect
+    const connectRes = await owner.action(api.settlement.actions.connect, { projectId });
+    expect(connectRes.status).toBe("connected");
+
+    // Verify token is cached
+    const conn = await t.query(internal.provider_connections.query.getInternal, {
+      projectId,
+      provider: "pdax",
+    });
+    expect(conn?.status).toBe("connected");
+    expect(conn?.accessToken).toBe("mock-access-token");
+
+    // 2. Balances
+    const balances = (await owner.action(api.settlement.actions.getBalances, {
+      projectId,
+    })) as { currency: string; available: string }[];
+    expect(balances.length).toBe(2);
+    expect(balances[0].currency).toBe("USDCXLM");
+    expect(balances[0].available).toBe("5000");
+
+    // 3. Firm Quote
+    const { quote, transactionId } = (await owner.action(api.settlement.actions.getQuote, {
+      projectId,
+      side: "sell",
+      quoteCurrency: "USDCXLM",
+      baseCurrency: "PHP",
+      quantity: 10,
+      currency: "USDCXLM",
+      firm: true,
+      idempotencyId: "quote-idemp-1",
+    })) as { quote: { quote_id: string; price: number }; transactionId: string };
+
+    expect(quote.quote_id).toBe("quote-12345");
+    expect(quote.price).toBe(58.2);
+    expect(transactionId).toBeDefined();
+
+    // Verify stored Quote
+    const storedQuote = await t.query(internal.settlement_quotes.query.getByQuoteId, {
+      quoteId: "quote-12345",
+    });
+    expect(storedQuote?.status).toBe("active");
+    expect(storedQuote?.price).toBe(58.2);
+
+    // Verify stored Transaction
+    let storedTx = await t.query(internal.settlement_transactions.query.getByIdempotencyId, {
+      idempotencyId: "quote-idemp-1",
+    });
+    expect(storedTx?.status).toBe("QUOTE_FIRM");
+    expect(storedTx?.quoteId).toBe("quote-12345");
+
+    // 4. Trade Execution
+    const trade = (await owner.action(api.settlement.actions.executeTrade, {
+      projectId,
+      quoteId: "quote-12345",
+      idempotencyId: "trade-idemp-1",
+    })) as { order_id: number; status: string };
+    expect(trade.order_id).toBe(98765);
+    expect(trade.status).toBe("successful");
+
+    // Verify updated Quote and Transaction
+    const updatedQuote = await t.query(internal.settlement_quotes.query.getByQuoteId, {
+      quoteId: "quote-12345",
+    });
+    expect(updatedQuote?.status).toBe("executed");
+
+    storedTx = await t.query(internal.settlement_transactions.query.getByIdempotencyId, {
+      idempotencyId: "trade-idemp-1",
+    });
+    expect(storedTx?.status).toBe("TRADE_EXECUTED");
+    expect(storedTx?.tradeDetails?.orderId).toBe(98765);
+
+    // 5. Fiat Withdrawal
+    const withdrawal = (await owner.action(api.settlement.actions.fiatWithdraw, {
+      projectId,
+      idempotencyId: "withdraw-idemp-1",
+      amount: 500,
+      bankCode: "BASECPH",
+      accountName: "John Doe",
+      accountNumber: "123456",
+      beneficiaryFirstName: "John",
+      beneficiaryLastName: "Doe",
+    })) as { identifier: string; reference_number: string; status: string };
+    expect(withdrawal.identifier).toBe("withdraw-idemp-1");
+    expect(withdrawal.reference_number).toBe("ref-withdraw-123");
+    expect(withdrawal.status).toBe("PENDING");
+
+    storedTx = await t.query(internal.settlement_transactions.query.getByIdempotencyId, {
+      idempotencyId: "withdraw-idemp-1",
+    });
+    expect(storedTx?.status).toBe("PAYOUT_PENDING");
+    expect(storedTx?.withdrawalDetails?.referenceNumber).toBe("ref-withdraw-123");
+
+    // 6. Get Order Details
+    const orderDetails = (await owner.action(api.settlement.actions.getOrder, {
+      projectId,
+      orderId: 98765,
+    })) as { order_id: number; status: string };
+    expect(orderDetails.order_id).toBe(98765);
+    expect(orderDetails.status).toBe("SUCCESSFUL");
+  } finally {
+    globalThis.fetch = originalFetch;
+    delete process.env.PDAX_UAT_USERNAME;
+    delete process.env.PDAX_UAT_PASSWORD;
+    delete process.env.PDAX_UAT_BASE_URL;
+  }
+});

@@ -3,7 +3,7 @@ import { v } from "convex/values";
 
 export default defineTable({
   projectId: v.id("projects"),
-  paymentIntentId: v.optional(v.id("payment_intents")),
+  paymentIntentId: v.optional(v.id("paymentIntents")),
   provider: v.literal("pdax"),
   status: v.union(
     v.literal("QUOTE_PENDING"),

@@ -292,7 +292,7 @@ export const trigger = internalAction({
           "content-type": "application/json",
           "user-agent": "Velo-Webhook/1.0",
           "x-velo-event": args.eventType,
-          "x-velo-delivery": deliveryId,
+          "x-velo-delivery": String(deliveryId),
           ...(signatureHeader ? { "x-velo-signature": signatureHeader } : {}),
         },
         body: JSON.stringify(payload),

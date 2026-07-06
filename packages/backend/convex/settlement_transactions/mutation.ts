@@ -5,7 +5,7 @@ import { internalMutation } from "../_generated/server";
 export const create = internalMutation({
   args: {
     projectId: v.id("projects"),
-    paymentIntentId: v.optional(v.id("payment_intents")),
+    paymentIntentId: v.optional(v.id("paymentIntents")),
     provider: v.literal("pdax"),
     status: v.union(
       v.literal("QUOTE_PENDING"),
