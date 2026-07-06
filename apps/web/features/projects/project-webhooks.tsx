@@ -66,6 +66,12 @@ const eventTypes = [
   "payment.succeeded",
   "payment.failed",
   "payment_access.activated",
+  "settlement.quote.created",
+  "settlement.trade.executed",
+  "settlement.withdrawal.pending",
+  "settlement.withdrawal.succeeded",
+  "settlement.withdrawal.failed",
+  "provider.pdax.event.received",
 ] as const;
 
 type EventType = (typeof eventTypes)[number];

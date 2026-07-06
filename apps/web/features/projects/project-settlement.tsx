@@ -45,8 +45,11 @@ import {
   ActivityIcon,
   SearchIcon,
   ArrowUpDownIcon,
+  ChevronDownIcon,
+  CheckIcon,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { cn } from "@repo/ui/lib/utils";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 type ProjectSettlementProps = {
   projectId: string;
@@ -103,6 +106,100 @@ const BANK_TEST_ACCOUNTS = {
   },
 } as const;
 
+function SearchableSelect({
+  value,
+  onValueChange,
+  options,
+  placeholder,
+  label,
+  disabled = false,
+}: {
+  value: string;
+  onValueChange: (val: string) => void;
+  options: string[];
+  placeholder: string;
+  label: string;
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const filteredOptions = options.filter((opt) =>
+    opt.toLowerCase().includes(search.toLowerCase())
+  );
+
+  return (
+    <div className="relative w-full" ref={dropdownRef}>
+      <Label className="text-xs font-medium text-zinc-500 uppercase">{label}</Label>
+      <button
+        onClick={() => {
+          if (!disabled) {
+            setOpen(!open);
+            setSearch("");
+          }
+        }}
+        disabled={disabled}
+        type="button"
+        className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50 text-left mt-1.5 border-zinc-200"
+      >
+        <span>{value || placeholder}</span>
+        <ChevronDownIcon className="h-4 w-4 opacity-50" />
+      </button>
+
+      {open && (
+        <div className="absolute z-50 min-w-[8rem] w-full overflow-hidden rounded-md border border-zinc-200 bg-card text-card-foreground shadow-md animate-in fade-in-0 zoom-in-95 duration-100 mt-1 max-h-60 flex flex-col">
+          <div className="flex items-center border-b border-zinc-100 px-3 py-2">
+            <SearchIcon className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+            <input
+              className="flex h-6 w-full rounded-md bg-transparent text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
+              placeholder="Search..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              autoFocus
+            />
+          </div>
+          <div className="overflow-y-auto max-h-48 p-1">
+            {filteredOptions.length > 0 ? (
+              filteredOptions.map((opt) => (
+                <button
+                  key={opt}
+                  onClick={() => {
+                    onValueChange(opt);
+                    setOpen(false);
+                  }}
+                  type="button"
+                  className={cn(
+                    "relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 px-2 text-sm outline-none transition-colors hover:bg-accent hover:text-accent-foreground text-left",
+                    opt === value && "bg-accent/50 font-medium"
+                  )}
+                >
+                  <span className="flex-1">{opt}</span>
+                  {opt === value && <CheckIcon className="h-4 w-4" />}
+                </button>
+              ))
+            ) : (
+              <div className="py-6 text-center text-sm text-muted-foreground">
+                No results found.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
   const typedProjectId = projectId as Id<"projects">;
   const project = useQuery(api.projects.query.getById, { id: typedProjectId });
@@ -133,6 +230,15 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
     null,
   );
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+
+  const availableAssets = Array.from(
+    new Set([
+      "PHP",
+      "USDCXLM",
+      "XLM",
+      ...(balances ? balances.map((b) => b.currency) : []),
+    ])
+  );
 
   const handleSort = (field: "currency" | "available" | "hold" | "total") => {
     if (sortField === field) {
@@ -170,13 +276,17 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
 
   // Quote flow state
   const [quoteQuantity, setQuoteQuantity] = useState("10");
-  const [quoteSide] = useState<"sell" | "buy">("sell");
-  const [quoteCurrency] = useState("USDCXLM");
+  const [fromAsset, setFromAsset] = useState("USDCXLM");
+  const [toAsset, setToAsset] = useState("PHP");
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [quoteError, setQuoteError] = useState<string | null>(null);
   const [activeQuote, setActiveQuote] = useState<PdaxFirmQuote | null>(null);
   const [quoteExpiresAt, setQuoteExpiresAt] = useState<number | null>(null);
   const [quoteSecondsLeft, setQuoteSecondsLeft] = useState<number>(0);
+
+  const isDirectCryptoToCrypto = fromAsset !== "PHP" && toAsset !== "PHP";
+  const isSameAsset = fromAsset === toAsset;
+  const isQuoteDisabled = isDirectCryptoToCrypto || isSameAsset || quoteLoading;
 
   // Trade flow state
   const [tradeLoading, setTradeLoading] = useState(false);
@@ -281,12 +391,16 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
     }
 
     try {
+      const side = fromAsset === "PHP" ? "buy" : "sell";
+      const quoteCurrencyParam = fromAsset !== "PHP" ? fromAsset : toAsset;
+      const currencyParam = fromAsset;
+
       const res = (await getQuoteAction({
         projectId: typedProjectId,
-        side: quoteSide,
-        quoteCurrency,
+        side,
+        quoteCurrency: quoteCurrencyParam,
         baseCurrency: "PHP",
-        currency: quoteCurrency,
+        currency: currencyParam,
         quantity: qty,
         firm: true,
         idempotencyId: `q-idemp-${Date.now()}`,
@@ -670,40 +784,72 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
               <CardHeader className="pb-3 border-b">
                 <CardTitle className="text-lg font-medium flex items-center gap-2">
                   <ArrowLeftRightIcon className="size-4 text-primary" />
-                  Step 1: USDCXLM to PHP Quote & Trade
+                  Step 1: Quote & Trade Conversion
                 </CardTitle>
                 <CardDescription>Request a firm quote and execute conversion.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4 pt-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
                   <div className="space-y-2">
-                    <Label htmlFor="quoteQuantity">Quantity to Sell</Label>
+                    <Label htmlFor="quoteQuantity" className="text-xs font-medium text-zinc-500 uppercase">Quantity</Label>
                     <Input
                       id="quoteQuantity"
                       type="number"
                       value={quoteQuantity}
                       onChange={(e) => setQuoteQuantity(e.target.value)}
-                      placeholder="Amount to sell"
+                      placeholder="Amount"
+                      className="border-zinc-200"
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="quoteAsset">Asset Pair</Label>
-                    <Select value={quoteCurrency}>
-                      <SelectTrigger id="quoteAsset">
-                        <SelectValue placeholder="Pair" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="USDCXLM">USDCXLM → PHP</SelectItem>
-                      </SelectContent>
-                    </Select>
+                  <div>
+                    <SearchableSelect
+                      value={fromAsset}
+                      onValueChange={(val) => {
+                        setFromAsset(val);
+                        setActiveQuote(null);
+                      }}
+                      options={availableAssets}
+                      placeholder="Select From"
+                      label="From Asset"
+                    />
+                  </div>
+                  <div>
+                    <SearchableSelect
+                      value={toAsset}
+                      onValueChange={(val) => {
+                        setToAsset(val);
+                        setActiveQuote(null);
+                      }}
+                      options={availableAssets}
+                      placeholder="Select To"
+                      label="To Asset"
+                    />
                   </div>
                 </div>
+
+                {isDirectCryptoToCrypto && (
+                  <Alert className="py-2 px-3 border-amber-500/20 bg-amber-500/5 text-amber-600 dark:text-amber-500 animate-in fade-in duration-200">
+                    <AlertDescription className="text-xs flex items-center gap-1.5 font-medium">
+                      <AlertTriangleIcon className="size-4 shrink-0 text-amber-500" />
+                      Direct token-to-token swap is not supported by PDAX. Swap via PHP instead.
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                {isSameAsset && (
+                  <Alert className="py-2 px-3 border-amber-500/20 bg-amber-500/5 text-amber-600 dark:text-amber-500 animate-in fade-in duration-200">
+                    <AlertDescription className="text-xs flex items-center gap-1.5 font-medium">
+                      <AlertTriangleIcon className="size-4 shrink-0 text-amber-500" />
+                      Source and destination assets must be different.
+                    </AlertDescription>
+                  </Alert>
+                )}
 
                 {quoteError && <p className="text-xs text-destructive">{quoteError}</p>}
 
                 <Button
                   onClick={handleGetQuote}
-                  disabled={quoteLoading}
+                  disabled={isQuoteDisabled}
                   className="w-full flex items-center justify-center gap-2"
                 >
                   {quoteLoading ? <RefreshCwIcon className="h-4 w-4 animate-spin" /> : null}
@@ -734,17 +880,19 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
                     <div className="grid grid-cols-2 gap-2 text-sm pt-1">
                       <span className="text-muted-foreground">Sell Quantity:</span>
                       <span className="font-semibold text-right">
-                        {activeQuote.base_quantity} {activeQuote.quote_currency}
+                        {activeQuote.side === "sell"
+                          ? `${activeQuote.base_quantity} ${activeQuote.quote_currency}`
+                          : `₱${activeQuote.total_amount.toLocaleString(undefined, { minimumFractionDigits: 2 })} PHP`}
                       </span>
                       <span className="text-muted-foreground">UAT Rate:</span>
                       <span className="font-semibold text-right">₱{activeQuote.price} PHP</span>
-                      <span className="text-muted-foreground">Estimated Payout:</span>
+                      <span className="text-muted-foreground">
+                        {activeQuote.side === "sell" ? "Estimated Payout:" : "Estimated Receive:"}
+                      </span>
                       <span className="font-bold text-primary text-right">
-                        ₱
-                        {activeQuote.total_amount.toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                        })}{" "}
-                        PHP
+                        {activeQuote.side === "sell"
+                          ? `₱${activeQuote.total_amount.toLocaleString(undefined, { minimumFractionDigits: 2 })} PHP`
+                          : `${activeQuote.base_quantity} ${activeQuote.quote_currency}`}
                       </span>
                     </div>
 
@@ -767,9 +915,13 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
                     <CheckCircle2Icon className="h-4 w-4" />
                     <AlertTitle className="font-semibold">Trade Executed</AlertTitle>
                     <AlertDescription className="text-xs space-y-1">
-                      <div>Conversion executed successfully on PDAX rails.</div>
+                      <div>Conversion executed successfully on PDAX UAT rails.</div>
                       <div className="font-mono mt-1">Order ID: {tradeSuccess.order_id}</div>
-                      <div className="font-mono">Amount: ₱{tradeSuccess.total_amount} PHP</div>
+                      <div className="font-mono">
+                        {tradeSuccess.side === "sell"
+                          ? `Sold: ${tradeSuccess.base_quantity} ${tradeSuccess.quote_currency} ➔ ₱${tradeSuccess.total_amount.toLocaleString(undefined, { minimumFractionDigits: 2 })} PHP`
+                          : `Spent: ₱${tradeSuccess.total_amount.toLocaleString(undefined, { minimumFractionDigits: 2 })} PHP ➔ ${tradeSuccess.base_quantity} ${tradeSuccess.quote_currency}`}
+                      </div>
                     </AlertDescription>
                   </Alert>
                 )}

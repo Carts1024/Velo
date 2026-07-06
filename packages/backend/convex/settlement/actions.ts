@@ -102,13 +102,28 @@ export const getQuote = action({
       }
 
       // Request firm quote
-      const response = await client.firmQuote(accessToken, idToken, {
-        side: args.side,
-        quote_currency: args.quoteCurrency,
-        base_currency: args.baseCurrency,
-        currency: args.currency,
-        quantity: args.quantity,
-      });
+      let response;
+      try {
+        response = await client.firmQuote(accessToken, idToken, {
+          side: args.side,
+          quote_currency: args.quoteCurrency,
+          base_currency: args.baseCurrency,
+          currency: args.currency,
+          quantity: args.quantity,
+        });
+      } catch (err) {
+        if (err instanceof PdaxError) {
+          const bodyStr = typeof err.body === "string" ? err.body : JSON.stringify(err.body);
+          console.error(`PDAX firmQuote failed [${err.status}]: ${bodyStr}`, {
+            side: args.side,
+            quoteCurrency: args.quoteCurrency,
+            currency: args.currency,
+            quantity: args.quantity,
+          });
+          throw new Error(`PDAX firmQuote failed (${err.status}): ${bodyStr}`);
+        }
+        throw err;
+      }
 
       const expiresAt = Date.parse(response.data.expires_at);
 
@@ -154,13 +169,28 @@ export const getQuote = action({
       return { quote: response.data, transactionId };
     } else {
       // Request indicative quote
-      const response = await client.indicativeQuote(accessToken, idToken, {
-        side: args.side,
-        quote_currency: args.quoteCurrency,
-        base_currency: args.baseCurrency,
-        currency: args.currency,
-        quantity: args.quantity,
-      });
+      let response;
+      try {
+        response = await client.indicativeQuote(accessToken, idToken, {
+          side: args.side,
+          quote_currency: args.quoteCurrency,
+          base_currency: args.baseCurrency,
+          currency: args.currency,
+          quantity: args.quantity,
+        });
+      } catch (err) {
+        if (err instanceof PdaxError) {
+          const bodyStr = typeof err.body === "string" ? err.body : JSON.stringify(err.body);
+          console.error(`PDAX indicativeQuote failed [${err.status}]: ${bodyStr}`, {
+            side: args.side,
+            quoteCurrency: args.quoteCurrency,
+            currency: args.currency,
+            quantity: args.quantity,
+          });
+          throw new Error(`PDAX indicativeQuote failed (${err.status}): ${bodyStr}`);
+        }
+        throw err;
+      }
 
       return { quote: response.data };
     }
@@ -438,14 +468,25 @@ export const handlePdaxWebhook = action({
       ("reference_number" in payload ? payload.reference_number : "") ||
       ("reference_id" in payload ? payload.reference_id : "") ||
       identifier;
-    const eventType = payload.transaction_type; // "DEPOSIT", "WITHDRAWAL", "TRADE"
+
+    const rawEventType = payload.transaction_type;
+    const upperRawEventType = String(rawEventType || "").toUpperCase();
+    let eventType: "DEPOSIT" | "WITHDRAWAL" | "TRADE" = "TRADE";
+
+    if (upperRawEventType === "WITHDRAWAL" || upperRawEventType === "CASHOUT") {
+      eventType = "WITHDRAWAL";
+    } else if (upperRawEventType === "DEPOSIT" || upperRawEventType === "CASHIN") {
+      eventType = "DEPOSIT";
+    } else if (upperRawEventType === "TRADE") {
+      eventType = "TRADE";
+    }
 
     // 2. Record the provider event with duplicate protection
     const recordResult = await ctx.runMutation(internal.provider_events.mutation.recordEvent, {
       projectId,
       provider: "pdax",
       eventId,
-      type: eventType as "DEPOSIT" | "WITHDRAWAL" | "TRADE",
+      type: eventType,
       rawEvent: JSON.stringify(payload),
       processed: false,
     });
@@ -457,16 +498,21 @@ export const handlePdaxWebhook = action({
     // 3. Process the event if it's new
     if (eventType === "WITHDRAWAL" && tx) {
       const status = payload.status; // "COMPLETED", "FAILED", "PENDING"
+      const upperStatus = String(status || "").toUpperCase();
       let newStatus: "PAYOUT_SUCCEEDED" | "PAYOUT_FAILED" | "PAYOUT_PENDING" = "PAYOUT_PENDING";
       let webhookType:
         | "settlement.withdrawal.succeeded"
         | "settlement.withdrawal.failed"
         | "settlement.withdrawal.pending" = "settlement.withdrawal.pending";
 
-      if (status === "COMPLETED" || status === "successful" || status === "SUCCESSFUL") {
+      if (
+        upperStatus === "COMPLETED" ||
+        upperStatus === "SUCCESSFUL" ||
+        upperStatus === "SUCCESS"
+      ) {
         newStatus = "PAYOUT_SUCCEEDED";
         webhookType = "settlement.withdrawal.succeeded";
-      } else if (status === "FAILED" || status === "failed") {
+      } else if (upperStatus === "FAILED" || upperStatus === "FAIL") {
         newStatus = "PAYOUT_FAILED";
         webhookType = "settlement.withdrawal.failed";
       } else {
