@@ -218,6 +218,16 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
   const executeTradeAction = useAction(api.settlement.actions.executeTrade);
   const fiatWithdrawAction = useAction(api.settlement.actions.fiatWithdraw);
   const mockWebhookAction = useAction(api.settlement.actions.mockPdaxWebhook);
+  const registerWebhookAction = useAction(api.settlement.actions.registerWebhook);
+  const checkPayoutStatusAction = useAction(api.settlement.actions.checkPayoutStatus);
+
+  // Webhook registration state
+  const [webhookRegLoading, setWebhookRegLoading] = useState(false);
+  const [webhookRegSuccess, setWebhookRegSuccess] = useState(false);
+  const [webhookRegError, setWebhookRegError] = useState<string | null>(null);
+  const [webhookUrl, setWebhookUrl] = useState(
+    typeof window !== "undefined" ? `${window.location.origin}/api/webhooks/pdax` : "/api/webhooks/pdax"
+  );
 
   // Balances state
   const [balances, setBalances] = useState<BalanceItem[] | null>(null);
@@ -306,6 +316,10 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
   const simFee = "15";
   const [simLoading, setSimLoading] = useState(false);
   const [simSuccess, setSimSuccess] = useState(false);
+
+  // Payout status refresh state
+  const [refreshingPayoutId, setRefreshingPayoutId] = useState<string | null>(null);
+  const [refreshAllLoading, setRefreshAllLoading] = useState(false);
   const [simError, setSimError] = useState<string | null>(null);
 
   // Auto-fill account number based on selected bank
@@ -508,6 +522,25 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
       setSimError(msg);
     } finally {
       setSimLoading(false);
+    }
+  };
+
+  const handleRegisterWebhook = async () => {
+    setWebhookRegLoading(true);
+    setWebhookRegError(null);
+    setWebhookRegSuccess(false);
+
+    try {
+      await registerWebhookAction({
+        projectId: typedProjectId,
+        webhookUrl,
+      });
+      setWebhookRegSuccess(true);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to register webhook";
+      setWebhookRegError(msg);
+    } finally {
+      setWebhookRegLoading(false);
     }
   };
 
@@ -1026,6 +1059,51 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
         </div>
       )}
 
+      {/* Webhook Callback Registration */}
+      {isConnected && (
+        <Card className="shadow-sm border bg-card/60 backdrop-blur-sm border-dashed mb-6">
+          <CardHeader className="pb-3 flex flex-row items-center gap-3">
+            <ActivityIcon className="size-5 text-primary" />
+            <div>
+              <CardTitle className="text-lg font-medium">
+                PDAX Webhook Callback Registration
+              </CardTitle>
+              <CardDescription>
+                Register your Velo callback URL with PDAX sandbox to receive instant payout updates.
+              </CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label className="text-xs text-muted-foreground uppercase font-medium">Webhook URL</Label>
+              <div className="flex gap-2">
+                <Input
+                  value={webhookUrl}
+                  onChange={(e) => setWebhookUrl(e.target.value)}
+                  className="font-mono text-xs flex-1 border-zinc-200"
+                />
+                <Button
+                  onClick={handleRegisterWebhook}
+                  disabled={webhookRegLoading}
+                  className="bg-primary hover:bg-primary/95 text-white flex items-center justify-center gap-2 whitespace-nowrap"
+                >
+                  {webhookRegLoading ? <RefreshCwIcon className="h-4 w-4 animate-spin" /> : null}
+                  Register URL
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+          <CardFooter className="pt-0 flex flex-col items-start gap-1">
+            {webhookRegSuccess && (
+              <p className="text-xs text-emerald-600 font-semibold flex items-center gap-1">
+                <CheckCircle2Icon className="size-3" /> Webhook URL successfully registered with PDAX!
+              </p>
+            )}
+            {webhookRegError && <p className="text-xs text-destructive">{webhookRegError}</p>}
+          </CardFooter>
+        </Card>
+      )}
+
       {/* Webhook Simulator (Sandbox testing helper widget) */}
       {isConnected && (
         <Card className="shadow-sm border bg-card/60 backdrop-blur-sm border-dashed">
@@ -1100,12 +1178,35 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
         <div className="grid gap-6 md:grid-cols-2">
           {/* Action History */}
           <Card className="shadow-sm border bg-card/60 backdrop-blur-sm">
-            <CardHeader className="pb-3 border-b">
-              <CardTitle className="text-lg font-medium flex items-center gap-2">
-                <HistoryIcon className="size-4 text-primary" />
-                Settlement History
-              </CardTitle>
-              <CardDescription>Lifecycle updates from the database.</CardDescription>
+            <CardHeader className="pb-3 border-b flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-lg font-medium flex items-center gap-2">
+                  <HistoryIcon className="size-4 text-primary" />
+                  Settlement History
+                </CardTitle>
+                <CardDescription>Lifecycle updates from the database.</CardDescription>
+              </div>
+              {transactions && transactions.some((tx) => tx.status === "PAYOUT_PENDING") && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={refreshAllLoading}
+                  onClick={async () => {
+                    setRefreshAllLoading(true);
+                    try {
+                      await checkPayoutStatusAction({ projectId: typedProjectId });
+                    } catch (err) {
+                      console.error("Failed to refresh payout status:", err);
+                    } finally {
+                      setRefreshAllLoading(false);
+                    }
+                  }}
+                  className="flex items-center gap-1.5 text-xs"
+                >
+                  <RefreshCwIcon className={`size-3 ${refreshAllLoading ? "animate-spin" : ""}`} />
+                  Refresh All Pending
+                </Button>
+              )}
             </CardHeader>
             <CardContent className="pt-2">
               {transactions && transactions.length > 0 ? (
@@ -1132,20 +1233,47 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
                             {tx.idempotencyId}
                           </TableCell>
                           <TableCell className="text-xs py-2">
-                            <Badge
-                              variant={
-                                tx.status === "PAYOUT_SUCCEEDED"
-                                  ? "success"
-                                  : tx.status === "PAYOUT_FAILED"
-                                    ? "destructive"
-                                    : tx.status === "PAYOUT_PENDING"
-                                      ? "warning"
-                                      : "info"
-                              }
-                              className="text-[10px]"
-                            >
-                              {tx.status}
-                            </Badge>
+                            <div className="flex items-center gap-1.5">
+                              <Badge
+                                variant={
+                                  tx.status === "PAYOUT_SUCCEEDED"
+                                    ? "success"
+                                    : tx.status === "PAYOUT_FAILED"
+                                      ? "destructive"
+                                      : tx.status === "PAYOUT_PENDING"
+                                        ? "warning"
+                                        : "info"
+                                }
+                                className="text-[10px]"
+                              >
+                                {tx.status}
+                              </Badge>
+                              {tx.status === "PAYOUT_PENDING" && (
+                                <button
+                                  type="button"
+                                  disabled={refreshingPayoutId === tx.idempotencyId}
+                                  onClick={async () => {
+                                    setRefreshingPayoutId(tx.idempotencyId);
+                                    try {
+                                      await checkPayoutStatusAction({
+                                        projectId: typedProjectId,
+                                        idempotencyId: tx.idempotencyId,
+                                      });
+                                    } catch (err) {
+                                      console.error("Failed to refresh payout:", err);
+                                    } finally {
+                                      setRefreshingPayoutId(null);
+                                    }
+                                  }}
+                                  className="p-0.5 rounded hover:bg-muted/50 transition-colors"
+                                  title="Check payout status on PDAX"
+                                >
+                                  <RefreshCwIcon
+                                    className={`size-3 text-amber-500 ${refreshingPayoutId === tx.idempotencyId ? "animate-spin" : ""}`}
+                                  />
+                                </button>
+                              )}
+                            </div>
                           </TableCell>
                           <TableCell className="text-xs py-2">
                             {tx.tradeDetails && (

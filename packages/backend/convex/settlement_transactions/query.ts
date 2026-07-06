@@ -84,3 +84,13 @@ export const getByAnyIdentifier = internalQuery({
     return null;
   },
 });
+
+export const listAllPending = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    // Scan all settlement transactions and filter for PAYOUT_PENDING.
+    // No status index exists, but volume is low enough for a full scan.
+    const all = await ctx.db.query("settlementTransactions").order("desc").take(200);
+    return all.filter((tx) => tx.status === "PAYOUT_PENDING").slice(0, 50);
+  },
+});

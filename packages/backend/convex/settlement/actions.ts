@@ -7,7 +7,7 @@ import { v } from "convex/values";
 
 import { api, internal } from "../_generated/api";
 import { Doc, Id } from "../_generated/dataModel";
-import { action } from "../_generated/server";
+import { action, internalAction } from "../_generated/server";
 import { getOrRefreshPdaxConnection } from "./helpers";
 
 export const connect = action({
@@ -633,5 +633,279 @@ export const mockPdaxWebhook = action({
     return await ctx.runAction(api.settlement.actions.handlePdaxWebhook, {
       payload,
     });
+  },
+});
+
+export const registerWebhook = action({
+  args: {
+    projectId: v.id("projects"),
+    webhookUrl: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // 1. Authenticate project owner
+    const project = await ctx.runQuery(api.projects.query.getById, { id: args.projectId });
+    if (!project) {
+      throw new Error("Unauthorized or project not found");
+    }
+
+    // 2. Retrieve connection tokens and client
+    const { accessToken, idToken, client } = await getOrRefreshPdaxConnection(ctx, args.projectId);
+
+    // 3. Call PDAX to register the webhook URL for both 'crypto' and 'fiat'
+    try {
+      await client.registerWebhook(accessToken, idToken, args.webhookUrl, "crypto");
+      await client.registerWebhook(accessToken, idToken, args.webhookUrl, "fiat");
+      return { status: "success" };
+    } catch (err) {
+      if (err instanceof PdaxError) {
+        const bodyStr = typeof err.body === "string" ? err.body : JSON.stringify(err.body);
+        console.error(`PDAX registerWebhook failed [${err.status}]: ${bodyStr}`);
+        throw new Error(`PDAX webhook registration failed (${err.status}): ${bodyStr}`);
+      }
+      throw err;
+    }
+  },
+});
+
+export const checkPayoutStatus = action({
+  args: {
+    projectId: v.id("projects"),
+    idempotencyId: v.optional(v.string()),
+  },
+  handler: async (ctx, args): Promise<unknown> => {
+    // 1. Authenticate project owner
+    const project = await ctx.runQuery(api.projects.query.getById, { id: args.projectId });
+    if (!project) {
+      throw new Error("Unauthorized or project not found");
+    }
+
+    // 2. Get pending transactions to check
+    let pendingTxs: Array<{
+      _id: Id<"settlementTransactions">;
+      idempotencyId: string;
+      withdrawalId?: string;
+      projectId: Id<"projects">;
+      paymentIntentId?: Id<"paymentIntents">;
+      withdrawalDetails?: {
+        referenceNumber?: string;
+        amount: number;
+        fee: number;
+        status: string;
+        bankCode: string;
+        accountName: string;
+        accountNumber: string;
+      };
+    }> = [];
+
+    if (args.idempotencyId) {
+      const tx = await ctx.runQuery(
+        internal.settlement_transactions.query.getByIdempotencyId,
+        { idempotencyId: args.idempotencyId },
+      );
+      if (tx && tx.status === "PAYOUT_PENDING") {
+        pendingTxs = [tx];
+      }
+    } else {
+      const allPending = await ctx.runQuery(
+        internal.settlement_transactions.query.listAllPending,
+        {},
+      );
+      pendingTxs = allPending.filter(
+        (tx: { projectId: Id<"projects"> }) => tx.projectId === args.projectId,
+      );
+    }
+
+    if (pendingTxs.length === 0) {
+      return { updated: 0, message: "No pending payouts to check" };
+    }
+
+    // 3. Get PDAX connection
+    const { accessToken, idToken, client } = await getOrRefreshPdaxConnection(ctx, args.projectId);
+
+    let updated = 0;
+
+    // 4. Poll PDAX for each pending transaction
+    for (const tx of pendingTxs) {
+      const identifier = tx.withdrawalId || tx.idempotencyId;
+      try {
+        const response = await client.getFiatTransactions(accessToken, idToken, {
+          identifier,
+          mode: "CashOut",
+          page: 1,
+          pageSize: 1,
+        });
+
+        const pdaxTx = response.data?.[0];
+        if (!pdaxTx) continue;
+
+        const upperStatus = String(pdaxTx.status || "").toUpperCase();
+        let newStatus: "PAYOUT_SUCCEEDED" | "PAYOUT_FAILED" | "PAYOUT_PENDING" = "PAYOUT_PENDING";
+        let webhookType:
+          | "settlement.withdrawal.succeeded"
+          | "settlement.withdrawal.failed"
+          | "settlement.withdrawal.pending" = "settlement.withdrawal.pending";
+
+        if (upperStatus === "COMPLETED" || upperStatus === "SUCCESSFUL" || upperStatus === "SUCCESS") {
+          newStatus = "PAYOUT_SUCCEEDED";
+          webhookType = "settlement.withdrawal.succeeded";
+        } else if (upperStatus === "FAILED" || upperStatus === "FAIL") {
+          newStatus = "PAYOUT_FAILED";
+          webhookType = "settlement.withdrawal.failed";
+        } else {
+          // Still pending, skip update
+          continue;
+        }
+
+        const existingDetails = tx.withdrawalDetails ?? {
+          referenceNumber: undefined as string | undefined,
+          amount: parseFloat(pdaxTx.amount) || 0,
+          fee: parseFloat(pdaxTx.fee || "0") || 0,
+          bankCode: "BASECPH",
+          accountName: "n/a",
+          accountNumber: "n/a",
+        };
+
+        await ctx.runMutation(internal.settlement_transactions.mutation.updateStatus, {
+          idempotencyId: tx.idempotencyId,
+          status: newStatus,
+          withdrawalId: identifier,
+          withdrawalDetails: {
+            referenceNumber: pdaxTx.reference_number || existingDetails.referenceNumber,
+            amount: parseFloat(pdaxTx.amount) || existingDetails.amount,
+            fee: parseFloat(pdaxTx.fee || "0") || existingDetails.fee,
+            status: pdaxTx.status,
+            bankCode: existingDetails.bankCode,
+            accountName: existingDetails.accountName,
+            accountNumber: existingDetails.accountNumber,
+          },
+        });
+
+        // Dispatch merchant webhook
+        await ctx.scheduler.runAfter(0, internal.webhookDelivery.trigger, {
+          projectId: tx.projectId,
+          eventType: webhookType,
+          paymentIntentId: tx.paymentIntentId,
+          settlementTransactionId: tx._id,
+        });
+
+        updated++;
+      } catch (err) {
+        console.error(`Failed to poll PDAX for withdrawal ${identifier}:`, err);
+        // Continue with next transaction, don't fail the whole batch
+      }
+    }
+
+    return { updated, total: pendingTxs.length };
+  },
+});
+
+export const pollPendingPayouts = internalAction({
+  args: {},
+  handler: async (ctx): Promise<unknown> => {
+    // 1. Get all pending payout transactions
+    const pendingTxs = await ctx.runQuery(
+      internal.settlement_transactions.query.listAllPending,
+      {},
+    );
+
+    if (pendingTxs.length === 0) {
+      return { updated: 0, message: "No pending payouts" };
+    }
+
+    // 2. Group by projectId
+    const byProject = new Map<string, typeof pendingTxs>();
+    for (const tx of pendingTxs) {
+      const key = tx.projectId;
+      if (!byProject.has(key)) byProject.set(key, []);
+      byProject.get(key)!.push(tx);
+    }
+
+    let totalUpdated = 0;
+
+    // 3. Poll PDAX for each project's pending transactions
+    for (const [projectId, txs] of byProject) {
+      try {
+        const { accessToken, idToken, client } = await getOrRefreshPdaxConnection(
+          ctx,
+          projectId as Id<"projects">,
+        );
+
+        for (const tx of txs) {
+          const identifier = tx.withdrawalId || tx.idempotencyId;
+          try {
+            const response = await client.getFiatTransactions(accessToken, idToken, {
+              identifier,
+              mode: "CashOut",
+              page: 1,
+              pageSize: 1,
+            });
+
+            const pdaxTx = response.data?.[0];
+            if (!pdaxTx) continue;
+
+            const upperStatus = String(pdaxTx.status || "").toUpperCase();
+            let newStatus: "PAYOUT_SUCCEEDED" | "PAYOUT_FAILED" | "PAYOUT_PENDING" =
+              "PAYOUT_PENDING";
+            let webhookType:
+              | "settlement.withdrawal.succeeded"
+              | "settlement.withdrawal.failed"
+              | "settlement.withdrawal.pending" = "settlement.withdrawal.pending";
+
+            if (
+              upperStatus === "COMPLETED" ||
+              upperStatus === "SUCCESSFUL" ||
+              upperStatus === "SUCCESS"
+            ) {
+              newStatus = "PAYOUT_SUCCEEDED";
+              webhookType = "settlement.withdrawal.succeeded";
+            } else if (upperStatus === "FAILED" || upperStatus === "FAIL") {
+              newStatus = "PAYOUT_FAILED";
+              webhookType = "settlement.withdrawal.failed";
+            } else {
+              continue;
+            }
+
+            const existingDetails = tx.withdrawalDetails ?? {
+              referenceNumber: undefined as string | undefined,
+              amount: parseFloat(pdaxTx.amount) || 0,
+              fee: parseFloat(pdaxTx.fee || "0") || 0,
+              bankCode: "BASECPH",
+              accountName: "n/a",
+              accountNumber: "n/a",
+            };
+
+            await ctx.runMutation(internal.settlement_transactions.mutation.updateStatus, {
+              idempotencyId: tx.idempotencyId,
+              status: newStatus,
+              withdrawalId: identifier,
+              withdrawalDetails: {
+                referenceNumber: pdaxTx.reference_number || existingDetails.referenceNumber,
+                amount: parseFloat(pdaxTx.amount) || existingDetails.amount,
+                fee: parseFloat(pdaxTx.fee || "0") || existingDetails.fee,
+                status: pdaxTx.status,
+                bankCode: existingDetails.bankCode,
+                accountName: existingDetails.accountName,
+                accountNumber: existingDetails.accountNumber,
+              },
+            });
+
+            await ctx.scheduler.runAfter(0, internal.webhookDelivery.trigger, {
+              projectId: tx.projectId,
+              eventType: webhookType,
+              paymentIntentId: tx.paymentIntentId,
+              settlementTransactionId: tx._id,
+            });
+
+            totalUpdated++;
+          } catch (err) {
+            console.error(`Failed to poll PDAX for withdrawal ${identifier}:`, err);
+          }
+        }
+      } catch (err) {
+        console.error(`Failed to get PDAX connection for project ${projectId}:`, err);
+      }
+    }
+
+    return { updated: totalUpdated, total: pendingTxs.length };
   },
 });

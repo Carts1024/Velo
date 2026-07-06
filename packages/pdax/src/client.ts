@@ -196,6 +196,43 @@ export interface PdaxFiatWebhookPayload {
   fee: number;
 }
 
+export interface PdaxFiatTransactionItem {
+  request_id: string;
+  transaction_id: number;
+  amount: string;
+  fee: string | null;
+  method: string;
+  mode: string; // "CashOut" | "CashIn"
+  reference_number: string;
+  fulfilled_at: string | null;
+  declined_at: string | null;
+  rejection_reason: string | null;
+  currency: string;
+  created_at: string;
+  updated_at: string;
+  status: "COMPLETED" | "FAILED" | "IN-PROGRESS" | string;
+  identifier: string;
+  fee_type: string | null;
+  retried_methods?: Array<{
+    request_id: string;
+    channel: string;
+    status: string;
+    fail_reason: string;
+    time: string;
+  }>;
+}
+
+export interface PdaxFiatTransactionsResponse {
+  data: PdaxFiatTransactionItem[];
+}
+
+export interface PdaxFiatTransactionsParams {
+  identifier?: string;
+  mode?: "CashIn" | "CashOut";
+  page?: number;
+  pageSize?: number;
+}
+
 export type PdaxWebhookPayload = PdaxCryptoWebhookPayload | PdaxFiatWebhookPayload;
 
 export class PdaxClient {
@@ -404,6 +441,51 @@ export class PdaxClient {
       "POST",
       headers,
       params,
+    );
+  }
+
+  async registerWebhook(
+    accessToken: string,
+    idToken: string,
+    webhookUrl: string,
+    eventType: "crypto" | "fiat",
+  ): Promise<unknown> {
+    const headers = {
+      access_token: accessToken,
+      id_token: idToken,
+    };
+    return this.request<unknown>(
+      "/pdax-institution/v1/config/webhook",
+      "POST",
+      headers,
+      {
+        event_type: eventType,
+        webhook_endpoint: webhookUrl,
+      },
+    );
+  }
+
+  async getFiatTransactions(
+    accessToken: string,
+    idToken: string,
+    params: PdaxFiatTransactionsParams = {},
+  ): Promise<PdaxFiatTransactionsResponse> {
+    const headers = {
+      access_token: accessToken,
+      id_token: idToken,
+    };
+    const queryParams: Record<string, string | undefined> = {};
+    if (params.identifier) queryParams.identifier = params.identifier;
+    if (params.mode) queryParams.mode = params.mode;
+    if (params.page !== undefined) queryParams.page = params.page.toString();
+    if (params.pageSize !== undefined) queryParams.pageSize = params.pageSize.toString();
+
+    return this.request<PdaxFiatTransactionsResponse>(
+      "/pdax-institution/v1/fiat/transactions",
+      "GET",
+      headers,
+      undefined,
+      queryParams,
     );
   }
 

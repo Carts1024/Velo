@@ -25,4 +25,11 @@ crons.interval(
   {},
 );
 
+crons.interval(
+  "poll pending payout status from PDAX",
+  { minutes: 2 },
+  internal.settlement.actions.pollPendingPayouts,
+  {},
+);
+
 export default crons;
