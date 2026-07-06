@@ -17,6 +17,9 @@ type DeliveryTarget = {
   project: Doc<"projects">;
   contractEvent?: Doc<"contractEvents"> | null;
   paymentIntent?: Doc<"paymentIntents"> | null;
+  settlementQuote?: Doc<"settlementQuotes"> | null;
+  settlementTransaction?: Doc<"settlementTransactions"> | null;
+  providerEvent?: Doc<"providerEvents"> | null;
 };
 
 function buildPayload(
@@ -102,6 +105,113 @@ function buildPayload(
     };
   }
 
+  if (eventType === "settlement.quote.created") {
+    const q = target.settlementQuote ?? {
+      quoteId: "quote_mock12345",
+      side: "sell",
+      quoteCurrency: "USDCXLM",
+      baseCurrency: "PHP",
+      quantity: "100.00",
+      price: 58.2,
+      totalAmount: 5820.0,
+      expiresAt: Date.now() + 15000,
+      status: "active",
+    };
+    return {
+      ...base,
+      quote: {
+        id: q.quoteId,
+        side: q.side,
+        quoteCurrency: q.quoteCurrency,
+        baseCurrency: q.baseCurrency,
+        quantity: q.quantity,
+        price: q.price,
+        totalAmount: q.totalAmount,
+        expiresAt: new Date(q.expiresAt).toISOString(),
+        status: q.status,
+      },
+    };
+  }
+
+  if (eventType === "settlement.trade.executed") {
+    const tx = target.settlementTransaction ?? {
+      orderId: 98765,
+      quoteId: "quote_mock12345",
+      tradeDetails: {
+        price: 58.2,
+        amount: 5820.0,
+        quantity: 100.0,
+        status: "successful",
+      },
+    };
+    return {
+      ...base,
+      trade: {
+        orderId: tx.orderId,
+        quoteId: tx.quoteId,
+        price: tx.tradeDetails?.price,
+        amount: tx.tradeDetails?.amount,
+        quantity: tx.tradeDetails?.quantity,
+        status: tx.tradeDetails?.status,
+      },
+    };
+  }
+
+  if (eventType.startsWith("settlement.withdrawal.")) {
+    const tx = target.settlementTransaction ?? {
+      withdrawalId: "tx_mock_withdrawal123",
+      withdrawalDetails: {
+        referenceNumber: "ref-mock-12345",
+        amount: 5820.0,
+        fee: 15.0,
+        status:
+          eventType === "settlement.withdrawal.succeeded"
+            ? "COMPLETED"
+            : eventType === "settlement.withdrawal.failed"
+              ? "FAILED"
+              : "PENDING",
+        bankCode: "BASECPH",
+        accountName: "John Doe",
+        accountNumber: "0000042001461",
+      },
+    };
+    return {
+      ...base,
+      withdrawal: {
+        withdrawalId: tx.withdrawalId,
+        referenceNumber: tx.withdrawalDetails?.referenceNumber,
+        amount: tx.withdrawalDetails?.amount,
+        fee: tx.withdrawalDetails?.fee,
+        status: tx.withdrawalDetails?.status,
+        bankCode: tx.withdrawalDetails?.bankCode,
+        accountName: tx.withdrawalDetails?.accountName,
+        accountNumber: tx.withdrawalDetails?.accountNumber,
+      },
+    };
+  }
+
+  if (eventType === "provider.pdax.event.received") {
+    const pe = target.providerEvent ?? {
+      provider: "pdax",
+      eventId: "ref-mock-12345",
+      type: "WITHDRAWAL",
+      rawEvent: '{"status":"COMPLETED"}',
+    };
+    let parsedRaw = {};
+    try {
+      parsedRaw = JSON.parse(pe.rawEvent);
+    } catch {
+      parsedRaw = pe.rawEvent;
+    }
+    return {
+      ...base,
+      provider: pe.provider,
+      eventId: pe.eventId,
+      eventType: pe.type,
+      rawEvent: parsedRaw,
+    };
+  }
+
   return {
     ...base,
     ledger: target.project.createdLedger,
@@ -122,6 +232,11 @@ function payloadSummary(payload: ReturnType<typeof buildPayload>) {
     ...(p.transactionHash ? { transactionHash: p.transactionHash as string } : {}),
     ...(p.ledger !== undefined ? { ledger: p.ledger as number } : {}),
     ...(pi ? { paymentIntentId: pi.id as string } : {}),
+    ...(p.quote ? { quoteId: (p.quote as { id: string }).id } : {}),
+    ...(p.trade ? { orderId: (p.trade as { orderId: number }).orderId } : {}),
+    ...(p.withdrawal
+      ? { withdrawalId: (p.withdrawal as { withdrawalId: string }).withdrawalId }
+      : {}),
   };
 }
 
@@ -150,9 +265,18 @@ export const sendTest = action({
       v.literal("payment.succeeded"),
       v.literal("payment.failed"),
       v.literal("payment_access.activated"),
+      v.literal("settlement.quote.created"),
+      v.literal("settlement.trade.executed"),
+      v.literal("settlement.withdrawal.pending"),
+      v.literal("settlement.withdrawal.succeeded"),
+      v.literal("settlement.withdrawal.failed"),
+      v.literal("provider.pdax.event.received"),
     ),
     contractEventId: v.optional(v.id("contractEvents")),
     paymentIntentId: v.optional(v.id("paymentIntents")),
+    settlementQuoteId: v.optional(v.id("settlementQuotes")),
+    settlementTransactionId: v.optional(v.id("settlementTransactions")),
+    providerEventId: v.optional(v.id("providerEvents")),
   },
   handler: async (
     ctx,
@@ -162,12 +286,37 @@ export const sendTest = action({
     const target: DeliveryTarget = await ctx.runQuery(
       internal.webhook_endpoints.query.getDeliveryTarget,
       {
-        ...args,
+        projectId: args.projectId,
+        eventType: args.eventType,
+        contractEventId: args.contractEventId,
+        paymentIntentId: args.paymentIntentId,
         ownerTokenIdentifier: identity.tokenIdentifier,
         ownerSubject: identity.subject,
       },
     );
-    const payload = buildPayload(target, args.eventType, true);
+
+    const quote = args.settlementQuoteId
+      ? await ctx.runQuery(internal.settlement_quotes.query.getById, { id: args.settlementQuoteId })
+      : null;
+    const tx = args.settlementTransactionId
+      ? await ctx.runQuery(internal.settlement_transactions.query.getById, {
+          id: args.settlementTransactionId,
+        })
+      : null;
+    const pEvent = args.providerEventId
+      ? await ctx.runQuery(internal.provider_events.mutation.getById, { id: args.providerEventId })
+      : null;
+
+    const payload = buildPayload(
+      {
+        ...target,
+        settlementQuote: quote,
+        settlementTransaction: tx,
+        providerEvent: pEvent,
+      },
+      args.eventType,
+      true,
+    );
     const signatureHeader = computeSignatureHeader(payload, target.endpoint.signingSecret);
     const deliveryId: WebhookDeliveryId = await ctx.runMutation(
       internal.webhook_deliveries.mutation.createPending,
@@ -234,9 +383,18 @@ export const trigger = internalAction({
       v.literal("payment.succeeded"),
       v.literal("payment.failed"),
       v.literal("payment_access.activated"),
+      v.literal("settlement.quote.created"),
+      v.literal("settlement.trade.executed"),
+      v.literal("settlement.withdrawal.pending"),
+      v.literal("settlement.withdrawal.succeeded"),
+      v.literal("settlement.withdrawal.failed"),
+      v.literal("provider.pdax.event.received"),
     ),
     contractEventId: v.optional(v.id("contractEvents")),
     paymentIntentId: v.optional(v.id("paymentIntents")),
+    settlementQuoteId: v.optional(v.id("settlementQuotes")),
+    settlementTransactionId: v.optional(v.id("settlementTransactions")),
+    providerEventId: v.optional(v.id("providerEvents")),
     deliveryId: v.optional(v.id("webhookDeliveries")),
     attemptCount: v.optional(v.number()),
   },
@@ -269,7 +427,29 @@ export const trigger = internalAction({
       }
     }
 
-    const payload = buildPayload(target, args.eventType, false, overrideEventId);
+    const quote = args.settlementQuoteId
+      ? await ctx.runQuery(internal.settlement_quotes.query.getById, { id: args.settlementQuoteId })
+      : null;
+    const tx = args.settlementTransactionId
+      ? await ctx.runQuery(internal.settlement_transactions.query.getById, {
+          id: args.settlementTransactionId,
+        })
+      : null;
+    const pEvent = args.providerEventId
+      ? await ctx.runQuery(internal.provider_events.mutation.getById, { id: args.providerEventId })
+      : null;
+
+    const payload = buildPayload(
+      {
+        ...target,
+        settlementQuote: quote,
+        settlementTransaction: tx,
+        providerEvent: pEvent,
+      },
+      args.eventType,
+      false,
+      overrideEventId,
+    );
     const signatureHeader = computeSignatureHeader(payload, target.endpoint.signingSecret);
 
     if (!deliveryId) {

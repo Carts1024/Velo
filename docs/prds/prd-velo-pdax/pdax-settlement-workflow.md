@@ -1,6 +1,6 @@
 # PDAX UAT Settlement Workflow Documentation
 
-This document explains the technical implementation of **Velo Settlement**'s PDAX UAT integration (Sprint 2).
+This document explains the technical implementation of **Velo Settlement**'s PDAX UAT integration, covering connection management (Sprint 2) and webhook routing/dashboard features (Sprint 3).
 
 ## Core Architecture
 
@@ -10,7 +10,11 @@ Velo Settlement coordinates regional fiat-stablecoin conversions and payouts. Th
    - `providerConnections`: Caches programmatic session tokens (`accessToken`, `idToken`, `refreshToken`) per project.
    - `settlementQuotes`: Stores executable firm quotes.
    - `settlementTransactions`: Tracks the lifecycle of the conversion and payout workflow.
+   - `providerEvents`: Records incoming raw webhook payloads for idempotency checks.
+   - `webhookDeliveries`: Logs outbound Velo merchant notifications.
 3. **Convex Actions**: Expose public/internal methods to perform network requests, manage credentials, and transition records.
+4. **Next.js Webhook Router**: Exposes `/api/webhooks/pdax` endpoint to ingest provider callbacks.
+5. **Settlement Dashboard UI**: Interactive portal for managing balances, locked quotes, trade execution, withdrawals, simulation tests, and webhook delivery logs.
 
 ---
 
@@ -61,6 +65,8 @@ The settlement lifecycle transitions through state changes stored in the `settle
 [Execute Trade] (TRADE_EXECUTED)
   ↓
 [Fiat Payout] (PAYOUT_PENDING)
+  ↓ [Incoming Webhook]
+[Payout Complete] (PAYOUT_SUCCEEDED / PAYOUT_FAILED)
 ```
 
 ### 1. Quotes (`getQuote`)
@@ -79,18 +85,60 @@ The settlement lifecycle transitions through state changes stored in the `settle
 
 ---
 
+## Webhook Processing & Delivery Architecture
+
+When a payout withdrawal reaches a terminal state (succeeded or failed), PDAX fires an asynchronous webhook callback. Velo handles the payload, updates transaction states, and notifies the merchant's endpoint:
+
+```mermaid
+sequenceDiagram
+    participant PDAX Rails
+    participant Next.js API Route
+    participant Convex Action (handlePdaxWebhook)
+    participant Convex Database
+    participant Outbound Dispatcher
+    participant Merchant Server
+
+    PDAX Rails->>Next.js API Route: POST /api/webhooks/pdax [raw payload]
+    Next.js API Route->>Convex Action (handlePdaxWebhook): Invoke Action
+    Convex Action (handlePdaxWebhook)->>Convex Database: Check providerEvents (eventId)
+    alt Event already recorded
+        Convex Action (handlePdaxWebhook)-->>Next.js API Route: return status: "duplicate"
+    else New Event
+        Convex Action (handlePdaxWebhook)->>Convex Database: Record Event (processed: false)
+        Convex Action (handlePdaxWebhook)->>Convex Database: Find transaction (withdrawalId)
+        Convex Action (handlePdaxWebhook)->>Convex Database: Update transaction status (PAYOUT_SUCCEEDED / PAYOUT_FAILED)
+        Convex Action (handlePdaxWebhook)->>Convex Database: Mark Event (processed: true)
+        Convex Action (handlePdaxWebhook)->>Outbound Dispatcher: Schedule Velo Webhook Trigger
+        Outbound Dispatcher->>Merchant Server: Send POST [signed merchant webhook]
+        Merchant Server-->>Outbound Dispatcher: 200 OK
+        Outbound Dispatcher->>Convex Database: Record webhookDeliveries (status: "success")
+        Convex Action (handlePdaxWebhook)-->>Next.js API Route: return status: "processed"
+    end
+    Next.js API Route-->>PDAX Rails: 200 OK
+```
+
+### Outbound Webhook Event Types
+Velo publishes the following events upon receiving settlement updates:
+- `settlement.quote.created`: Dispatched when a new firm quote is secured.
+- `settlement.trade.executed`: Dispatched when conversion trade is executed.
+- `settlement.withdrawal.pending`: Dispatched when InstaPay withdrawal is initiated.
+- `settlement.withdrawal.succeeded`: Dispatched when bank payout succeeds.
+- `settlement.withdrawal.failed`: Dispatched when bank payout fails.
+
+---
+
 ## Supported Rails & Constants
 
 - **Payout rails**: InstaPay UAT
 - **UAT Test Banks**:
-  - Security Bank: `BASECPH`
-  - CTBC Bank: `BACTBPH`
+  - Security Bank: `BASECPH` (Test account: `0000042001461`)
+  - CTBC Bank: `BACTBPH` (Test account: `001700062270`)
 - **Supported pair**: `USDCXLM` -> `PHP` (Selling USDC on Stellar Testnet for Philippine Pesos).
 
 ---
 
-## Idempotency Protections
+## Idempotency and Webhook Protection
 
-Each state mutation action requires an `idempotencyId`. If a request is retried:
-1. The backend queries `settlementTransactions` by `idempotencyId`.
-2. If a matching record is found, it returns the cached result without making duplicate requests to the PDAX API.
+1. **Outbound Idempotency**: Each state mutation action requires an `idempotencyId`. If a request is retried, the backend returns the cached transaction details from the database without invoking the external PDAX API again.
+2. **Inbound Webhook Deduplication**: Webhooks from PDAX are mapped via `request_id`, `reference_number`, and `reference_id` keys. Convex records incoming IDs to prevent double-processing payouts.
+3. **Webhook Fallback**: If an incoming webhook does not match any transaction identifier, the handler falls back to associating the record with the first active project in the sandbox system, logging the event safely.

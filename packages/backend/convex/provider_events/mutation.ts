@@ -63,3 +63,10 @@ export const markProcessed = internalMutation({
     return existing._id;
   },
 });
+
+export const getById = internalQuery({
+  args: { id: v.id("providerEvents") },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.id);
+  },
+});

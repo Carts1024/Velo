@@ -26,6 +26,7 @@ import {
   TerminalIcon,
   WalletIcon,
   WebhookIcon,
+  BanknoteIcon,
 } from "lucide-react";
 import * as React from "react";
 
@@ -92,6 +93,12 @@ export function AppSidebar({
       title: "Webhooks",
       url: `${projectBaseUrl}/webhooks`,
       icon: WebhookIcon,
+      disabled: !activeProject,
+    },
+    {
+      title: "Settlement",
+      url: `${projectBaseUrl}/settlement`,
+      icon: BanknoteIcon,
       disabled: !activeProject,
     },
     {

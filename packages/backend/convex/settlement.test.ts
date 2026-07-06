@@ -478,3 +478,162 @@ test("settlement actions workflow integration", async () => {
     delete process.env.PDAX_UAT_BASE_URL;
   }
 });
+
+test("settlement webhook processing and helper queries", async () => {
+  const t = convexTest(schema, modules);
+
+  const ownerAddress = "GD7O2C226SF2677PFFUVD6O2ICFOBNCWPI5Z46N43ZSFQGLM65U3I2SP";
+  const owner = asWallet(t, ownerAddress);
+
+  // 1. Create project
+  const projectId = await owner.mutation(api.projects.mutation.createDraft, {
+    name: "Stellar Webhooks project",
+    slug: "stellar-webhooks-project",
+    description: "Testing webhooks",
+    metadataJson: "{}",
+    metadataHash: "0000000000000000000000000000000000000000000000000000000000000000",
+    ownerAddress,
+  });
+
+  // 2. Create connection
+  await t.mutation(internal.provider_connections.mutation.upsertInternal, {
+    projectId,
+    provider: "pdax",
+    status: "connected",
+    username: "merchant-username",
+    accessToken: "access",
+    idToken: "id",
+    refreshToken: "refresh",
+    tokenExpiresAt: Date.now() + 600000,
+  });
+
+  // 3. Create a quote and settlement transaction
+  const quoteId = "quote-doc-123";
+  const quoteDocId = await t.mutation(internal.settlement_quotes.mutation.create, {
+    projectId,
+    provider: "pdax",
+    quoteId,
+    side: "sell",
+    quoteCurrency: "USDCXLM",
+    baseCurrency: "PHP",
+    quantity: "10",
+    price: 58.2,
+    totalAmount: 582,
+    expiresAt: Date.now() + 15000,
+    status: "active",
+  });
+
+  const idempotencyId = "tx-idemp-123";
+  const txDocId = await t.mutation(internal.settlement_transactions.mutation.create, {
+    projectId,
+    provider: "pdax",
+    status: "QUOTE_FIRM",
+    idempotencyId,
+    quoteId,
+  });
+
+  // Test getById helpers
+  const fetchedQuote = await t.query(internal.settlement_quotes.query.getById, { id: quoteDocId });
+  expect(fetchedQuote?.quoteId).toBe(quoteId);
+
+  const fetchedTx = await t.query(internal.settlement_transactions.query.getById, { id: txDocId });
+  expect(fetchedTx?.idempotencyId).toBe(idempotencyId);
+
+  // Test getByAnyIdentifier helper
+  const matchedTx1 = await t.query(internal.settlement_transactions.query.getByAnyIdentifier, {
+    identifier: idempotencyId,
+  });
+  expect(matchedTx1?._id).toBe(txDocId);
+
+  // 4. Update transaction to pending withdrawal
+  await t.mutation(internal.settlement_transactions.mutation.updateStatus, {
+    idempotencyId,
+    status: "PAYOUT_PENDING",
+    withdrawalId: "withdraw-identifier-123",
+    withdrawalDetails: {
+      referenceNumber: "ref-9999",
+      amount: 582,
+      fee: 15,
+      status: "PENDING",
+      bankCode: "BASECPH",
+      accountName: "John Doe",
+      accountNumber: "0000042001461",
+    },
+  });
+
+  const matchedTx2 = await t.query(internal.settlement_transactions.query.getByAnyIdentifier, {
+    identifier: "withdraw-identifier-123",
+  });
+  expect(matchedTx2?._id).toBe(txDocId);
+
+  // 5. Test handlePdaxWebhook action for WITHDRAWAL success callback
+  const mockWebhookPayload = {
+    identifier: "withdraw-identifier-123",
+    user_id: "merchant-username",
+    request_id: "req-uuid-123",
+    reference_number: "ref-9999",
+    amount: 582,
+    asset: "PHP",
+    asset_type: "FIAT",
+    transaction_type: "WITHDRAWAL",
+    status: "COMPLETED",
+    method: "PAY-TO-ACCOUNT-REAL-TIME",
+    fee: 15,
+  };
+
+  const processRes = (await t.action(api.settlement.actions.handlePdaxWebhook, {
+    payload: mockWebhookPayload,
+  })) as Record<string, unknown>;
+
+  expect(processRes.status).toBe("processed");
+  expect(processRes.eventId).toBe("req-uuid-123");
+
+  // Verify transaction status updated in DB
+  const updatedTx = await t.query(internal.settlement_transactions.query.getById, { id: txDocId });
+  expect(updatedTx?.status).toBe("PAYOUT_SUCCEEDED");
+  expect(updatedTx?.withdrawalDetails?.status).toBe("COMPLETED");
+
+  // Verify provider event was recorded and marked processed
+  const pEvent = await t.query(internal.provider_events.mutation.getByEventId, {
+    eventId: "req-uuid-123",
+  });
+  expect(pEvent).toBeDefined();
+  expect(pEvent?.processed).toBe(true);
+
+  // 6. Test duplicate webhook payload protection
+  const dupRes = (await t.action(api.settlement.actions.handlePdaxWebhook, {
+    payload: mockWebhookPayload,
+  })) as Record<string, unknown>;
+  expect(dupRes.status).toBe("duplicate");
+
+  // 7. Test fallback to first project for raw deposit webhook
+  const depositPayload = {
+    identifier: "dep-identifier-456",
+    user_id: "merchant-username",
+    reference_id: "ref-dep-456",
+    request_id: "req-uuid-456",
+    transaction_type: "DEPOSIT",
+    transaction_hash: "hash-hash-hash",
+    amount: 100,
+    fee_amount: 0,
+    asset_type: "crypto",
+    asset: "USDCXLM",
+    network: "XLM_USDC_T_CEKS",
+    source_address: "GA54SPC34JL3I57ENALTO2V26XOFFG4VGQLFQXDGF6KJ5TJY7ODY56ST",
+    destination_address: "GDC326O65O223UFTB6Z6YV6SP7DOKHGL3Q74Z3J6V3AOS5W5YST6SGA5",
+    status: "completed",
+  };
+
+  const processResDeposit = (await t.action(api.settlement.actions.handlePdaxWebhook, {
+    payload: depositPayload,
+  })) as Record<string, unknown>;
+
+  expect(processResDeposit.status).toBe("processed");
+  expect(processResDeposit.eventId).toBe("req-uuid-456");
+
+  const depositEvent = await t.query(internal.provider_events.mutation.getByEventId, {
+    eventId: "req-uuid-456",
+  });
+  expect(depositEvent?.projectId).toBe(projectId); // Associated with first project!
+  expect(depositEvent?.processed).toBe(true);
+});

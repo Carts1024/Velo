@@ -1,5 +1,6 @@
 "use node";
 
+import { PdaxClient } from "@repo/pdax";
 import { v } from "convex/values";
 
 import { api, internal } from "../_generated/api";
@@ -109,20 +110,23 @@ export const getQuote = action({
 
       const expiresAt = Date.parse(response.data.expires_at);
 
-      await ctx.runMutation(internal.settlement_quotes.mutation.create, {
-        projectId: args.projectId,
-        paymentIntentId: args.paymentIntentId,
-        provider: "pdax",
-        quoteId: response.data.quote_id,
-        side: response.data.side,
-        quoteCurrency: response.data.quote_currency,
-        baseCurrency: response.data.base_currency,
-        quantity: args.quantity.toString(),
-        price: response.data.price,
-        totalAmount: response.data.total_amount,
-        expiresAt,
-        status: "active",
-      });
+      const quoteDocId: Id<"settlementQuotes"> = await ctx.runMutation(
+        internal.settlement_quotes.mutation.create,
+        {
+          projectId: args.projectId,
+          paymentIntentId: args.paymentIntentId,
+          provider: "pdax",
+          quoteId: response.data.quote_id,
+          side: response.data.side,
+          quoteCurrency: response.data.quote_currency,
+          baseCurrency: response.data.base_currency,
+          quantity: args.quantity.toString(),
+          price: response.data.price,
+          totalAmount: response.data.total_amount,
+          expiresAt,
+          status: "active",
+        },
+      );
 
       // Save settlement transaction
       const transactionId: Id<"settlementTransactions"> = await ctx.runMutation(
@@ -136,6 +140,14 @@ export const getQuote = action({
           quoteId: response.data.quote_id,
         },
       );
+
+      // Trigger Webhook
+      await ctx.scheduler.runAfter(0, internal.webhookDelivery.trigger, {
+        projectId: args.projectId,
+        eventType: "settlement.quote.created",
+        paymentIntentId: args.paymentIntentId,
+        settlementQuoteId: quoteDocId,
+      });
 
       return { quote: response.data, transactionId };
     } else {
@@ -209,14 +221,17 @@ export const executeTrade = action({
       status: "executed",
     });
 
-    await ctx.runMutation(internal.settlement_transactions.mutation.create, {
-      projectId: args.projectId,
-      paymentIntentId: quote.paymentIntentId,
-      provider: "pdax",
-      status: "TRADE_EXECUTED",
-      idempotencyId: args.idempotencyId,
-      quoteId: args.quoteId,
-    });
+    const txDocId: Id<"settlementTransactions"> = await ctx.runMutation(
+      internal.settlement_transactions.mutation.create,
+      {
+        projectId: args.projectId,
+        paymentIntentId: quote.paymentIntentId,
+        provider: "pdax",
+        status: "TRADE_EXECUTED",
+        idempotencyId: args.idempotencyId,
+        quoteId: args.quoteId,
+      },
+    );
 
     await ctx.runMutation(internal.settlement_transactions.mutation.updateStatus, {
       idempotencyId: args.idempotencyId,
@@ -229,6 +244,14 @@ export const executeTrade = action({
         quantity: trade.base_quantity,
         status: trade.status,
       },
+    });
+
+    // Trigger Webhook
+    await ctx.scheduler.runAfter(0, internal.webhookDelivery.trigger, {
+      projectId: args.projectId,
+      eventType: "settlement.trade.executed",
+      paymentIntentId: quote.paymentIntentId,
+      settlementTransactionId: txDocId,
     });
 
     return trade;
@@ -287,13 +310,16 @@ export const fiatWithdraw = action({
     const withdrawal = response.data;
 
     // 4. Update transaction records
-    await ctx.runMutation(internal.settlement_transactions.mutation.create, {
-      projectId: args.projectId,
-      paymentIntentId: args.paymentIntentId,
-      provider: "pdax",
-      status: "PAYOUT_PENDING",
-      idempotencyId: args.idempotencyId,
-    });
+    const txDocId: Id<"settlementTransactions"> = await ctx.runMutation(
+      internal.settlement_transactions.mutation.create,
+      {
+        projectId: args.projectId,
+        paymentIntentId: args.paymentIntentId,
+        provider: "pdax",
+        status: "PAYOUT_PENDING",
+        idempotencyId: args.idempotencyId,
+      },
+    );
 
     await ctx.runMutation(internal.settlement_transactions.mutation.updateStatus, {
       idempotencyId: args.idempotencyId,
@@ -308,6 +334,14 @@ export const fiatWithdraw = action({
         accountName: args.accountName,
         accountNumber: args.accountNumber,
       },
+    });
+
+    // Trigger Webhook
+    await ctx.scheduler.runAfter(0, internal.webhookDelivery.trigger, {
+      projectId: args.projectId,
+      eventType: "settlement.withdrawal.pending",
+      paymentIntentId: args.paymentIntentId,
+      settlementTransactionId: txDocId,
     });
 
     return withdrawal;
@@ -332,5 +366,199 @@ export const getOrder = action({
     // 3. Fetch order status
     const response = await client.getOrder(accessToken, idToken, args.orderId);
     return response.data;
+  },
+});
+
+export const handlePdaxWebhook = action({
+  args: {
+    payload: v.any(),
+  },
+  handler: async (ctx, args): Promise<unknown> => {
+    const rawPayload = args.payload;
+    const client = new PdaxClient();
+    const payload = client.parseWebhook(rawPayload);
+
+    const identifier = payload.identifier;
+    if (!identifier) {
+      throw new Error("Missing identifier in webhook payload");
+    }
+
+    // 1. Try to find the settlement transaction matching the identifier
+    let tx = await ctx.runQuery(internal.settlement_transactions.query.getByAnyIdentifier, {
+      identifier,
+    });
+
+    let projectId;
+    let paymentIntentId;
+
+    if (tx) {
+      projectId = tx.projectId;
+      paymentIntentId = tx.paymentIntentId;
+    } else {
+      // Fallback: If it's a DEPOSIT (e.g. crypto deposit), there might not be a matching transaction.
+      // Look up first project in the system to make it robust for hackathon UAT demo.
+      const projects = await ctx.runQuery(internal.projects.query.listAll);
+      const firstProject = projects?.[0];
+      if (firstProject) {
+        projectId = firstProject._id;
+      } else {
+        throw new Error("No projects found to associate webhook event with");
+      }
+    }
+
+    const eventId =
+      payload.request_id ||
+      ("reference_number" in payload ? payload.reference_number : "") ||
+      ("reference_id" in payload ? payload.reference_id : "") ||
+      identifier;
+    const eventType = payload.transaction_type; // "DEPOSIT", "WITHDRAWAL", "TRADE"
+
+    // 2. Record the provider event with duplicate protection
+    const recordResult = await ctx.runMutation(internal.provider_events.mutation.recordEvent, {
+      projectId,
+      provider: "pdax",
+      eventId,
+      type: eventType as "DEPOSIT" | "WITHDRAWAL" | "TRADE",
+      rawEvent: JSON.stringify(payload),
+      processed: false,
+    });
+
+    if (recordResult.alreadyRecorded) {
+      return { status: "duplicate", eventId };
+    }
+
+    // 3. Process the event if it's new
+    if (eventType === "WITHDRAWAL" && tx) {
+      const status = payload.status; // "COMPLETED", "FAILED", "PENDING"
+      let newStatus: "PAYOUT_SUCCEEDED" | "PAYOUT_FAILED" | "PAYOUT_PENDING" = "PAYOUT_PENDING";
+      let webhookType:
+        | "settlement.withdrawal.succeeded"
+        | "settlement.withdrawal.failed"
+        | "settlement.withdrawal.pending" = "settlement.withdrawal.pending";
+
+      if (status === "COMPLETED" || status === "successful" || status === "SUCCESSFUL") {
+        newStatus = "PAYOUT_SUCCEEDED";
+        webhookType = "settlement.withdrawal.succeeded";
+      } else if (status === "FAILED" || status === "failed") {
+        newStatus = "PAYOUT_FAILED";
+        webhookType = "settlement.withdrawal.failed";
+      } else {
+        newStatus = "PAYOUT_PENDING";
+        webhookType = "settlement.withdrawal.pending";
+      }
+
+      const pFee = "fee" in payload ? payload.fee : 0;
+      const pRef = "reference_number" in payload ? payload.reference_number : undefined;
+
+      const existingDetails = tx.withdrawalDetails ?? {
+        referenceNumber: undefined as string | undefined,
+        amount: payload.amount ?? 0,
+        fee: pFee,
+        bankCode: "BASECPH",
+        accountName: "n/a",
+        accountNumber: "n/a",
+      };
+
+      await ctx.runMutation(internal.settlement_transactions.mutation.updateStatus, {
+        idempotencyId: tx.idempotencyId,
+        status: newStatus,
+        withdrawalId: identifier,
+        withdrawalDetails: {
+          referenceNumber: pRef || existingDetails.referenceNumber,
+          amount: payload.amount ?? existingDetails.amount,
+          fee: pFee ?? existingDetails.fee,
+          status,
+          bankCode: existingDetails.bankCode,
+          accountName: existingDetails.accountName,
+          accountNumber: existingDetails.accountNumber,
+        },
+      });
+
+      // Dispatch Velo merchant webhook
+      await ctx.scheduler.runAfter(0, internal.webhookDelivery.trigger, {
+        projectId,
+        eventType: webhookType,
+        paymentIntentId,
+        settlementTransactionId: tx._id,
+      });
+    }
+
+    // Mark provider event as processed
+    await ctx.runMutation(internal.provider_events.mutation.markProcessed, {
+      eventId,
+    });
+
+    // Trigger raw provider event webhook delivery
+    await ctx.scheduler.runAfter(0, internal.webhookDelivery.trigger, {
+      projectId,
+      eventType: "provider.pdax.event.received",
+      paymentIntentId,
+      providerEventId: recordResult.id,
+    });
+
+    return { status: "processed", eventId };
+  },
+});
+
+export const mockPdaxWebhook = action({
+  args: {
+    projectId: v.id("projects"),
+    identifier: v.string(),
+    transactionType: v.union(v.literal("DEPOSIT"), v.literal("WITHDRAWAL"), v.literal("TRADE")),
+    status: v.string(), // "COMPLETED", "FAILED", "PENDING"
+    amount: v.number(),
+    fee: v.number(),
+    referenceNumber: v.optional(v.string()),
+  },
+  handler: async (ctx, args): Promise<unknown> => {
+    // Authenticate project owner
+    const project = await ctx.runQuery(api.projects.query.getById, { id: args.projectId });
+    if (!project) {
+      throw new Error("Project not found");
+    }
+
+    // Build mock payload resembling PDAX payload shapes
+    const requestId = `req-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const referenceNumber = args.referenceNumber || `ref-${Date.now()}`;
+
+    let payload: Record<string, unknown> = {};
+
+    if (args.transactionType === "WITHDRAWAL") {
+      payload = {
+        identifier: args.identifier,
+        user_id: "99a57ed4-4beb-4b4e-8d5d-bea296ba79be",
+        request_id: requestId,
+        reference_number: referenceNumber,
+        amount: args.amount,
+        asset: "PHP",
+        asset_type: "FIAT",
+        transaction_type: "WITHDRAWAL",
+        status: args.status,
+        method: "PAY-TO-ACCOUNT-REAL-TIME",
+        fee: args.fee,
+      };
+    } else {
+      payload = {
+        identifier: args.identifier,
+        user_id: "99a57ed4-4beb-4b4e-8d5d-bea296ba79be",
+        reference_id: referenceNumber,
+        request_id: requestId,
+        transaction_type: args.transactionType,
+        transaction_hash: `hash-${Date.now()}`,
+        amount: args.amount,
+        fee_amount: args.fee,
+        asset_type: "crypto",
+        asset: "USDCXLM",
+        network: "XLM_USDC_T_CEKS",
+        source_address: "GA54SPC34JL3I57ENALTO2V26XOFFG4VGQLFQXDGF6KJ5TJY7ODY56ST",
+        destination_address: "GDC326O65O223UFTB6Z6YV6SP7DOKHGL3Q74Z3J6V3AOS5W5YST6SGA5",
+        status: args.status.toLowerCase(),
+      };
+    }
+
+    // Process webhook payload locally using the handlePdaxWebhook action logic
+    return await ctx.runAction(api.settlement.actions.handlePdaxWebhook, {
+      payload,
+    });
   },
 });

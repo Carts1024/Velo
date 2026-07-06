@@ -13,6 +13,13 @@ export const getByQuoteId = internalQuery({
   },
 });
 
+export const getById = internalQuery({
+  args: { id: v.id("settlementQuotes") },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.id);
+  },
+});
+
 export const listByProject = query({
   args: { projectId: v.id("projects"), limit: v.optional(v.number()) },
   handler: async (ctx, args) => {
