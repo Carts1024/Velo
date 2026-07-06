@@ -698,10 +698,9 @@ export const checkPayoutStatus = action({
     }> = [];
 
     if (args.idempotencyId) {
-      const tx = await ctx.runQuery(
-        internal.settlement_transactions.query.getByIdempotencyId,
-        { idempotencyId: args.idempotencyId },
-      );
+      const tx = await ctx.runQuery(internal.settlement_transactions.query.getByIdempotencyId, {
+        idempotencyId: args.idempotencyId,
+      });
       if (tx && tx.status === "PAYOUT_PENDING") {
         pendingTxs = [tx];
       }
@@ -745,7 +744,11 @@ export const checkPayoutStatus = action({
           | "settlement.withdrawal.failed"
           | "settlement.withdrawal.pending" = "settlement.withdrawal.pending";
 
-        if (upperStatus === "COMPLETED" || upperStatus === "SUCCESSFUL" || upperStatus === "SUCCESS") {
+        if (
+          upperStatus === "COMPLETED" ||
+          upperStatus === "SUCCESSFUL" ||
+          upperStatus === "SUCCESS"
+        ) {
           newStatus = "PAYOUT_SUCCEEDED";
           webhookType = "settlement.withdrawal.succeeded";
         } else if (upperStatus === "FAILED" || upperStatus === "FAIL") {

@@ -454,15 +454,10 @@ export class PdaxClient {
       access_token: accessToken,
       id_token: idToken,
     };
-    return this.request<unknown>(
-      "/pdax-institution/v1/config/webhook",
-      "POST",
-      headers,
-      {
-        event_type: eventType,
-        webhook_endpoint: webhookUrl,
-      },
-    );
+    return this.request<unknown>("/pdax-institution/v1/config/webhook", "POST", headers, {
+      event_type: eventType,
+      webhook_endpoint: webhookUrl,
+    });
   }
 
   async getFiatTransactions(

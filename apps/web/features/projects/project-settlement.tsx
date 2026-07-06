@@ -226,7 +226,9 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
   const [webhookRegSuccess, setWebhookRegSuccess] = useState(false);
   const [webhookRegError, setWebhookRegError] = useState<string | null>(null);
   const [webhookUrl, setWebhookUrl] = useState(
-    typeof window !== "undefined" ? `${window.location.origin}/api/webhooks/pdax` : "/api/webhooks/pdax"
+    typeof window !== "undefined"
+      ? `${window.location.origin}/api/webhooks/pdax`
+      : "/api/webhooks/pdax",
   );
 
   // Balances state
@@ -1075,7 +1077,9 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label className="text-xs text-muted-foreground uppercase font-medium">Webhook URL</Label>
+              <Label className="text-xs text-muted-foreground uppercase font-medium">
+                Webhook URL
+              </Label>
               <div className="flex gap-2">
                 <Input
                   value={webhookUrl}
@@ -1096,7 +1100,8 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
           <CardFooter className="pt-0 flex flex-col items-start gap-1">
             {webhookRegSuccess && (
               <p className="text-xs text-emerald-600 font-semibold flex items-center gap-1">
-                <CheckCircle2Icon className="size-3" /> Webhook URL successfully registered with PDAX!
+                <CheckCircle2Icon className="size-3" /> Webhook URL successfully registered with
+                PDAX!
               </p>
             )}
             {webhookRegError && <p className="text-xs text-destructive">{webhookRegError}</p>}
