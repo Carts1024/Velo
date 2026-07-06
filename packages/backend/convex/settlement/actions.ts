@@ -1,6 +1,8 @@
 "use node";
 
-import { PdaxClient } from "@repo/pdax";
+import { randomUUID } from "crypto";
+
+import { PdaxClient, PdaxError } from "@repo/pdax";
 import { v } from "convex/values";
 
 import { api, internal } from "../_generated/api";
@@ -197,21 +199,45 @@ export const executeTrade = action({
     if (quote.status !== "active") {
       throw new Error(`Quote is not active (current status: ${quote.status})`);
     }
-    if (Date.now() > quote.expiresAt) {
+    const EXPIRY_BUFFER_MS = 3000; // 3s safety margin for network latency
+    if (Date.now() + EXPIRY_BUFFER_MS > quote.expiresAt) {
       await ctx.runMutation(internal.settlement_quotes.mutation.updateStatus, {
         quoteId: args.quoteId,
         status: "expired",
       });
-      throw new Error("Quote has expired");
+      throw new Error("Quote has expired (or too close to expiry to safely execute)");
     }
 
     // 4. Retrieve tokens and execute trade
     const { accessToken, idToken, client } = await getOrRefreshPdaxConnection(ctx, args.projectId);
-    const response = await client.executeTrade(accessToken, idToken, {
-      quote_id: args.quoteId,
-      side: quote.side,
-      idempotency_id: args.idempotencyId,
-    });
+    const pdaxIdempotencyId = randomUUID();
+    let response;
+    try {
+      response = await client.executeTrade(accessToken, idToken, {
+        quote_id: args.quoteId,
+        side: quote.side as "buy" | "sell",
+        idempotency_id: pdaxIdempotencyId,
+      });
+    } catch (err) {
+      if (err instanceof PdaxError) {
+        const bodyStr = typeof err.body === "string" ? err.body : JSON.stringify(err.body);
+        console.error(
+          `PDAX executeTrade failed [${err.status}]: ${bodyStr}`,
+          { quoteId: args.quoteId, side: quote.side, idempotencyId: pdaxIdempotencyId },
+        );
+        // If quote expired on PDAX side, mark it expired locally too
+        if (err.status === 400) {
+          await ctx.runMutation(internal.settlement_quotes.mutation.updateStatus, {
+            quoteId: args.quoteId,
+            status: "expired",
+          });
+        }
+        throw new Error(
+          `PDAX trade failed (${err.status}): ${bodyStr}`,
+        );
+      }
+      throw err;
+    }
 
     const trade = response.data;
 
@@ -291,11 +317,13 @@ export const fiatWithdraw = action({
     const response = await client.fiatWithdraw(accessToken, idToken, {
       identifier: args.idempotencyId,
       sender_first_name: "Velo",
+      sender_middle_name: "n.a.",
       sender_last_name: "Merchant",
       sender_country_origin: "Philippines",
       source_of_funds: "Business Income",
       fee_type: "Sender",
       beneficiary_first_name: args.beneficiaryFirstName,
+      beneficiary_middle_name: "n.a.",
       beneficiary_last_name: args.beneficiaryLastName,
       beneficiary_bank_code: args.bankCode,
       beneficiary_account_name: args.accountName,
