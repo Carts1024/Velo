@@ -30,6 +30,7 @@ import {
   TableHeader,
   TableRow,
 } from "@repo/ui/components/ui/table";
+import { cn } from "@repo/ui/lib/utils";
 import { useAction, useQuery } from "convex/react";
 import {
   CheckCircle2Icon,
@@ -48,7 +49,6 @@ import {
   ChevronDownIcon,
   CheckIcon,
 } from "lucide-react";
-import { cn } from "@repo/ui/lib/utils";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 type ProjectSettlementProps = {
@@ -135,9 +135,7 @@ function SearchableSelect({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const filteredOptions = options.filter((opt) =>
-    opt.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredOptions = options.filter((opt) => opt.toLowerCase().includes(search.toLowerCase()));
 
   return (
     <div className="relative w-full" ref={dropdownRef}>
@@ -181,7 +179,7 @@ function SearchableSelect({
                   type="button"
                   className={cn(
                     "relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 px-2 text-sm outline-none transition-colors hover:bg-accent hover:text-accent-foreground text-left",
-                    opt === value && "bg-accent/50 font-medium"
+                    opt === value && "bg-accent/50 font-medium",
                   )}
                 >
                   <span className="flex-1">{opt}</span>
@@ -232,12 +230,7 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
   const availableAssets = Array.from(
-    new Set([
-      "PHP",
-      "USDCXLM",
-      "XLM",
-      ...(balances ? balances.map((b) => b.currency) : []),
-    ])
+    new Set(["PHP", "USDCXLM", "XLM", ...(balances ? balances.map((b) => b.currency) : [])]),
   );
 
   const handleSort = (field: "currency" | "available" | "hold" | "total") => {
@@ -791,7 +784,12 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
               <CardContent className="space-y-4 pt-4">
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
                   <div className="space-y-2">
-                    <Label htmlFor="quoteQuantity" className="text-xs font-medium text-zinc-500 uppercase">Quantity</Label>
+                    <Label
+                      htmlFor="quoteQuantity"
+                      className="text-xs font-medium text-zinc-500 uppercase"
+                    >
+                      Quantity
+                    </Label>
                     <Input
                       id="quoteQuantity"
                       type="number"
