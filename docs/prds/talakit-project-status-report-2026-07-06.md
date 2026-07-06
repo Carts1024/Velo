@@ -1,7 +1,7 @@
 # Velo Project Status Report
 
-Generated: 2026-06-29  
-Updated: 2026-07-01  
+Generated: 2026-07-06  
+Updated: 2026-07-06  
 Scope: current local worktree under `/home/carts/Documents/Personal/Velo`  
 Audience: product owner, implementation agents, and developers reviewing Alpha readiness
 
@@ -20,13 +20,21 @@ The Alpha sprint has moved Velo from a Phase 1 Verify + Debug MVP into a demoabl
 9. Velo updates payment status, polls pending payments, records metrics, and sends signed webhooks.
 10. Developer reviews project status, payment logs, event logs, webhook logs, and integration snippets.
 
-Post-gap status as of 2026-07-01: **Pay-prioritized Alpha is substantially implemented at code level and covered by focused unit/integration tests.** The latest work closed five previously documented hardening gaps:
+Post-gap status as of 2026-07-06: **Pay-prioritized Alpha is substantially implemented at code level and covered by focused unit/integration tests.** The latest work closed five previously documented hardening gaps:
 
 - Hosted contract IDs are validated, normalized, and required for hosted environments.
 - Checkout no longer marks a successful Horizon submission as paid; only backend ledger verification can mark an intent paid.
 - Convex ownership checks now use wallet-auth JWT identity and `ownerTokenIdentifier`, with legacy address fallback for migration.
 - Webhooks now support signing secret rotation and retry/backoff up to five attempts.
 - Public API routes now use a lightweight in-memory rate limiter with API-key and cached project-level buckets.
+
+Additional implementation since the July 1 baseline extended the Alpha beyond hosted checkout into a first public SDK/API release track:
+
+- `@carts1024/velo-sdk` alpha package with checkout session creation, PaymentIntent retrieve/list, typed errors, idempotency headers, request timeouts, retry rules, and webhook verification.
+- SDK-facing REST API hardening for `POST /api/v1/payment-intents`, `GET /api/v1/payment-intents`, and `GET /api/v1/payment-intents/[id]`, including stable error envelopes, request IDs, API-key-derived project scope, pagination, and idempotency conflict handling.
+- Convex idempotency records and public PaymentIntent query/mutation paths separate from owner-dashboard queries.
+- Next.js and Express examples for checkout creation and webhook verification.
+- Project-aware dashboard/navigation, selected-project persistence, sidebar hydration fixes, route prefetching, project settings, Convex Storage logo upload, and light/dark theme support.
 
 Live Testnet deployment and full end-to-end demo validation remain the main readiness gate.
 
@@ -40,17 +48,22 @@ Primary sources reviewed:
   - `docs/prds/prd-talakit02026-06-26/talakit-alpha-spec-pay-prioritized.md`
   - `docs/prds/prd-talakit02026-06-26/talakit-alpha-spec.md`
   - `docs/prds/prd-talakit02026-06-26/talakit-alpha-sprint-plan.md`
+  - `docs/prds/prd-velo-sdk/sdk-alpha-contract.md`
+  - `docs/prds/prd-velo-sdk/sdk-sprint-plan.md`
 - Web app:
   - `apps/web/app`
   - `apps/web/features/projects`
   - `apps/web/features/checkout`
   - `apps/web/features/debugger`
   - `apps/web/core`
+  - `apps/web/app/api/v1/payment-intents/[id]/route.ts`
+  - `apps/web/core/api/payment-intents.ts`
 - Convex backend:
   - `packages/backend/convex/schema.ts`
   - `packages/backend/convex/projects`
   - `packages/backend/convex/api_keys`
   - `packages/backend/convex/payment_intents`
+  - `packages/backend/convex/payment_intent_idempotency_keys/schema.ts`
   - `packages/backend/convex/webhook_*`
   - `packages/backend/convex/contract_events`
   - `packages/backend/convex/payAccessSync.ts`
@@ -62,6 +75,10 @@ Primary sources reviewed:
   - `packages/stellar/src/webhook.ts`
   - `packages/stellar/src/event-monitor.ts`
   - `packages/stellar/src/transaction-debugger.ts`
+- Velo SDK and examples:
+  - `packages/velo-sdk`
+  - `examples/nextjs-app-router`
+  - `examples/express`
 - Soroban contracts:
   - `contracts/registry`
   - `contracts/pay_access`
@@ -71,13 +88,20 @@ Coverage artifacts found:
 - Web tests:
   - `apps/web/features/checkout/checkout-client.test.ts`
   - `apps/web/features/projects/demo-readiness.test.ts`
+  - `apps/web/features/projects/dashboard-selection.test.ts`
+  - `apps/web/features/projects/project-settings.test.ts`
   - `apps/web/features/api/rate-limit.test.ts`
+  - `apps/web/features/api/payment-intents-contract.test.ts`
   - `apps/web/features/config/env.test.ts`
 - Backend tests:
   - `packages/backend/convex/apiKey.test.ts`
   - `packages/backend/convex/paymentIntent.test.ts`
+  - `packages/backend/convex/projectSettings.test.ts`
   - `packages/backend/convex/tasks.test.ts`
   - `packages/backend/convex/webhookDelivery.test.ts`
+- SDK tests:
+  - `packages/velo-sdk/src/client.test.ts`
+  - `packages/velo-sdk/src/webhooks.test.ts`
 - Stellar helper tests:
   - `packages/stellar/src/auth.test.ts`
   - `packages/stellar/src/checkout.test.ts`
@@ -88,10 +112,11 @@ Coverage artifacts found:
   - `contracts/registry/tests/registry.rs`
   - `contracts/pay_access/tests/pay_access.rs`
 
-Verification run on 2026-07-01:
+Verification run on 2026-07-06:
 
-- `pnpm --filter web test`: passed, 13 tests.
-- `pnpm --filter @repo/backend test`: passed, 5 files / 11 tests.
+- `pnpm --filter web test`: passed, 24 tests.
+- `pnpm --filter @repo/backend test`: passed, 6 files / 16 tests.
+- `pnpm --filter @carts1024/velo-sdk test`: passed, 18 tests.
 - `pnpm --filter @repo/stellar test`: passed, 25 tests.
 - `cd contracts/registry && cargo test`: passed, 11 integration tests.
 - `cd contracts/pay_access && cargo test`: passed, 5 integration tests.
@@ -128,6 +153,7 @@ Implemented stack:
 - Frontend: Next.js 16, React 19, shared UI package, lucide icons.
 - Backend: Convex schema, queries, mutations, actions, internal actions, and cron jobs.
 - Stellar integration: `@stellar/stellar-sdk` helpers in `packages/stellar`.
+- Public SDK: `@carts1024/velo-sdk` ESM alpha package for server-side checkout, PaymentIntent, and webhook integration.
 - Smart contracts: Soroban Rust `VeloRegistry` and `VeloPayAccess`.
 - Tests: Node test runner, Vitest with `convex-test`, and Cargo integration tests with snapshots.
 
@@ -142,9 +168,12 @@ Implemented stack:
 | Payment access activation UI | Implemented | Needs live wallet/RPC validation | Builds/signs/submits `activate_payments`, syncs off-chain status. |
 | Multi-key API keys | Implemented | Covered by Convex test | Hashed storage, prefixes, labels, revoke, request count, last used. |
 | PaymentIntent API | Implemented | Covered by Convex test | `POST /api/v1/payment-intents`, API-key auth, checkout URL response. |
+| Public PaymentIntent retrieve/list API | Implemented | Covered by web/API and backend tests | `GET /api/v1/payment-intents`, `GET /api/v1/payment-intents/[id]`, API-key project scope, filters, pagination. |
+| PaymentIntent idempotency | Implemented | Covered by backend tests | `Idempotency-Key` replay returns prior response; different payload conflicts with `409`. |
 | Hosted checkout page | Implemented | Formatter tests only | Customer UI handles loading, invalid, expired, pending, success, cancel, failed states. |
-| Checkout Stellar payment | Implemented | SDK helper covered with mocked fetch; live payment not covered | Builds Horizon payment transaction, validates trustlines/balance, signs via wallet, submits to Horizon. |
-| Checkout SDK helper | Implemented | Covered by Node test | `createCheckoutSession` helper and integration snippet generator. |
+| Checkout Stellar payment | Implemented | Stellar helper covered with mocked fetch; live payment not covered | Builds Horizon payment transaction, validates trustlines/balance, signs via wallet, submits to Horizon. |
+| Checkout SDK helper | Implemented | Covered by Node test | Legacy `createCheckoutSession` helper and integration snippet generator. |
+| `@carts1024/velo-sdk` alpha | Implemented | Covered by SDK tests | Server-side `Velo` client, checkout sessions, PaymentIntent create/retrieve/list, typed errors, idempotency headers, webhook verification. |
 | Payment scanner | Implemented | Partially covered through backend scanner test | Cron polls pending PaymentIntents and verifies hashes through transaction lookup helper. |
 | Payment metrics | Implemented | Covered by Convex stats test | Volume, counts, recent payments, webhook success rate, average latency. |
 | Webhook settings | Implemented | Manual UI QA still needed | Endpoint URL, enabled flag, event selection, signing secret generation. |
@@ -153,6 +182,9 @@ Implemented stack:
 | Contract event monitor | Implemented | Stellar parser covered by tests | Cron and manual polling for official contracts; event UI and public projection. |
 | Transaction debugger | Implemented | Helper coverage exists through package tests | Hash lookup, RPC cache, status/result display, raw response and hints. |
 | Public verification page | Implemented | Manual route QA still needed | `/verify/[slug]`, safe projection, official contracts, recent public activity. |
+| Project-aware dashboard/navigation | Implemented | Source-level web tests | Selected project persistence, dashboard scoping, route prefetch, sidebar project switcher, settings navigation. |
+| Project settings and logos | Implemented | Backend and source-level web tests | Owner-gated settings update, Convex Storage logo upload/replace/remove, metadata hash preserved. |
+| Light/dark theme support | Implemented | Source-level coverage; visual QA still needed | `next-themes`, root hydration guard, global token overrides, landing-page light mode assets/styles. |
 | Feedback and onboarding | Implemented as supporting product surface | Not Alpha-critical | Feedback form/list and user profile/onboarding modules are present. |
 | Full RPC gateway | Deferred | Not covered | Deferred by pay-prioritized Alpha. |
 | Rate limiting | Implemented for current API routes | Covered by web test | In-memory API-key bucket, cached project bucket, `429`, `Retry-After`, and rate-limit headers. |
@@ -368,7 +400,7 @@ Coverage:
 
 Known limitation:
 
-- No explicit rate limiting is implemented.
+- Rate limiting is implemented as process-local in-memory buckets for Alpha. It is not distributed across serverless instances or regions.
 
 ### 5.8 PaymentIntents and Hosted Checkout
 
@@ -415,6 +447,38 @@ Known limitation:
 
 - Live payment flow still needs Testnet wallet and funded-account QA.
 
+### 5.8.1 Public PaymentIntent API Hardening
+
+Status: **Implemented and tested**
+
+Implemented in:
+
+- `apps/web/app/api/v1/payment-intents/route.ts`
+- `apps/web/app/api/v1/payment-intents/[id]/route.ts`
+- `apps/web/core/api/payment-intents.ts`
+- `packages/backend/convex/payment_intents/mutations.ts`
+- `packages/backend/convex/payment_intents/queries.ts`
+- `packages/backend/convex/payment_intent_idempotency_keys/schema.ts`
+
+Current behavior:
+
+- `POST /api/v1/payment-intents` creates public PaymentIntents using API-key-derived project scope.
+- `GET /api/v1/payment-intents/[id]` retrieves only PaymentIntents owned by the calling API key's project.
+- `GET /api/v1/payment-intents` lists project-scoped PaymentIntents with optional status filter, bounded page size, cursor pagination, and list response shape.
+- Responses use a stable public PaymentIntent shape with ISO timestamps and checkout URL generation.
+- Error responses use a stable envelope with error type, code, message, optional param, and `X-Request-Id`.
+- `Idempotency-Key` replay returns the original compatible response; reuse with a different request fingerprint returns `409 idempotency_key_conflict`.
+- Existing API-key and project-level rate-limit headers are preserved.
+
+Coverage:
+
+- `apps/web/features/api/payment-intents-contract.test.ts` covers public contract helpers, validation, and query parsing.
+- `packages/backend/convex/paymentIntent.test.ts` covers idempotency replay/conflict and API-key project isolation.
+
+Known limitation:
+
+- Tests cover route/helper/Convex behavior, not a deployed Vercel + hosted Convex integration path.
+
 ### 5.9 Checkout SDK and Integration Snippets
 
 Status: **Implemented**
@@ -436,6 +500,43 @@ Coverage:
 
 - SDK helper has focused Node tests.
 - Snippet UI needs manual copy/paste validation.
+
+### 5.9.1 `@carts1024/velo-sdk` Alpha Package
+
+Status: **Implemented and tested**
+
+Implemented in:
+
+- `packages/velo-sdk/package.json`
+- `packages/velo-sdk/src/client.ts`
+- `packages/velo-sdk/src/http.ts`
+- `packages/velo-sdk/src/errors.ts`
+- `packages/velo-sdk/src/types.ts`
+- `packages/velo-sdk/src/webhooks.ts`
+- `packages/velo-sdk/README.md`
+- `packages/velo-sdk/CHANGELOG.md`
+- `examples/nextjs-app-router`
+- `examples/express`
+
+Current behavior:
+
+- Publishes an ESM alpha package as `@carts1024/velo-sdk` version `0.1.0-alpha.2`.
+- Provides `new Velo({ apiKey })` with `baseUrl`, `environment`, and `timeoutMs` options.
+- Supports `velo.checkout.sessions.create()`, `velo.paymentIntents.create()`, `velo.paymentIntents.retrieve()`, and `velo.paymentIntents.list()`.
+- Sends bearer API-key auth and optional `Idempotency-Key` headers.
+- Maps public API errors into typed SDK errors: `VeloAPIError`, `VeloAuthError`, `VeloRateLimitError`, and `VeloValidationError`.
+- Retries GET requests and POST requests only when an idempotency key is supplied.
+- Exports `Velo.webhooks.verify()` and instance-level `velo.webhooks.verify()` for raw-body HMAC verification.
+- Includes server-side Next.js App Router and Express examples for checkout creation and webhook verification.
+
+Coverage:
+
+- `packages/velo-sdk/src/client.test.ts` covers config validation, base URL resolution, auth/idempotency headers, timeout behavior, error mapping, checkout creation, retrieve/list, and retry rules.
+- `packages/velo-sdk/src/webhooks.test.ts` covers valid signatures, missing/malformed headers, timestamp tolerance, wrong secret, and tampered payload rejection.
+
+Known limitation:
+
+- The SDK is documented as Alpha, server-side only, ESM-only, and Testnet-focused. Live hosted API validation remains pending.
 
 ### 5.10 Webhooks and Signed Delivery
 
@@ -618,6 +719,44 @@ Coverage:
 
 - Needs manual route QA.
 
+
+### 5.16 Project-Aware Dashboard, Settings, and Theme Polish
+
+Status: **Implemented; browser visual QA still needed**
+
+Implemented in:
+
+- `apps/web/core/app-shell.tsx`
+- `apps/web/features/projects/dashboard.tsx`
+- `apps/web/features/projects/project-settings.tsx`
+- `apps/web/app/projects/[projectId]/settings/page.tsx`
+- `packages/backend/convex/projects/mutation.ts`
+- `packages/backend/convex/projects/query.ts`
+- `packages/ui/src/components/ui-customs/sidebar/app-sidebar.tsx`
+- `packages/ui/src/components/ui-customs/sidebar/project-switcher.tsx`
+- `packages/ui/src/ui-providers.tsx`
+- `packages/ui/src/styles/globals.css`
+- `apps/web/features/landing/sections/*`
+
+Current behavior:
+
+- App shell persists the selected project per wallet, waits for localStorage hydration before falling back to the first project, and prefetches project routes.
+- Sidebar navigation is project-aware and exposes dashboard, contracts, events, webhooks, integration, public proof, and settings links.
+- Dashboard is scoped to the selected project and surfaces readiness, contracts, events, webhook health, payments, paid volume, and recent activity.
+- Project settings allow owners to update name/description without mutating registry metadata or metadata hash.
+- Project logos upload through Convex Storage, can be replaced or removed, and appear in sidebar/project switcher surfaces.
+- Theme support is wired through `next-themes`, with light/dark token overrides, root hydration guard, and light-mode landing-page assets/styles.
+
+Coverage:
+
+- `packages/backend/convex/projectSettings.test.ts` covers settings authorization, metadata preservation, and logo storage lifecycle.
+- `apps/web/features/projects/project-settings.test.ts` covers source-level UI wiring for logo upload, settings route shell integration, sidebar settings nav, and sidebar hydration persistence.
+- `apps/web/features/projects/dashboard-selection.test.ts` covers selected-project persistence and localStorage hydration behavior.
+
+Known limitation:
+
+- These UI tests are mostly source-level checks. They should be backed by manual or Playwright browser QA before demo sign-off.
+
 ## 6. Sprint Status Against Pay-Prioritized Alpha Plan
 
 | Sprint | Planned outcome | Current status |
@@ -625,12 +764,24 @@ Coverage:
 | 9 Smart Contract Alpha | `VeloPayAccess` with Registry inter-contract call | Implemented and tested |
 | 10 API Keys & Access Activation | Multi-key API system and activation flow | Implemented; live activation validation pending |
 | 11 PaymentIntents & Checkout Page | PaymentIntent schema/API and hosted checkout | Implemented; live payment validation pending |
-| 12 Checkout SDK & Snippet Builder | Helper and copyable integration snippets | Implemented and helper-tested |
+| 12 Checkout SDK & Snippet Builder | Helper and copyable integration snippets | Implemented; superseded for public SDK usage by `@carts1024/velo-sdk` snippets/examples |
 | 13 Webhook Security & Signatures | Secrets, HMAC signatures, payment event types | Implemented and verification-tested |
 | 14 Payment Monitor & Observability | Pending scanner and dashboard stats | Implemented; live scanner validation pending |
 | 15 Mobile & E2E Hardening | Responsive polish and timed demo run | Partially complete; formal dry run pending |
 
-Pay-prioritized Alpha overall: **feature-complete at code level, pending deployment and live end-to-end validation.**
+Pay-prioritized Alpha overall: **feature-complete at code level, pending deployment and live end-to-end validation.** Several items originally treated as deferred or simplified for Alpha are now implemented in limited Alpha form, including multi-key API management, rate limiting, webhook retries, public PaymentIntent retrieve/list, and SDK idempotency.
+
+## 6.1 SDK Phase Status
+
+| SDK sprint | Planned outcome | Current status |
+| --- | --- | --- |
+| 0 Contract Lock and Scope Cut | Freeze public API contract | Implemented in `docs/prds/prd-velo-sdk/sdk-alpha-contract.md` |
+| 1 Public PaymentIntent API Hardening | Idempotency, retrieve/list, API-key scoping, stable errors | Implemented and covered by web/API + Convex tests |
+| 2 SDK Package Foundation | `packages/velo-sdk`, client config, HTTP, typed errors | Implemented and covered by SDK tests |
+| 3 Checkout and PaymentIntent SDK Resources | Checkout create, PaymentIntent create/retrieve/list | Implemented and covered by SDK tests |
+| 4 Webhook Developer Experience | Raw-body signature verification and typed events | Implemented and covered by SDK webhook tests |
+| 5 Examples, Docs, and Dashboard Snippet Migration | README, Next.js/Express examples, env docs | Implemented for README/examples; dashboard snippet migration should be visually checked |
+| 6 Alpha Release Readiness | Live Testnet SDK flow and release checklist | Partially complete; package is alpha.2 but live hosted flow proof is not recorded |
 
 ## 7. Test Coverage Summary
 
@@ -639,7 +790,11 @@ Pay-prioritized Alpha overall: **feature-complete at code level, pending deploym
 | Registry contract | Cargo integration tests and snapshots | Testnet deployment verification |
 | PayAccess contract | Cargo integration tests and snapshots | Testnet deployment verification |
 | Convex API keys | Vitest with `convex-test` | Distributed rate limiting not implemented |
-| Convex PaymentIntents | Vitest with `convex-test` | Live transaction confirmation behavior |
+| Convex PaymentIntents | Vitest with `convex-test`; idempotency and API-key isolation covered | Live transaction confirmation behavior |
+| Public PaymentIntent REST helpers | Node tests for contract shape, validation, list parsing, errors | Deployed route + hosted Convex compatibility |
+| `@carts1024/velo-sdk` | Node tests for client, HTTP, errors, retries, webhook verification | Live hosted API and Testnet checkout flow |
+| Project settings | Convex tests plus source-level web tests | Browser file upload/theme/settings interaction QA |
+| Dashboard/project navigation | Source-level web tests | Browser route and responsive QA |
 | Stellar checkout helper | Node tests with mocked fetch | Real Horizon account/trustline/payment flow |
 | Stellar webhook helper | Node tests for verification | End-to-end signed delivery to real endpoint |
 | Web formatting/readiness | Node tests | Browser route and responsive QA |
@@ -651,6 +806,7 @@ Recommended verification commands before handoff:
 ```bash
 pnpm --filter web test
 pnpm --filter @repo/backend test
+pnpm --filter @carts1024/velo-sdk test
 pnpm --filter @repo/stellar test
 cd contracts/registry && cargo test
 cd contracts/pay_access && cargo test
@@ -666,7 +822,10 @@ cd contracts/pay_access && cargo test
 | Wallet ownership spoofing at Convex boundary | Caller can spoof owner address at backend boundary | Fixed at code level. Wallet challenge/JWT auth and token-identifier ownership checks are implemented, with legacy migration fallback. Hosted auth secrets still need verification. |
 | Webhook delivery reliability and signing ops | Failed deliveries could be lost; secret compromise required manual reset | Improved. Retry/backoff and secret rotation are implemented. Remaining gap: no dual-secret grace period after rotation. |
 | API abuse | High request volume can consume app/backend resources | Improved. API-key and cached project-level in-memory rate limiting is implemented. Remaining gap: limiter is not distributed across instances. |
-| Mobile/browser QA not recorded | UI regressions may appear on demo devices | Still open. Run responsive pass for dashboard, project detail, integration, webhooks, checkout, and verify pages. |
+| Public SDK/API not validated against hosted deployment | SDK may pass unit tests but fail against Vercel/Convex env config, CORS, URL, or auth differences | Still open. Run SDK create/retrieve/list and webhook verify against the hosted Testnet deployment. |
+| SDK package release semantics | Alpha package exists but public base URLs and publish/release checklist may drift | Partially open. Package is `0.1.0-alpha.2`; confirm npm publish status, base URL strategy, and release notes before external builders use it. |
+| Project settings/browser flows rely on source-level tests | Upload/theme/sidebar behavior can regress in real browsers | Still open. Run manual or Playwright QA for settings, logo upload, theme switching, selected-project persistence, and responsive tables. |
+| Mobile/browser QA not recorded | UI regressions may appear on demo devices | Still open. Run responsive pass for dashboard, project detail, integration, webhooks, checkout, verify, and settings pages. |
 | Full RPC gateway remains absent | Older broad Alpha spec is not fully satisfied | Still deferred unless product re-prioritizes developer-ops gateway. |
 
 ## 9. Recommended Next Actions
@@ -680,12 +839,15 @@ cd contracts/pay_access && cargo test
    - activate payment access;
    - generate API key;
    - configure webhook;
-   - create PaymentIntent through API/snippet;
+   - create PaymentIntent through API/snippet and through `@carts1024/velo-sdk`;
+   - retrieve/list PaymentIntents through `@carts1024/velo-sdk`;
    - open `/pay/[paymentIntentId]`;
    - pay from customer wallet;
    - confirm status, payment metrics, transaction debugger, and signed webhook delivery.
-5. Capture the dry-run result in `docs/prds/prd-talakit-2026-06-13/demo-setup.md` or a new Alpha demo runbook.
-6. Decide whether the next phase is Alpha hardening or the deferred developer-ops gateway track.
+5. Run browser QA for settings/logo upload, theme switching, selected-project persistence, dashboard project scoping, integration snippets, and checkout mobile layout.
+6. Capture the dry-run result in `docs/prds/prd-talakit-2026-06-13/demo-setup.md` or a new Alpha demo runbook.
+7. Confirm SDK release posture: npm publish status, public base URLs, alpha limitations, and whether dashboard snippets should fully switch from legacy helper examples to `@carts1024/velo-sdk`.
+8. Decide whether the next phase is Alpha hardening, SDK release readiness, or the deferred developer-ops gateway track.
 
 ## 10. Feature Map
 
@@ -702,6 +864,9 @@ mindmap
       PaymentIntents
       Hosted checkout
       Checkout SDK helper
+      Public REST retrieve list API
+      PaymentIntent idempotency
+      Velo SDK alpha
       Integration snippets
       Signed webhooks
       Webhook retry and secret rotation
@@ -716,12 +881,17 @@ mindmap
       Contract event monitor
       Webhook delivery logs
       Feedback onboarding
+      Project settings logos
+      Project-aware dashboard
+      Light dark theme
     Needs Validation
       Live Testnet registration
       Live PayAccess activation
       Live checkout payment
       Live webhook receiver
+      Hosted SDK API flow
       Hosted auth and contract envs
+      Settings logo theme browser QA
       Mobile responsive pass
     Deferred
       Full RPC gateway
@@ -733,6 +903,6 @@ mindmap
 
 ## 11. Bottom Line
 
-Velo now has a coherent, implemented Alpha centered on stablecoin payment links and hosted checkout. The codebase includes the required two-contract Soroban architecture, a meaningful Registry-to-PayAccess inter-contract call, API-key-authenticated PaymentIntent creation, customer checkout, signed payment webhooks, payment metrics, and the earlier verification/debug/event-monitoring foundation.
+Velo now has a coherent, implemented Alpha centered on stablecoin payment links, hosted checkout, signed webhooks, and a server-side SDK. The codebase includes the required two-contract Soroban architecture, Registry-to-PayAccess inter-contract calls, API-key-authenticated PaymentIntent creation, public retrieve/list APIs, idempotency, customer checkout, signed payment webhooks, payment metrics, the `@carts1024/velo-sdk` alpha package, and the earlier verification/debug/event-monitoring foundation.
 
-The remaining work is not a rebuild. The previously listed code-level hardening gaps are now addressed. The next gate is deployment discipline: confirm hosted contract/auth envs, run the live Testnet payment path, record the demo setup, and decide which deferred production concerns belong in the next sprint.
+The remaining work is not a rebuild. The previously listed code-level hardening gaps are addressed, and several originally deferred Alpha conveniences have shipped in limited form. The next gate is deployment discipline: confirm hosted contract/auth/API envs, run the live Testnet payment path through both raw REST and SDK code, record the demo setup, perform browser QA for the new dashboard/settings/theme surfaces, and decide whether the next sprint prioritizes Alpha hardening, SDK release readiness, or the deferred developer-ops gateway track.
