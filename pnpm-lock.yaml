@@ -161,6 +161,9 @@ importers:
 
   packages/backend:
     dependencies:
+      '@repo/pdax':
+        specifier: workspace:*
+        version: link:../pdax
       '@repo/stellar':
         specifier: workspace:*
         version: link:../stellar
@@ -180,6 +183,18 @@ importers:
       vitest:
         specifier: ^4.1.9
         version: 4.1.9(@edge-runtime/vm@5.0.0)(@types/node@22.19.19)(vite@8.1.0(@types/node@22.19.19)(esbuild@0.27.0)(jiti@2.7.0))
+
+  packages/pdax:
+    devDependencies:
+      '@repo/typescript-config':
+        specifier: workspace:*
+        version: link:../typescript-config
+      '@types/node':
+        specifier: ^22.15.3
+        version: 22.19.19
+      typescript:
+        specifier: 5.9.2
+        version: 5.9.2
 
   packages/stellar:
     dependencies:
