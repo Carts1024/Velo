@@ -10,6 +10,18 @@ import { Doc, Id } from "../_generated/dataModel";
 import { action, internalAction } from "../_generated/server";
 import { getOrRefreshPdaxConnection } from "./helpers";
 
+function cleanReferenceNumber(newRef?: string, existingRef?: string): string | undefined {
+  const isBase64 = (s?: string) => typeof s === "string" && s.startsWith("eyJ");
+
+  if (newRef && !isBase64(newRef)) {
+    return newRef;
+  }
+  if (existingRef && !isBase64(existingRef)) {
+    return existingRef;
+  }
+  return newRef || existingRef;
+}
+
 export const connect = action({
   args: {
     projectId: v.id("projects"),
@@ -378,12 +390,15 @@ export const fiatWithdraw = action({
       },
     );
 
+    const resolvedRef = withdrawal.retry_methods?.[0]?.request_id || withdrawal.reference_number;
+    const finalRef = cleanReferenceNumber(resolvedRef, undefined);
+
     await ctx.runMutation(internal.settlement_transactions.mutation.updateStatus, {
       idempotencyId: args.idempotencyId,
       status: "PAYOUT_PENDING",
       withdrawalId: withdrawal.identifier,
       withdrawalDetails: {
-        referenceNumber: withdrawal.reference_number,
+        referenceNumber: finalRef,
         amount: withdrawal.amount,
         fee: withdrawal.fee,
         status: withdrawal.status,
@@ -401,7 +416,10 @@ export const fiatWithdraw = action({
       settlementTransactionId: txDocId,
     });
 
-    return withdrawal;
+    return {
+      ...withdrawal,
+      reference_number: finalRef || withdrawal.reference_number,
+    };
   },
 });
 
@@ -521,7 +539,10 @@ export const handlePdaxWebhook = action({
       }
 
       const pFee = "fee" in payload ? payload.fee : 0;
-      const pRef = "reference_number" in payload ? payload.reference_number : undefined;
+      const pRefRaw =
+        ("request_id" in payload ? payload.request_id : "") ||
+        ("reference_number" in payload ? payload.reference_number : "") ||
+        ("reference_id" in payload ? payload.reference_id : "");
 
       const existingDetails = tx.withdrawalDetails ?? {
         referenceNumber: undefined as string | undefined,
@@ -532,12 +553,14 @@ export const handlePdaxWebhook = action({
         accountNumber: "n/a",
       };
 
+      const finalRef = cleanReferenceNumber(pRefRaw, existingDetails.referenceNumber);
+
       await ctx.runMutation(internal.settlement_transactions.mutation.updateStatus, {
         idempotencyId: tx.idempotencyId,
         status: newStatus,
         withdrawalId: identifier,
         withdrawalDetails: {
-          referenceNumber: pRef || existingDetails.referenceNumber,
+          referenceNumber: finalRef,
           amount: payload.amount ?? existingDetails.amount,
           fee: pFee ?? existingDetails.fee,
           status,
@@ -768,12 +791,16 @@ export const checkPayoutStatus = action({
           accountNumber: "n/a",
         };
 
+        const resolvedRef =
+          pdaxTx.request_id || pdaxTx.retried_methods?.[0]?.request_id || pdaxTx.reference_number;
+        const finalRef = cleanReferenceNumber(resolvedRef, existingDetails.referenceNumber);
+
         await ctx.runMutation(internal.settlement_transactions.mutation.updateStatus, {
           idempotencyId: tx.idempotencyId,
           status: newStatus,
           withdrawalId: identifier,
           withdrawalDetails: {
-            referenceNumber: pdaxTx.reference_number || existingDetails.referenceNumber,
+            referenceNumber: finalRef,
             amount: parseFloat(pdaxTx.amount) || existingDetails.amount,
             fee: parseFloat(pdaxTx.fee || "0") || existingDetails.fee,
             status: pdaxTx.status,
@@ -877,12 +904,18 @@ export const pollPendingPayouts = internalAction({
               accountNumber: "n/a",
             };
 
+            const resolvedRef =
+              pdaxTx.request_id ||
+              pdaxTx.retried_methods?.[0]?.request_id ||
+              pdaxTx.reference_number;
+            const finalRef = cleanReferenceNumber(resolvedRef, existingDetails.referenceNumber);
+
             await ctx.runMutation(internal.settlement_transactions.mutation.updateStatus, {
               idempotencyId: tx.idempotencyId,
               status: newStatus,
               withdrawalId: identifier,
               withdrawalDetails: {
-                referenceNumber: pdaxTx.reference_number || existingDetails.referenceNumber,
+                referenceNumber: finalRef,
                 amount: parseFloat(pdaxTx.amount) || existingDetails.amount,
                 fee: parseFloat(pdaxTx.fee || "0") || existingDetails.fee,
                 status: pdaxTx.status,
