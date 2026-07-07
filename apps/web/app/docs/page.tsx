@@ -613,7 +613,43 @@ const session = await velo.checkout.sessions.create({
                     <strong className="text-white">payment_access.activated</strong>: Emitted when
                     project pay credits are added.
                   </li>
+                  <li>
+                    <strong className="text-white">settlement.quote.created</strong>: Emitted when a
+                    new firm quote is requested and locked (UAT simulated).
+                  </li>
+                  <li>
+                    <strong className="text-white">settlement.trade.executed</strong>: Emitted when
+                    stablecoin conversion trade is executed (UAT simulated).
+                  </li>
+                  <li>
+                    <strong className="text-white">settlement.withdrawal.pending</strong>: Emitted
+                    when InstaPay bank withdrawal payout is initiated (UAT simulated).
+                  </li>
+                  <li>
+                    <strong className="text-white">settlement.withdrawal.succeeded</strong>: Emitted
+                    when bank payout succeeds (UAT simulated).
+                  </li>
+                  <li>
+                    <strong className="text-white">settlement.withdrawal.failed</strong>: Emitted
+                    when bank payout fails (UAT simulated).
+                  </li>
+                  <li>
+                    <strong className="text-white">provider.pdax.event.received</strong>: Emitted
+                    when raw webhook data is received from PDAX (UAT simulated).
+                  </li>
                 </ul>
+
+                <div className="flex gap-3 bg-amber-950/20 border border-amber-900/60 text-amber-300 rounded-xl p-4 my-6">
+                  <AlertTriangleIcon className="size-5 shrink-0 mt-0.5 text-amber-500" />
+                  <div className="text-sm">
+                    <strong>UAT Sandbox Settlement Webhooks</strong>
+                    <p className="mt-1 text-zinc-400">
+                      Settlement events are currently tied to the PDAX UAT Sandbox environment. All
+                      pricing, liquidity, bank payouts, and transactions are mock/simulated. Do not
+                      use real production funds.
+                    </p>
+                  </div>
+                </div>
               </>
             )}
 

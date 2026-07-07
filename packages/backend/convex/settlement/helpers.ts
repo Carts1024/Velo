@@ -1,4 +1,4 @@
-import { PdaxClient } from "@repo/pdax";
+import { PdaxClient, PdaxError } from "@repo/pdax";
 
 import { internal } from "../_generated/api";
 import { Id } from "../_generated/dataModel";
@@ -85,4 +85,94 @@ export async function getOrRefreshPdaxConnection(
     idToken: connection.idToken!,
     client,
   };
+}
+
+export function mapPdaxError(err: unknown): Error {
+  if (err instanceof PdaxError) {
+    const status = err.status;
+    const body = err.body;
+    let message = "";
+
+    if (typeof body === "string") {
+      message = body;
+    } else if (body && typeof body === "object") {
+      message = ((body as Record<string, unknown>).message as string) || JSON.stringify(body);
+    } else {
+      message = err.message || "";
+    }
+
+    const lowerMessage = message.toLowerCase();
+
+    // 1. Expired Token / Authentication Failure (401)
+    if (status === 401) {
+      return new Error("PDAX authentication failed. Please check your credentials or reconnect.");
+    }
+
+    // 2. Insufficient Balance
+    const hasInsufficientCode =
+      body &&
+      typeof body === "object" &&
+      ["PAP0013", "OT010006", "OT010008"].includes(
+        (body as Record<string, unknown>).code as string,
+      );
+    if (
+      lowerMessage.includes("insufficient") ||
+      lowerMessage.includes("cannot hold specified amounts") ||
+      hasInsufficientCode
+    ) {
+      return new Error("Insufficient balance in your PDAX settlement wallet.");
+    }
+
+    // 3. Asset Unavailable
+    const hasAssetUnavailableCode =
+      body &&
+      typeof body === "object" &&
+      ["OT010003", "OT010016"].includes((body as Record<string, unknown>).code as string);
+    if (
+      lowerMessage.includes("asset unavailable") ||
+      lowerMessage.includes("trading pair cannot be found") ||
+      hasAssetUnavailableCode
+    ) {
+      return new Error("The requested asset is currently unavailable for settlement.");
+    }
+
+    // 4. Invalid Parameters (400 or 422)
+    const hasInvalidParamsCode =
+      body &&
+      typeof body === "object" &&
+      ["OT010026"].includes((body as Record<string, unknown>).code as string);
+    if (
+      status === 400 ||
+      status === 422 ||
+      lowerMessage.includes("malformed parameters") ||
+      lowerMessage.includes("required") ||
+      lowerMessage.includes("must be") ||
+      hasInvalidParamsCode
+    ) {
+      return new Error("Invalid parameters provided to settlement broker.");
+    }
+
+    // 5. PDAX Downtime (502, 503, 504)
+    if (status === 502 || status === 503 || status === 504) {
+      return new Error("PDAX settlement service is currently offline or experiencing downtime.");
+    }
+
+    return new Error(`PDAX API error (${status}): ${message}`);
+  }
+
+  // 6. Generic Network Offline / Timeout
+  if (err instanceof Error) {
+    const lowerMessage = err.message.toLowerCase();
+    if (
+      lowerMessage.includes("fetch failed") ||
+      lowerMessage.includes("network") ||
+      lowerMessage.includes("timeout") ||
+      lowerMessage.includes("connect")
+    ) {
+      return new Error("PDAX settlement service is currently offline or experiencing downtime.");
+    }
+    return err;
+  }
+
+  return new Error(String(err));
 }

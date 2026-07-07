@@ -89,3 +89,38 @@ This guide describes how to run through a full, end-to-end demo of **Velo Pay** 
    - A `payment.succeeded` event is generated and sent to the configured webhook endpoint.
    - The payload is signed using HMAC-SHA256 and sent with the `x-velo-signature` header.
    - In the project dashboard under the **Webhooks** tab, check the **Delivery Logs** to view the HTTP status, response latency, and payload verification status.
+
+---
+
+## Step 6: PDAX UAT Settlement & Payout Demo Flow
+
+This step covers converting Stellar Testnet stablecoin payouts to local fiat currency and withdrawing to local banks.
+
+> [!WARNING]
+> This settlement flow uses the **PDAX UAT sandbox** environment. All rates, quotes, bank executions, and balances are simulated. Do not deposit real production assets.
+
+1. **Connect Provider**:
+   - Go to the **Settlement** tab in the project dashboard.
+   - Click **Connect PDAX Provider** to authenticate Velo with the APAC Hackathon UAT credentials. Note that the dashboard caches token credentials securely in Convex.
+2. **Review Sandbox Balances**:
+   - Once connected, view the live sandbox asset balances. You can see available, hold, and total balances for `USDCXLM` (SEP-41 classic bridge token on Stellar testnet) and `PHP`.
+3. **Execute Conversion Quote**:
+   - Under **Step 1: Quote & Trade Conversion**, input a quantity (e.g. `10 USDCXLM`) and set target asset to `PHP`.
+   - Click **Get Firm Quote** to request a locked executable UAT rate.
+   - Click **Execute Conversion Trade** within 15 seconds to lock the trade and receive simulated `PHP` in your PDAX sandbox account.
+4. **Initiate Payout Bank Withdrawal**:
+   - Under **Step 2: Bank Withdrawal via InstaPay**, select a test destination bank (e.g., CTBC Bank `BACTBPH` or Security Bank `BASECPH`).
+   - Input the test account details and click **Initiate InstaPay Withdrawal**. This will register a pending withdrawal transaction.
+5. **Verify Outbound Webhooks**:
+   - Under **Webhook Simulator**, input the transaction reference and trigger the completed webhook.
+   - Go to the webhook logs at the bottom to verify that Velo's delivery logs register signed outbound settlement events like `settlement.withdrawal.succeeded`.
+
+---
+
+## Step 7: Presentation Offline Fallback Guide
+
+If the live PDAX UAT API goes down or resets:
+1. Use the **Webhook Simulator** widget on the Settlement page to trigger simulated callbacks manually.
+2. Provide a reference ID (e.g. `w-idemp-mock123`), select state `COMPLETED` or `FAILED`, and click **Trigger Callback Webhook**.
+3. Velo will bypass network dependency, mutate the database record to `PAYOUT_SUCCEEDED` or `PAYOUT_FAILED`, dispatch the normalized merchant webhook, and log delivery metrics in the dashboard.
+

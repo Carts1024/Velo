@@ -8,7 +8,7 @@ import { v } from "convex/values";
 import { api, internal } from "../_generated/api";
 import { Doc, Id } from "../_generated/dataModel";
 import { action, internalAction } from "../_generated/server";
-import { getOrRefreshPdaxConnection } from "./helpers";
+import { getOrRefreshPdaxConnection, mapPdaxError } from "./helpers";
 
 function cleanReferenceNumber(newRef?: string, existingRef?: string): string | undefined {
   const isBase64 = (s?: string) => typeof s === "string" && s.startsWith("eyJ");
@@ -34,7 +34,11 @@ export const connect = action({
     }
 
     // 2. Establish connection (performs login and caches tokens)
-    await getOrRefreshPdaxConnection(ctx, args.projectId);
+    try {
+      await getOrRefreshPdaxConnection(ctx, args.projectId);
+    } catch (err) {
+      throw mapPdaxError(err);
+    }
 
     return { status: "connected" };
   },
@@ -52,11 +56,16 @@ export const getBalances = action({
     }
 
     // 2. Retrieve tokens and client
-    const { accessToken, idToken, client } = await getOrRefreshPdaxConnection(ctx, args.projectId);
-
-    // 3. Fetch balances
-    const response = await client.balances(accessToken, idToken);
-    return response.data;
+    try {
+      const { accessToken, idToken, client } = await getOrRefreshPdaxConnection(
+        ctx,
+        args.projectId,
+      );
+      const response = await client.balances(accessToken, idToken);
+      return response.data;
+    } catch (err) {
+      throw mapPdaxError(err);
+    }
   },
 });
 
@@ -93,7 +102,13 @@ export const getQuote = action({
     }
 
     // 3. Retrieve tokens and client
-    const { accessToken, idToken, client } = await getOrRefreshPdaxConnection(ctx, args.projectId);
+    let connectionInfo;
+    try {
+      connectionInfo = await getOrRefreshPdaxConnection(ctx, args.projectId);
+    } catch (err) {
+      throw mapPdaxError(err);
+    }
+    const { accessToken, idToken, client } = connectionInfo;
 
     // 4. Handle Firm vs Indicative Quote
     if (args.firm) {
@@ -124,17 +139,7 @@ export const getQuote = action({
           quantity: args.quantity,
         });
       } catch (err) {
-        if (err instanceof PdaxError) {
-          const bodyStr = typeof err.body === "string" ? err.body : JSON.stringify(err.body);
-          console.error(`PDAX firmQuote failed [${err.status}]: ${bodyStr}`, {
-            side: args.side,
-            quoteCurrency: args.quoteCurrency,
-            currency: args.currency,
-            quantity: args.quantity,
-          });
-          throw new Error(`PDAX firmQuote failed (${err.status}): ${bodyStr}`);
-        }
-        throw err;
+        throw mapPdaxError(err);
       }
 
       const expiresAt = Date.parse(response.data.expires_at);
@@ -191,17 +196,7 @@ export const getQuote = action({
           quantity: args.quantity,
         });
       } catch (err) {
-        if (err instanceof PdaxError) {
-          const bodyStr = typeof err.body === "string" ? err.body : JSON.stringify(err.body);
-          console.error(`PDAX indicativeQuote failed [${err.status}]: ${bodyStr}`, {
-            side: args.side,
-            quoteCurrency: args.quoteCurrency,
-            currency: args.currency,
-            quantity: args.quantity,
-          });
-          throw new Error(`PDAX indicativeQuote failed (${err.status}): ${bodyStr}`);
-        }
-        throw err;
+        throw mapPdaxError(err);
       }
 
       return { quote: response.data };
@@ -251,7 +246,13 @@ export const executeTrade = action({
     }
 
     // 4. Retrieve tokens and execute trade
-    const { accessToken, idToken, client } = await getOrRefreshPdaxConnection(ctx, args.projectId);
+    let connectionInfo;
+    try {
+      connectionInfo = await getOrRefreshPdaxConnection(ctx, args.projectId);
+    } catch (err) {
+      throw mapPdaxError(err);
+    }
+    const { accessToken, idToken, client } = connectionInfo;
     const pdaxIdempotencyId = randomUUID();
     let response;
     try {
@@ -261,23 +262,14 @@ export const executeTrade = action({
         idempotency_id: pdaxIdempotencyId,
       });
     } catch (err) {
-      if (err instanceof PdaxError) {
-        const bodyStr = typeof err.body === "string" ? err.body : JSON.stringify(err.body);
-        console.error(`PDAX executeTrade failed [${err.status}]: ${bodyStr}`, {
+      // If quote expired on PDAX side, mark it expired locally too
+      if (err instanceof PdaxError && err.status === 400) {
+        await ctx.runMutation(internal.settlement_quotes.mutation.updateStatus, {
           quoteId: args.quoteId,
-          side: quote.side,
-          idempotencyId: pdaxIdempotencyId,
+          status: "expired",
         });
-        // If quote expired on PDAX side, mark it expired locally too
-        if (err.status === 400) {
-          await ctx.runMutation(internal.settlement_quotes.mutation.updateStatus, {
-            quoteId: args.quoteId,
-            status: "expired",
-          });
-        }
-        throw new Error(`PDAX trade failed (${err.status}): ${bodyStr}`);
       }
-      throw err;
+      throw mapPdaxError(err);
     }
 
     const trade = response.data;
@@ -354,27 +346,38 @@ export const fiatWithdraw = action({
     }
 
     // 3. Retrieve tokens and call PDAX fiat withdrawal
-    const { accessToken, idToken, client } = await getOrRefreshPdaxConnection(ctx, args.projectId);
-    const response = await client.fiatWithdraw(accessToken, idToken, {
-      identifier: args.idempotencyId,
-      sender_first_name: "Velo",
-      sender_middle_name: "n.a.",
-      sender_last_name: "Merchant",
-      sender_country_origin: "Philippines",
-      source_of_funds: "Business Income",
-      fee_type: "Sender",
-      beneficiary_first_name: args.beneficiaryFirstName,
-      beneficiary_middle_name: "n.a.",
-      beneficiary_last_name: args.beneficiaryLastName,
-      beneficiary_bank_code: args.bankCode,
-      beneficiary_account_name: args.accountName,
-      beneficiary_account_number: args.accountNumber,
-      purpose: "Business Transaction",
-      relationship_of_sender_to_beneficiary: "Myself",
-      currency: "PHP",
-      amount: args.amount,
-      method: "PAY-TO-ACCOUNT-REAL-TIME",
-    });
+    let connectionInfo;
+    try {
+      connectionInfo = await getOrRefreshPdaxConnection(ctx, args.projectId);
+    } catch (err) {
+      throw mapPdaxError(err);
+    }
+    const { accessToken, idToken, client } = connectionInfo;
+    let response;
+    try {
+      response = await client.fiatWithdraw(accessToken, idToken, {
+        identifier: args.idempotencyId,
+        sender_first_name: "Velo",
+        sender_middle_name: "n.a.",
+        sender_last_name: "Merchant",
+        sender_country_origin: "Philippines",
+        source_of_funds: "Business Income",
+        fee_type: "Sender",
+        beneficiary_first_name: args.beneficiaryFirstName,
+        beneficiary_middle_name: "n.a.",
+        beneficiary_last_name: args.beneficiaryLastName,
+        beneficiary_bank_code: args.bankCode,
+        beneficiary_account_name: args.accountName,
+        beneficiary_account_number: args.accountNumber,
+        purpose: "Business Transaction",
+        relationship_of_sender_to_beneficiary: "Myself",
+        currency: "PHP",
+        amount: args.amount,
+        method: "PAY-TO-ACCOUNT-REAL-TIME",
+      });
+    } catch (err) {
+      throw mapPdaxError(err);
+    }
 
     const withdrawal = response.data;
 
@@ -436,11 +439,21 @@ export const getOrder = action({
     }
 
     // 2. Retrieve tokens and client
-    const { accessToken, idToken, client } = await getOrRefreshPdaxConnection(ctx, args.projectId);
+    let connectionInfo;
+    try {
+      connectionInfo = await getOrRefreshPdaxConnection(ctx, args.projectId);
+    } catch (err) {
+      throw mapPdaxError(err);
+    }
+    const { accessToken, idToken, client } = connectionInfo;
 
     // 3. Fetch order status
-    const response = await client.getOrder(accessToken, idToken, args.orderId);
-    return response.data;
+    try {
+      const response = await client.getOrder(accessToken, idToken, args.orderId);
+      return response.data;
+    } catch (err) {
+      throw mapPdaxError(err);
+    }
   },
 });
 
@@ -672,7 +685,13 @@ export const registerWebhook = action({
     }
 
     // 2. Retrieve connection tokens and client
-    const { accessToken, idToken, client } = await getOrRefreshPdaxConnection(ctx, args.projectId);
+    let connectionInfo;
+    try {
+      connectionInfo = await getOrRefreshPdaxConnection(ctx, args.projectId);
+    } catch (err) {
+      throw mapPdaxError(err);
+    }
+    const { accessToken, idToken, client } = connectionInfo;
 
     // 3. Call PDAX to register the webhook URL for both 'crypto' and 'fiat'
     try {
@@ -680,12 +699,7 @@ export const registerWebhook = action({
       await client.registerWebhook(accessToken, idToken, args.webhookUrl, "fiat");
       return { status: "success" };
     } catch (err) {
-      if (err instanceof PdaxError) {
-        const bodyStr = typeof err.body === "string" ? err.body : JSON.stringify(err.body);
-        console.error(`PDAX registerWebhook failed [${err.status}]: ${bodyStr}`);
-        throw new Error(`PDAX webhook registration failed (${err.status}): ${bodyStr}`);
-      }
-      throw err;
+      throw mapPdaxError(err);
     }
   },
 });
@@ -742,7 +756,13 @@ export const checkPayoutStatus = action({
     }
 
     // 3. Get PDAX connection
-    const { accessToken, idToken, client } = await getOrRefreshPdaxConnection(ctx, args.projectId);
+    let connectionInfo;
+    try {
+      connectionInfo = await getOrRefreshPdaxConnection(ctx, args.projectId);
+    } catch (err) {
+      throw mapPdaxError(err);
+    }
+    const { accessToken, idToken, client } = connectionInfo;
 
     let updated = 0;
 

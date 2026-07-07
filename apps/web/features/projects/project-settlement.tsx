@@ -48,8 +48,12 @@ import {
   ArrowUpDownIcon,
   ChevronDownIcon,
   CheckIcon,
+  XCircleIcon,
+  BookOpenIcon,
+  ChevronUpIcon,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 
 type ProjectSettlementProps = {
   projectId: string;
@@ -221,6 +225,8 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
   const registerWebhookAction = useAction(api.settlement.actions.registerWebhook);
   const checkPayoutStatusAction = useAction(api.settlement.actions.checkPayoutStatus);
 
+  const [showDemoGuide, setShowDemoGuide] = useState(false);
+
   // Balances state
   const [balances, setBalances] = useState<BalanceItem[] | null>(null);
   const [balancesLoading, setBalancesLoading] = useState(false);
@@ -323,20 +329,32 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
     }
   };
 
-  const refreshBalances = useCallback(async () => {
-    if (connection?.status !== "connected") return;
-    setBalancesLoading(true);
-    setBalancesError(null);
-    try {
-      const res = (await getBalancesAction({ projectId: typedProjectId })) as BalanceItem[];
-      setBalances(res);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Failed to fetch balances";
-      setBalancesError(msg);
-    } finally {
-      setBalancesLoading(false);
-    }
-  }, [typedProjectId, connection?.status, getBalancesAction]);
+  const refreshBalances = useCallback(
+    async (showToast = false) => {
+      if (connection?.status !== "connected") return;
+      setBalancesLoading(true);
+      setBalancesError(null);
+      if (showToast) {
+        toast.loading("Refreshing balances...", { id: "pdax-balances" });
+      }
+      try {
+        const res = (await getBalancesAction({ projectId: typedProjectId })) as BalanceItem[];
+        setBalances(res);
+        if (showToast) {
+          toast.success("Balances refreshed successfully!", { id: "pdax-balances" });
+        }
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : "Failed to fetch balances";
+        setBalancesError(msg);
+        if (showToast) {
+          toast.error("Failed to refresh balances: " + msg, { id: "pdax-balances" });
+        }
+      } finally {
+        setBalancesLoading(false);
+      }
+    },
+    [typedProjectId, connection?.status, getBalancesAction],
+  );
 
   useEffect(() => {
     refreshBalances();
@@ -364,6 +382,7 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
   const handleConnect = async () => {
     setConnecting(true);
     setConnectError(null);
+    toast.loading("Connecting to PDAX Provider UAT...", { id: "pdax-connect" });
     try {
       await connectAction({ projectId: typedProjectId });
       // Automatically register the PDAX webhook callback URL
@@ -381,10 +400,12 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
       } catch (pdaxErr) {
         console.error("Auto-registering PDAX webhook failed on connect:", pdaxErr);
       }
+      toast.success("Connected to PDAX UAT sandbox!", { id: "pdax-connect" });
       await refreshBalances();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Connection failed";
       setConnectError(msg);
+      toast.error(`Connection failed: ${msg}`, { id: "pdax-connect" });
     } finally {
       setConnecting(false);
     }
@@ -404,6 +425,7 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
       return;
     }
 
+    toast.loading("Fetching firm quote from PDAX...", { id: "pdax-quote" });
     try {
       const side = fromAsset === "PHP" ? "buy" : "sell";
       const quoteCurrencyParam = fromAsset !== "PHP" ? fromAsset : toAsset;
@@ -425,12 +447,14 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
         const exp = Date.parse(res.quote.expires_at);
         setQuoteExpiresAt(exp);
         setQuoteSecondsLeft(Math.max(0, Math.ceil((exp - Date.now()) / 1000)));
+        toast.success("Firm quote received! Valid for 15s.", { id: "pdax-quote" });
       } else {
         throw new Error("Invalid quote response");
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to fetch firm quote";
       setQuoteError(msg);
+      toast.error(`Quote failed: ${msg}`, { id: "pdax-quote" });
     } finally {
       setQuoteLoading(false);
     }
@@ -441,6 +465,7 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
     setTradeLoading(true);
     setTradeError(null);
     setTradeSuccess(null);
+    toast.loading("Executing conversion trade...", { id: "pdax-trade" });
 
     try {
       const res = (await executeTradeAction({
@@ -457,10 +482,12 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
       }
       setActiveQuote(null);
       setQuoteExpiresAt(null);
+      toast.success("Trade executed successfully!", { id: "pdax-trade" });
       await refreshBalances();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to execute trade";
       setTradeError(msg);
+      toast.error(`Trade failed: ${msg}`, { id: "pdax-trade" });
     } finally {
       setTradeLoading(false);
     }
@@ -479,6 +506,7 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
     }
 
     const idempotencyId = `w-idemp-${Date.now()}`;
+    toast.loading("Initiating bank payout via InstaPay...", { id: "pdax-withdraw" });
 
     try {
       const res = (await fiatWithdrawAction({
@@ -494,10 +522,12 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
 
       setWithdrawSuccess(res);
       setSimIdentifier(res.identifier || idempotencyId);
+      toast.success("InstaPay payout initiated successfully!", { id: "pdax-withdraw" });
       await refreshBalances();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to initiate withdrawal";
       setWithdrawError(msg);
+      toast.error(`Payout failed: ${msg}`, { id: "pdax-withdraw" });
     } finally {
       setWithdrawLoading(false);
     }
@@ -511,6 +541,7 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
     setSimLoading(true);
     setSimError(null);
     setSimSuccess(false);
+    toast.loading("Simulating callback webhook...", { id: "pdax-sim" });
 
     try {
       await mockWebhookAction({
@@ -523,10 +554,12 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
       });
 
       setSimSuccess(true);
+      toast.success("Callback webhook simulation complete!", { id: "pdax-sim" });
       await refreshBalances();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Simulation failed";
       setSimError(msg);
+      toast.error(`Simulation failed: ${msg}`, { id: "pdax-sim" });
     } finally {
       setSimLoading(false);
     }
@@ -567,6 +600,170 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
           balances, and payouts are simulated. Do not deposit real production assets.
         </AlertDescription>
       </Alert>
+
+      {/* Hackathon Demo Guide & Fallback Manual Card */}
+      <Card className="border border-zinc-200 dark:border-zinc-800 shadow-sm bg-card/40 backdrop-blur-sm">
+        <button
+          type="button"
+          onClick={() => setShowDemoGuide(!showDemoGuide)}
+          className="w-full flex items-center justify-between p-5 text-left font-medium hover:bg-zinc-50/50 dark:hover:bg-zinc-900/50 transition-colors rounded-t-xl"
+        >
+          <div className="flex items-center gap-2.5">
+            <BookOpenIcon className="size-5 text-primary" />
+            <div>
+              <span className="text-base font-semibold block text-zinc-900 dark:text-zinc-100">
+                Stellar Hackathon Demo Guide & Fallback Manual
+              </span>
+              <span className="text-xs text-muted-foreground font-normal">
+                Follow this checklist for a live presentation, or use the fallback instructions if
+                PDAX UAT is offline.
+              </span>
+            </div>
+          </div>
+          {showDemoGuide ? (
+            <ChevronUpIcon className="size-5 text-zinc-400" />
+          ) : (
+            <ChevronDownIcon className="size-5 text-zinc-400" />
+          )}
+        </button>
+
+        {showDemoGuide && (
+          <CardContent className="p-5 pt-0 border-t border-zinc-100 dark:border-zinc-800/60 mt-4 space-y-5 animate-in fade-in slide-in-from-top-2 duration-200">
+            {/* Step-by-Step Demo Checklist */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-primary">
+                1. End-to-End Demo Checklist
+              </h3>
+              <ul className="space-y-2.5 text-sm text-zinc-600 dark:text-zinc-400">
+                <li className="flex items-start gap-2.5">
+                  <input
+                    type="checkbox"
+                    className="mt-1 rounded border-zinc-300 text-primary focus:ring-primary"
+                    readOnly
+                    checked={!!isConnected}
+                    aria-label="Establish Connection"
+                  />
+                  <span>
+                    <strong>Establish Connection</strong>: Click{" "}
+                    <code className="bg-zinc-100 dark:bg-zinc-800 px-1 py-0.5 rounded text-xs">
+                      Connect PDAX Provider
+                    </code>{" "}
+                    to establish session token caching and register webhook callbacks using global
+                    hackathon credentials.
+                  </span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <input
+                    type="checkbox"
+                    className="mt-1 rounded border-zinc-300 text-primary focus:ring-primary"
+                    aria-label="Fund Stellar Wallet"
+                  />
+                  <span>
+                    <strong>Fund Stellar Wallet</strong>: Ensure your testnet wallet has sufficient
+                    simulated{" "}
+                    <code className="bg-zinc-100 dark:bg-zinc-800 px-1 py-0.5 rounded text-xs">
+                      USDC
+                    </code>{" "}
+                    (SEP-41 classic bridge asset on Testnet) to convert.
+                  </span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <input
+                    type="checkbox"
+                    className="mt-1 rounded border-zinc-300 text-primary focus:ring-primary"
+                    aria-label="Request & Execute Conversion Quote"
+                  />
+                  <span>
+                    <strong>Request & Execute Conversion Quote</strong>: Submit a conversion
+                    quantity (e.g. 10 USDC) from{" "}
+                    <code className="bg-zinc-100 dark:bg-zinc-800 px-1 py-0.5 rounded text-xs">
+                      USDCXLM
+                    </code>{" "}
+                    to{" "}
+                    <code className="bg-zinc-100 dark:bg-zinc-800 px-1 py-0.5 rounded text-xs">
+                      PHP
+                    </code>
+                    . Review rates and click{" "}
+                    <code className="bg-zinc-100 dark:bg-zinc-800 px-1 py-0.5 rounded text-xs">
+                      Execute Conversion Trade
+                    </code>{" "}
+                    within the 15-second expiry.
+                  </span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <input
+                    type="checkbox"
+                    className="mt-1 rounded border-zinc-300 text-primary focus:ring-primary"
+                    aria-label="Initiate bank payout"
+                  />
+                  <span>
+                    <strong>Initiate bank payout</strong>: Select a test destination bank (e.g.{" "}
+                    <code className="bg-zinc-100 dark:bg-zinc-800 px-1 py-0.5 rounded text-xs">
+                      Security Bank
+                    </code>{" "}
+                    or{" "}
+                    <code className="bg-zinc-100 dark:bg-zinc-800 px-1 py-0.5 rounded text-xs">
+                      CTBC
+                    </code>
+                    ) and trigger an InstaPay UAT cashout/withdrawal.
+                  </span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <input
+                    type="checkbox"
+                    className="mt-1 rounded border-zinc-300 text-primary focus:ring-primary"
+                    aria-label="Verify Lifecycle & Webhooks"
+                  />
+                  <span>
+                    <strong>Verify Lifecycle & Webhooks</strong>: Monitor status transitions on the
+                    dashboard history. Open Webhooks log to inspect signed outbound callbacks
+                    dispatched by Velo.
+                  </span>
+                </li>
+              </ul>
+            </div>
+
+            {/* Offline Fallback Guide */}
+            <div className="p-4 rounded-xl bg-amber-500/5 border border-amber-500/20 space-y-2">
+              <div className="flex items-center gap-2 text-amber-600 dark:text-amber-500 font-semibold text-sm">
+                <AlertTriangleIcon className="size-4 shrink-0" />
+                <span>PDAX UAT Sandbox Offline Fallback Manual</span>
+              </div>
+              <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
+                If the live PDAX UAT API is down, offline, or returns error responses, you can
+                manually simulate the entire settlement workflow to the audience using local mocks:
+              </p>
+              <ol className="list-decimal pl-4.5 text-xs text-zinc-600 dark:text-zinc-400 space-y-1.5 leading-relaxed">
+                <li>
+                  Use a pre-seeded project connection (or click connect and let the system cache
+                  mock credentials).
+                </li>
+                <li>
+                  Copy a recent transaction reference ID (or generate a mock ID like{" "}
+                  <code className="bg-zinc-100 dark:bg-zinc-800/80 px-1 py-0.2 rounded text-[10px] font-mono">
+                    w-idemp-mock123
+                  </code>
+                  ).
+                </li>
+                <li>
+                  Fill the **PDAX Webhook Simulator** form below with your reference ID, set status
+                  to <code className="font-semibold text-emerald-600">COMPLETED</code>, and click
+                  **Trigger Callback Webhook**.
+                </li>
+                <li>
+                  This simulates the incoming PDAX callback locally, bypassing the live network. It
+                  updates the database record to{" "}
+                  <code className="bg-emerald-100 dark:bg-emerald-950/40 text-emerald-600 px-1 rounded text-[10px]">
+                    PAYOUT_SUCCEEDED
+                  </code>
+                  , dispatches the outbound merchant webhook, and registers it in the webhook logs,
+                  perfectly demonstrating the integrated flow.
+                </li>
+              </ol>
+            </div>
+          </CardContent>
+        )}
+      </Card>
 
       {/* Roster / Status Panel */}
       <div className="grid gap-6 md:grid-cols-3">
@@ -623,7 +820,13 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
                 Active
               </Button>
             )}
-            {connectError && <p className="text-xs text-destructive mt-2">{connectError}</p>}
+            {connectError && (
+              <Alert variant="destructive" className="mt-4">
+                <XCircleIcon className="h-4 w-4" />
+                <AlertTitle>Connection Failed</AlertTitle>
+                <AlertDescription className="text-xs">{connectError}</AlertDescription>
+              </Alert>
+            )}
           </CardFooter>
         </Card>
 
@@ -643,7 +846,7 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
               <Button
                 variant="outline"
                 size="icon"
-                onClick={refreshBalances}
+                onClick={() => refreshBalances(true)}
                 disabled={balancesLoading}
                 className="size-8"
               >
@@ -664,7 +867,11 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
                 <div className="h-12 bg-muted/20 rounded-lg animate-pulse" />
               </div>
             ) : balancesError ? (
-              <p className="text-xs text-destructive">{balancesError}</p>
+              <Alert variant="destructive">
+                <XCircleIcon className="h-4 w-4" />
+                <AlertTitle>Balances Fetch Failed</AlertTitle>
+                <AlertDescription className="text-xs">{balancesError}</AlertDescription>
+              </Alert>
             ) : balances && balances.length > 0 ? (
               <div className="space-y-3">
                 <div className="flex items-center gap-2 relative max-w-[240px]">
@@ -864,7 +1071,13 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
                   </Alert>
                 )}
 
-                {quoteError && <p className="text-xs text-destructive">{quoteError}</p>}
+                {quoteError && (
+                  <Alert variant="destructive">
+                    <XCircleIcon className="h-4 w-4" />
+                    <AlertTitle>Quote Request Failed</AlertTitle>
+                    <AlertDescription className="text-xs">{quoteError}</AlertDescription>
+                  </Alert>
+                )}
 
                 <Button
                   onClick={handleGetQuote}
@@ -915,7 +1128,13 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
                       </span>
                     </div>
 
-                    {tradeError && <p className="text-xs text-destructive">{tradeError}</p>}
+                    {tradeError && (
+                      <Alert variant="destructive">
+                        <XCircleIcon className="h-4 w-4" />
+                        <AlertTitle>Execution Failed</AlertTitle>
+                        <AlertDescription className="text-xs">{tradeError}</AlertDescription>
+                      </Alert>
+                    )}
 
                     <Button
                       onClick={handleExecuteTrade}
@@ -1012,7 +1231,13 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
                   />
                 </div>
 
-                {withdrawError && <p className="text-xs text-destructive">{withdrawError}</p>}
+                {withdrawError && (
+                  <Alert variant="destructive">
+                    <XCircleIcon className="h-4 w-4" />
+                    <AlertTitle>Payout Failed</AlertTitle>
+                    <AlertDescription className="text-xs">{withdrawError}</AlertDescription>
+                  </Alert>
+                )}
 
                 <Button
                   onClick={handleWithdraw}
@@ -1111,7 +1336,13 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
                 Outbound webhooks sent to merchant!
               </p>
             )}
-            {simError && <p className="text-xs text-destructive">{simError}</p>}
+            {simError && (
+              <Alert variant="destructive" className="w-full mt-2">
+                <XCircleIcon className="h-4 w-4" />
+                <AlertTitle>Simulation Failed</AlertTitle>
+                <AlertDescription className="text-xs">{simError}</AlertDescription>
+              </Alert>
+            )}
           </CardFooter>
         </Card>
       )}
@@ -1136,10 +1367,18 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
                   disabled={refreshAllLoading}
                   onClick={async () => {
                     setRefreshAllLoading(true);
+                    toast.loading("Checking pending payout statuses...", { id: "pdax-pending" });
                     try {
-                      await checkPayoutStatusAction({ projectId: typedProjectId });
-                    } catch (err) {
-                      console.error("Failed to refresh payout status:", err);
+                      const res = (await checkPayoutStatusAction({
+                        projectId: typedProjectId,
+                      })) as { updated: number; total: number };
+                      toast.success(
+                        `Check complete. Updated ${res?.updated || 0} of ${res?.total || 0} pending payouts.`,
+                        { id: "pdax-pending" },
+                      );
+                    } catch (err: unknown) {
+                      const msg = err instanceof Error ? err.message : "Failed to check statuses";
+                      toast.error(`Check failed: ${msg}`, { id: "pdax-pending" });
                     } finally {
                       setRefreshAllLoading(false);
                     }
@@ -1197,13 +1436,26 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
                                   disabled={refreshingPayoutId === tx.idempotencyId}
                                   onClick={async () => {
                                     setRefreshingPayoutId(tx.idempotencyId);
+                                    toast.loading(
+                                      `Polling status for payout ${tx.idempotencyId.slice(0, 8)}...`,
+                                      { id: `pdax-poll-${tx.idempotencyId}` },
+                                    );
                                     try {
                                       await checkPayoutStatusAction({
                                         projectId: typedProjectId,
                                         idempotencyId: tx.idempotencyId,
                                       });
-                                    } catch (err) {
-                                      console.error("Failed to refresh payout:", err);
+                                      toast.success("Payout status updated!", {
+                                        id: `pdax-poll-${tx.idempotencyId}`,
+                                      });
+                                    } catch (err: unknown) {
+                                      const msg =
+                                        err instanceof Error
+                                          ? err.message
+                                          : "Failed to check status";
+                                      toast.error(`Check failed: ${msg}`, {
+                                        id: `pdax-poll-${tx.idempotencyId}`,
+                                      });
                                     } finally {
                                       setRefreshingPayoutId(null);
                                     }
