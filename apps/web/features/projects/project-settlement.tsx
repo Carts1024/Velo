@@ -1089,7 +1089,7 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
                 <Button
                   onClick={handleRegisterWebhook}
                   disabled={webhookRegLoading}
-                  className="bg-primary hover:bg-primary/95 text-white flex items-center justify-center gap-2 whitespace-nowrap"
+                  className="flex items-center justify-center gap-2 whitespace-nowrap"
                 >
                   {webhookRegLoading ? <RefreshCwIcon className="h-4 w-4 animate-spin" /> : null}
                   Register URL
@@ -1244,7 +1244,7 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
                                   tx.status === "PAYOUT_SUCCEEDED"
                                     ? "success"
                                     : tx.status === "PAYOUT_FAILED"
-                                      ? "destructive"
+                                      ? "error"
                                       : tx.status === "PAYOUT_PENDING"
                                         ? "warning"
                                         : "info"
@@ -1345,7 +1345,7 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
                           </TableCell>
                           <TableCell className="text-xs py-2">
                             <Badge
-                              variant={delivery.status === "success" ? "success" : "destructive"}
+                              variant={delivery.status === "success" ? "success" : "error"}
                               className="text-[10px]"
                             >
                               {delivery.httpStatus
