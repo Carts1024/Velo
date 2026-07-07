@@ -221,16 +221,6 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
   const registerWebhookAction = useAction(api.settlement.actions.registerWebhook);
   const checkPayoutStatusAction = useAction(api.settlement.actions.checkPayoutStatus);
 
-  // Webhook registration state
-  const [webhookRegLoading, setWebhookRegLoading] = useState(false);
-  const [webhookRegSuccess, setWebhookRegSuccess] = useState(false);
-  const [webhookRegError, setWebhookRegError] = useState<string | null>(null);
-  const [webhookUrl, setWebhookUrl] = useState(
-    typeof window !== "undefined"
-      ? `${window.location.origin}/api/webhooks/pdax`
-      : "/api/webhooks/pdax",
-  );
-
   // Balances state
   const [balances, setBalances] = useState<BalanceItem[] | null>(null);
   const [balancesLoading, setBalancesLoading] = useState(false);
@@ -376,6 +366,21 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
     setConnectError(null);
     try {
       await connectAction({ projectId: typedProjectId });
+      // Automatically register the PDAX webhook callback URL
+      try {
+        const isLocalhost = ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
+        if (!isLocalhost) {
+          const pdaxCallbackUrl = `${window.location.origin}/api/webhooks/pdax`;
+          await registerWebhookAction({
+            projectId: typedProjectId,
+            webhookUrl: pdaxCallbackUrl,
+          });
+        } else {
+          console.log("Localhost detected. Skipping PDAX webhook registration.");
+        }
+      } catch (pdaxErr) {
+        console.error("Auto-registering PDAX webhook failed on connect:", pdaxErr);
+      }
       await refreshBalances();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Connection failed";
@@ -524,25 +529,6 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
       setSimError(msg);
     } finally {
       setSimLoading(false);
-    }
-  };
-
-  const handleRegisterWebhook = async () => {
-    setWebhookRegLoading(true);
-    setWebhookRegError(null);
-    setWebhookRegSuccess(false);
-
-    try {
-      await registerWebhookAction({
-        projectId: typedProjectId,
-        webhookUrl,
-      });
-      setWebhookRegSuccess(true);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Failed to register webhook";
-      setWebhookRegError(msg);
-    } finally {
-      setWebhookRegLoading(false);
     }
   };
 
@@ -1059,54 +1045,6 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
             </Card>
           </div>
         </div>
-      )}
-
-      {/* Webhook Callback Registration */}
-      {isConnected && (
-        <Card className="shadow-sm border bg-card/60 backdrop-blur-sm border-dashed mb-6">
-          <CardHeader className="pb-3 flex flex-row items-center gap-3">
-            <ActivityIcon className="size-5 text-primary" />
-            <div>
-              <CardTitle className="text-lg font-medium">
-                PDAX Webhook Callback Registration
-              </CardTitle>
-              <CardDescription>
-                Register your Velo callback URL with PDAX sandbox to receive instant payout updates.
-              </CardDescription>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label className="text-xs text-muted-foreground uppercase font-medium">
-                Webhook URL
-              </Label>
-              <div className="flex gap-2">
-                <Input
-                  value={webhookUrl}
-                  onChange={(e) => setWebhookUrl(e.target.value)}
-                  className="font-mono text-xs flex-1 border-zinc-200"
-                />
-                <Button
-                  onClick={handleRegisterWebhook}
-                  disabled={webhookRegLoading}
-                  className="flex items-center justify-center gap-2 whitespace-nowrap"
-                >
-                  {webhookRegLoading ? <RefreshCwIcon className="h-4 w-4 animate-spin" /> : null}
-                  Register URL
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-          <CardFooter className="pt-0 flex flex-col items-start gap-1">
-            {webhookRegSuccess && (
-              <p className="text-xs text-emerald-600 font-semibold flex items-center gap-1">
-                <CheckCircle2Icon className="size-3" /> Webhook URL successfully registered with
-                PDAX!
-              </p>
-            )}
-            {webhookRegError && <p className="text-xs text-destructive">{webhookRegError}</p>}
-          </CardFooter>
-        </Card>
       )}
 
       {/* Webhook Simulator (Sandbox testing helper widget) */}

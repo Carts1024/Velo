@@ -166,6 +166,11 @@ export function ProjectWebhooks({ projectId }: { projectId: string }) {
   const saveSettings = useMutation(api.webhook_endpoints.mutation.saveSettings);
   const rotateSecret = useMutation(api.webhook_endpoints.mutation.rotateSecret);
   const sendTest = useAction(api.webhookDelivery.sendTest);
+  const connection = useQuery(
+    api.provider_connections.query.getByProject,
+    wallet.address ? { projectId: typedProjectId } : "skip",
+  );
+  const registerWebhookAction = useAction(api.settlement.actions.registerWebhook);
   const loadedSettingsId = useRef<string | null>(null);
   const [url, setUrl] = useState("");
   const [enabled, setEnabled] = useState(true);
@@ -292,6 +297,25 @@ export function ProjectWebhooks({ projectId }: { projectId: string }) {
         enabled,
         eventTypes: selectedTypes,
       });
+
+      // Auto-register PDAX webhook if PDAX is connected
+      if (connection && connection.status === "connected") {
+        try {
+          const isLocalhost = ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
+          if (!isLocalhost) {
+            const pdaxCallbackUrl = `${window.location.origin}/api/webhooks/pdax`;
+            await registerWebhookAction({
+              projectId: typedProjectId,
+              webhookUrl: pdaxCallbackUrl,
+            });
+          } else {
+            console.log("Localhost detected. Skipping PDAX webhook registration.");
+          }
+        } catch (pdaxErr) {
+          console.error("Auto-registering PDAX webhook failed on save:", pdaxErr);
+        }
+      }
+
       setNotice({ type: "success", message: "Webhook settings saved." });
     } catch (error) {
       setNotice({
