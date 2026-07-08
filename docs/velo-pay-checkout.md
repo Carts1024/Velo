@@ -1,6 +1,6 @@
 # Velo Pay Checkout Guide
 
-This guide explains how to create a Velo Pay payment intent and send a buyer to the hosted checkout page.
+This guide explains how to create a Velo Pay payment intent, send a buyer to the hosted checkout page, and use the paid intent as the starting point for optional PDAX UAT settlement.
 
 ## Overview
 
@@ -96,6 +96,25 @@ Successful response:
 
 Send the buyer to `checkoutUrl`.
 
+## Read Payment Intents
+
+The API also supports server-side reads with the same API key authentication:
+
+```http
+GET /api/v1/payment-intents?status=paid&limit=10
+GET /api/v1/payment-intents/{id}
+Authorization: Bearer tk_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+Use these endpoints directly or through `@carts1024/velo-sdk`:
+
+```ts
+const intent = await velo.paymentIntents.retrieve("pi_12345");
+const paidPage = await velo.paymentIntents.list({ status: "paid", limit: 10 });
+```
+
+List responses include `data`, `hasMore`, and `nextCursor` for pagination.
+
 ## Request Body
 
 | Field | Required | Example | Notes |
@@ -167,6 +186,21 @@ Buyer flow:
 | `expired` | Intent passed expiry time. |
 
 Default expiry is 30 minutes.
+
+## Optional Settlement After Payment
+
+After a PaymentIntent reaches `paid`, Velo Settlement can use it as evidence for a PDAX UAT settlement demo:
+
+1. Open the project Settlement page.
+2. Connect the PDAX UAT provider.
+3. Review searchable/sortable sandbox balances.
+4. Request an indicative or firm quote for `USDCXLM` to `PHP`. Firm quotes are executable for about 15 seconds.
+5. Execute the trade while the quote is active.
+6. Initiate an InstaPay UAT withdrawal to a supported sandbox bank.
+7. Let the provider callback or payout polling update the settlement transaction.
+8. Verify signed merchant webhook deliveries such as `settlement.quote.created`, `settlement.trade.executed`, `settlement.withdrawal.pending`, and `settlement.withdrawal.succeeded`.
+
+PDAX callbacks enter Velo through `POST /api/webhooks/pdax`, are deduplicated in Convex provider event records, and are normalized before merchant webhooks are sent.
 
 ## Local Development Checklist
 

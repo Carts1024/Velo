@@ -396,7 +396,7 @@ export function ProjectWebhooks({ projectId }: { projectId: string }) {
           </p>
         </div>
         <Button variant="outline" asChild>
-          <Link href={`/projects/${project._id}`}>Project overview</Link>
+          <Link href="/dashboard">Dashboard</Link>
         </Button>
       </div>
 

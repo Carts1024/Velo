@@ -1,11 +1,12 @@
 # `@repo/pdax`
 
-A server-only client library for the PDAX UAT integration inside **Velo Settlement**. This package abstracts the authentication loop, balance fetches, trading quotes, trade orders, and payout channels.
+A server-only client library for the PDAX UAT integration inside **Velo Settlement**. This package abstracts authentication, token refresh, balance fetches, trading quotes, trade orders, payout channels, callback parsing, and webhook registration helpers used by Convex settlement actions.
 
 ## Requirements
 
 - Node.js >= 18 (utilizes built-in native `fetch` API)
 - Programmatic UAT credentials with MFA disabled.
+- A public callback URL when testing provider webhooks against a deployed or tunneled Velo app.
 
 ## Configuration
 
@@ -15,6 +16,7 @@ Secrets must be loaded from server-only environment variables and never exposed 
 PDAX_UAT_BASE_URL="https://uat.services.sandbox.pdax.ph/api/pdax-api"
 PDAX_UAT_USERNAME="<provided-uat-username>"
 PDAX_UAT_PASSWORD="<provided-uat-password>"
+PDAX_CALLBACK_URL="https://<public-host>/api/webhooks/pdax"
 ```
 
 ## API Reference
@@ -40,8 +42,23 @@ const client = new PdaxClient(process.env.PDAX_UAT_BASE_URL);
 - **`executeTrade(accessToken, idToken, params)`**: Execute the trade order using a valid `quote_id` and unique `idempotency_id`.
 - **`getOrder(accessToken, idToken, orderId)`**: Get trade order detail by order ID.
 - **`fiatWithdraw(accessToken, idToken, params)`**: Initiate an InstaPay payout/withdrawal to supported test banks (CTBC or Security Bank).
-- **`parseWebhook(payload)`**: Parse webhook events.
+- **`registerWebhook(accessToken, idToken, params)`**: Register the Velo callback URL for PDAX UAT callbacks when project connection or webhook settings change.
+- **`getFiatTransactions(accessToken, idToken, params)`**: Poll fiat transaction records for pending withdrawals when callbacks are delayed.
+- **`parseWebhook(payload)`**: Normalize webhook events for Convex provider-event processing.
 - **`verifyWebhook(payload, headers)`**: Since PDAX webhooks do not contain authentication signatures, this method returns `true` (verification is done internally inside Convex handler logic by matching references).
+
+## Runtime Flow
+
+Velo Settlement uses this package from Convex actions only:
+
+1. `connect` logs in or refreshes cached provider tokens per project.
+2. `getBalances` retrieves searchable sandbox balances for the Settlement page.
+3. `getQuote` returns indicative quotes or persists firm quotes with expiry.
+4. `executeTrade` executes active firm quotes with idempotency protection.
+5. `fiatWithdraw` initiates InstaPay UAT withdrawals and records payout references.
+6. `POST /api/webhooks/pdax` forwards provider callbacks to Convex for deduplication and settlement status updates.
+7. A Convex cron polls pending payouts every two minutes as a fallback when callbacks are delayed.
+8. Velo sends signed merchant webhooks for settlement state transitions.
 
 ## Testing
 

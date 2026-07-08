@@ -22,6 +22,7 @@ import {
   BracesIcon,
   FileCheckIcon,
   FileTextIcon,
+  KeyIcon,
   LayoutDashboardIcon,
   TerminalIcon,
   WalletIcon,
@@ -93,6 +94,12 @@ export function AppSidebar({
       title: "Webhooks",
       url: `${projectBaseUrl}/webhooks`,
       icon: WebhookIcon,
+      disabled: !activeProject,
+    },
+    {
+      title: "API Keys",
+      url: `${projectBaseUrl}/api-keys`,
+      icon: KeyIcon,
       disabled: !activeProject,
     },
     {

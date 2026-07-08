@@ -7,9 +7,10 @@ This guide describes how to run through a full, end-to-end demo of **Velo Pay** 
 ```txt
 1. Merchant connects wallet & registers project on-chain (VeloRegistry)
 2. Merchant activates Velo Pay access on-chain (VeloPayAccess)
-3. Merchant generates an API Key and configures webhooks in the Dashboard
+3. Merchant generates an API key and configures webhooks in the project console
 4. Customer opens the checkout page, connects wallet, and submits payment
 5. Velo Pay monitors transaction, updates status, and delivers signed webhook
+6. Merchant optionally settles through PDAX UAT quotes, trades, payouts, and settlement webhooks
 ```
 
 ---
@@ -32,12 +33,12 @@ This guide describes how to run through a full, end-to-end demo of **Velo Pay** 
 ## Step 2: API Keys & Webhooks Configuration
 
 1. **Generate API Key**:
-   - Go to the **API Keys** tab in the project dashboard.
+   - Open the project detail view and use the API key controls.
    - Click **Generate Key**, give it a label, and **copy the raw key**. Note that the raw key is only shown once; only the SHA-256 hash is saved in the database.
 2. **Configure Webhook**:
-   - Go to the **Webhooks** tab.
-   - Click **Add Endpoint** and enter your receiver URL (e.g., a local server or webhook receiver tool like `webhook.site`).
-   - Copy the webhook signing secret for signature validation.
+   - Open the project **Webhooks** page.
+   - Save your receiver URL, enable the event types you want, and copy the webhook signing secret for signature validation.
+   - Saving webhook settings and connecting settlement can auto-register the PDAX callback URL for UAT flows when the backend environment is configured.
 
 ---
 
@@ -47,21 +48,29 @@ This guide describes how to run through a full, end-to-end demo of **Velo Pay** 
    - Navigate to the **Integration** tab.
    - Copy the copy-pasteable JS/TS checkout snippet using your API key:
      ```ts
-     import { createCheckoutSession } from "@repo/stellar";
+     import { Velo } from "@carts1024/velo-sdk";
 
-     const session = await createCheckoutSession({
-       apiKey: "tk_test_...", // Your generated API key
-       amount: "10.00",
-       asset: "native", // XLM
-       description: "Demo payment",
-       successUrl: "http://localhost:3000/pay/success",
-       cancelUrl: "http://localhost:3000/pay/cancel",
+     const velo = new Velo({
+       apiKey: process.env.VELO_API_KEY!,
+       environment: "testnet",
      });
+
+     const session = await velo.checkout.sessions.create(
+       {
+         amount: "10.00",
+         asset: "native", // XLM
+         description: "Demo payment",
+         successUrl: "http://localhost:3000/pay/demo/success",
+         cancelUrl: "http://localhost:3000/pay/demo/cancel",
+       },
+       { idempotencyKey: "demo-payment-001" },
+     );
 
      console.log("Pay here:", session.checkoutUrl);
      ```
 2. **Create Payment Intent**:
-   - You can also click **Create Payment Link** directly in the dashboard UI under the **Payments** tab to generate a hosted checkout URL instantly.
+   - You can also call `POST /api/v1/payment-intents` directly or use the project Integration page for SDK, cURL, Next.js, and fetch snippets.
+   - To inspect existing intents, use `GET /api/v1/payment-intents` with optional `status`, `limit`, and `cursor` query parameters.
 
 ---
 
@@ -112,8 +121,8 @@ This step covers converting Stellar Testnet stablecoin payouts to local fiat cur
    - Under **Step 2: Bank Withdrawal via InstaPay**, select a test destination bank (e.g., CTBC Bank `BACTBPH` or Security Bank `BASECPH`).
    - Input the test account details and click **Initiate InstaPay Withdrawal**. This will register a pending withdrawal transaction.
 5. **Verify Outbound Webhooks**:
-   - Under **Webhook Simulator**, input the transaction reference and trigger the completed webhook.
-   - Go to the webhook logs at the bottom to verify that Velo's delivery logs register signed outbound settlement events like `settlement.withdrawal.succeeded`.
+   - Use the callback simulator or wait for provider callbacks / payout polling.
+   - Go to the webhook logs at the bottom to verify signed settlement events such as `settlement.quote.created`, `settlement.trade.executed`, `settlement.withdrawal.pending`, `settlement.withdrawal.succeeded`, and `provider.pdax.event.received`.
 
 ---
 

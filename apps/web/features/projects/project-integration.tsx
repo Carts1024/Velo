@@ -233,7 +233,7 @@ export async function POST() {
           </p>
         </div>
         <Button variant="outline" asChild>
-          <Link href={`/projects/${projectId}`}>Project overview</Link>
+          <Link href={`/projects/${projectId}/api-keys`}>API keys</Link>
         </Button>
       </div>
 
@@ -245,10 +245,10 @@ export async function POST() {
             <p className="text-xs leading-relaxed">
               You need an active API key to populate integration snippets. Go to the{" "}
               <Link
-                href={`/projects/${projectId}#api-keys`}
+                href={`/projects/${projectId}/api-keys`}
                 className="underline font-semibold hover:text-amber-950"
               >
-                Project overview page
+                API keys page
               </Link>{" "}
               to generate one.
             </p>
