@@ -283,3 +283,18 @@ export const resolveIntentRequest = internalQuery({
     };
   },
 });
+
+/**
+ * Internal query to fetch all paid PDAX payment intents for a given project.
+ */
+export const getPaidPdaxIntents = internalQuery({
+  args: { projectId: v.id("projects") },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("paymentIntents")
+      .withIndex("by_project_status_created_at", (q) =>
+        q.eq("projectId", args.projectId).eq("status", "paid"),
+      )
+      .collect();
+  },
+});

@@ -39,7 +39,7 @@ test("createCheckoutSession calls fetch with correct headers and payload", async
     });
 
     assert.equal(fetchCalled, true);
-    assert.equal(calledUrl, "http://localhost:3000/api/v1/payment-intents");
+    assert.equal(calledUrl, "http://localhost:3000/api/v2/payment-intents");
     assert.equal(calledOptions?.method, "POST");
 
     const headers = calledOptions?.headers as Record<string, string>;

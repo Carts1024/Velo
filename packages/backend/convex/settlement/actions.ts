@@ -62,7 +62,36 @@ export const getBalances = action({
         args.projectId,
       );
       const response = await client.balances(accessToken, idToken);
-      return response.data;
+      const rawBalances = response.data;
+
+      // Fetch all paid PDAX payment intents to adjust the live UAT balance
+      const paidIntents = await ctx.runQuery(internal.payment_intents.queries.getPaidPdaxIntents, {
+        projectId: args.projectId,
+      });
+
+      const adjustments: Record<string, number> = {};
+      for (const intent of paidIntents) {
+        if (intent.anchor === "pdax" && intent.anchorDepositCurrency) {
+          const currency = intent.anchorDepositCurrency;
+          const amount = parseFloat(intent.amount);
+          adjustments[currency] = (adjustments[currency] || 0) + amount;
+        }
+      }
+
+      return rawBalances.map((balanceItem) => {
+        const currency = balanceItem.currency;
+        const adjustment = adjustments[currency] || 0;
+        if (adjustment > 0) {
+          const newAvailable = parseFloat(balanceItem.available) + adjustment;
+          const newTotal = parseFloat(balanceItem.total) + adjustment;
+          return {
+            ...balanceItem,
+            available: newAvailable.toString(),
+            total: newTotal.toString(),
+          };
+        }
+        return balanceItem;
+      });
     } catch (err) {
       throw mapPdaxError(err);
     }

@@ -252,7 +252,7 @@ export async function createCheckoutSession(
     throw new Error("API key is required");
   }
 
-  const response = await fetch(`${baseUrl}/api/v1/payment-intents`, {
+  const response = await fetch(`${baseUrl}/api/v2/payment-intents`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,

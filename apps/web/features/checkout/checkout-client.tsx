@@ -86,6 +86,15 @@ export function CheckoutClient({ paymentIntentId }: CheckoutClientProps) {
   const updateStatus = useMutation(api.payment_intents.mutations.updateStatus);
   const timer = useTimeRemaining(intent?.expiresAt);
 
+  // Auto-reconnect from stored platform session (stale = previous session in localStorage)
+  useEffect(() => {
+    if (wallet.status === "stale") {
+      wallet.connect().catch(() => {
+        // silent — user can manually connect if auto-reconnect fails
+      });
+    }
+  }, [wallet.status, wallet.connect]);
+
   // Auto-advance step when wallet connects
   useEffect(() => {
     if (wallet.status === "connected" && step === "connect") {
@@ -414,12 +423,16 @@ export function CheckoutClient({ paymentIntentId }: CheckoutClientProps) {
               id="checkout-connect-wallet"
               className="w-full h-12 text-base font-bold bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg hover:shadow-xl transition-all duration-200 cursor-pointer rounded-xl"
               onClick={wallet.connect}
-              disabled={wallet.status === "connecting" || wallet.status === "initializing"}
+              disabled={
+                wallet.status === "connecting" ||
+                wallet.status === "initializing" ||
+                wallet.status === "stale"
+              }
             >
-              {wallet.status === "connecting" ? (
+              {wallet.status === "connecting" || wallet.status === "stale" ? (
                 <>
                   <Spinner className="mr-2" />
-                  Connecting Wallet...
+                  {wallet.status === "stale" ? "Reconnecting Wallet..." : "Connecting Wallet..."}
                 </>
               ) : (
                 <>

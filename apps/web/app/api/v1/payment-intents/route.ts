@@ -4,7 +4,7 @@ import {
   getIdempotencyKey,
   parseCreatePaymentIntentBody,
   parseListPaymentIntentQuery,
-  publicPaymentIntentFromDoc,
+  publicPaymentIntentFromDocV2,
   veloErrorResponse,
 } from "@/core/api/payment-intents";
 import { rateLimiter } from "@/core/api/rate-limit";
@@ -14,14 +14,14 @@ import { api } from "@repo/backend/convex/_generated/api";
 import { ConvexHttpClient } from "convex/browser";
 import { NextRequest, NextResponse } from "next/server";
 
-type PublicPaymentIntentMutationResult =
+type PublicPaymentIntentV2Result =
   | { authorized: false; reason?: string }
   | { authorized: true; idempotencyConflict: true; projectId: string }
   | {
       authorized: true;
       idempotencyReplay?: boolean;
       projectId: string;
-      intent: Parameters<typeof publicPaymentIntentFromDoc>[0];
+      intent: Parameters<typeof publicPaymentIntentFromDocV2>[0];
     };
 
 type PublicPaymentIntentListResult =
@@ -30,7 +30,7 @@ type PublicPaymentIntentListResult =
       authorized: true;
       projectId: string;
       page: {
-        page: Parameters<typeof publicPaymentIntentFromDoc>[0][];
+        page: Parameters<typeof publicPaymentIntentFromDocV2>[0][];
         isDone: boolean;
         continueCursor: string;
       };
@@ -64,17 +64,24 @@ export async function POST(request: NextRequest) {
       !requestedAsset || requestedAsset === "USDC" ? stellarConfig.checkoutAsset : requestedAsset;
 
     const convex = new ConvexHttpClient(env.NEXT_PUBLIC_CONVEX_URL);
-    const result = (await convex.mutation(api.payment_intents.mutations.createPublicPaymentIntent, {
+
+    // Always route through V2 action — it resolves anchor from DB (API key scope →
+    // project default → system default) and performs PDAX deposit lookup when needed.
+    // Passing no explicit anchor lets the action apply the full precedence chain.
+    const result = (await convex.action(api.payment_intents.actions.createPublicPaymentIntentV2, {
       apiKeyHash: auth.apiKeyHash,
       amount: parsed.body.amount,
       asset: resolvedAsset,
       ...(parsed.body.description !== undefined ? { description: parsed.body.description } : {}),
       ...(parsed.body.successUrl !== undefined ? { successUrl: parsed.body.successUrl } : {}),
       ...(parsed.body.cancelUrl !== undefined ? { cancelUrl: parsed.body.cancelUrl } : {}),
+      ...(parsed.body.anchor !== undefined
+        ? { anchor: parsed.body.anchor as "inhouse" | "pdax" }
+        : {}),
       ...(getIdempotencyKey(request) !== undefined
         ? { idempotencyKey: getIdempotencyKey(request) }
         : {}),
-    })) as PublicPaymentIntentMutationResult;
+    })) as PublicPaymentIntentV2Result;
 
     if (!result.authorized) {
       return attachHeaders(
@@ -109,14 +116,31 @@ export async function POST(request: NextRequest) {
     }
 
     const response = NextResponse.json(
-      publicPaymentIntentFromDoc(result.intent, env.NEXT_PUBLIC_APP_URL),
-      {
-        status: result.idempotencyReplay ? 200 : 201,
-      },
+      publicPaymentIntentFromDocV2(result.intent, env.NEXT_PUBLIC_APP_URL),
+      { status: result.idempotencyReplay ? 200 : 201 },
     );
     return attachHeaders(response, rateLimitResult.headers);
   } catch (error) {
     console.error("Payment intent creation failed:", error);
+
+    if (error instanceof Error) {
+      const data = (error as { data?: { code?: string } }).data;
+      if (
+        (data && data.code === "anchor_unavailable") ||
+        error.message.includes("anchor_unavailable")
+      ) {
+        return attachHeaders(
+          veloErrorResponse({
+            status: 503,
+            type: "api_error",
+            code: "anchor_unavailable",
+            message: "The requested payment anchor is currently unavailable.",
+          }),
+          rateLimitResult.headers,
+        );
+      }
+    }
+
     return attachHeaders(
       veloErrorResponse({
         status: 500,
@@ -176,7 +200,7 @@ export async function GET(request: NextRequest) {
     const response = NextResponse.json({
       object: "list",
       data: result.page.page.map((intent) =>
-        publicPaymentIntentFromDoc(intent, env.NEXT_PUBLIC_APP_URL),
+        publicPaymentIntentFromDocV2(intent, env.NEXT_PUBLIC_APP_URL),
       ),
       hasMore: !result.page.isDone,
       nextCursor: result.page.isDone ? null : result.page.continueCursor,
