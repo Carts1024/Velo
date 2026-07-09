@@ -1,4 +1,11 @@
-import { Horizon, Networks, Operation, TransactionBuilder, Asset } from "@stellar/stellar-sdk";
+import {
+  Horizon,
+  Networks,
+  Operation,
+  TransactionBuilder,
+  Asset,
+  Memo,
+} from "@stellar/stellar-sdk";
 
 export type CheckoutPaymentParams = {
   payerAddress: string;
@@ -7,6 +14,7 @@ export type CheckoutPaymentParams = {
   asset: string;
   networkPassphrase?: string;
   horizonUrl?: string;
+  memo?: string;
 };
 
 export type CheckoutSubmitParams = {
@@ -120,6 +128,7 @@ export async function buildCheckoutPaymentTransaction(
     asset: assetStr,
     networkPassphrase = Networks.TESTNET,
     horizonUrl = DEFAULT_TESTNET_HORIZON,
+    memo,
   } = params;
 
   if (payerAddress.trim().toUpperCase() === receiverAddress.trim().toUpperCase()) {
@@ -155,7 +164,7 @@ export async function buildCheckoutPaymentTransaction(
     );
   }
 
-  const transaction = new TransactionBuilder(account, {
+  const transactionBuilder = new TransactionBuilder(account, {
     fee: "10000", // Standard maximum base fee (0.0001 XLM / operation limit)
     networkPassphrase,
   })
@@ -166,8 +175,14 @@ export async function buildCheckoutPaymentTransaction(
         amount,
       }),
     )
-    .setTimeout(300) // 5 minutes timeout
-    .build();
+    .setTimeout(300); // 5 minutes timeout
+
+  if (memo !== undefined) {
+    const memoObj = /^\d+$/.test(memo) ? Memo.id(memo) : Memo.text(memo);
+    transactionBuilder.addMemo(memoObj);
+  }
+
+  const transaction = transactionBuilder.build();
 
   return transaction.toXDR();
 }

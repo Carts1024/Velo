@@ -121,6 +121,7 @@ export function CheckoutClient({ paymentIntentId }: CheckoutClientProps) {
         asset: intent.asset,
         networkPassphrase: STELLAR_TESTNET_NETWORK_PASSPHRASE,
         horizonUrl: stellarConfig.horizonUrl,
+        ...(intent.receiverMemo ? { memo: intent.receiverMemo } : {}),
       });
 
       // 2. Request signature from connected wallet
@@ -370,11 +371,24 @@ export function CheckoutClient({ paymentIntentId }: CheckoutClientProps) {
               <span className="font-semibold text-foreground">{assetLabel}</span>
             </div>
             <div className="flex items-center justify-between text-xs sm:text-sm">
-              <span className="text-muted-foreground font-medium">Recipient Address</span>
+              <span className="text-muted-foreground font-medium">
+                {intent.anchor === "pdax" ? "PDAX Deposit Address" : "Recipient Address"}
+              </span>
               <span className="font-mono text-xs text-foreground bg-muted/40 px-1.5 py-0.5 rounded">
                 {intent.receiverAddress.slice(0, 6)}...{intent.receiverAddress.slice(-6)}
               </span>
             </div>
+            {intent.anchor === "pdax" && intent.receiverMemo && (
+              <div
+                className="flex items-center justify-between text-xs sm:text-sm"
+                id="checkout-receiver-memo"
+              >
+                <span className="text-muted-foreground font-medium">Memo / Destination Tag</span>
+                <span className="font-mono text-xs text-foreground bg-muted/40 px-1.5 py-0.5 rounded">
+                  {intent.receiverMemo}
+                </span>
+              </div>
+            )}
             {wallet.address && (
               <div className="flex items-center justify-between text-xs sm:text-sm">
                 <span className="text-muted-foreground font-medium">Your Wallet</span>

@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createCheckoutSession } from "./checkout.ts";
+import { Keypair, Horizon, Transaction } from "@stellar/stellar-sdk";
+
+import { createCheckoutSession, buildCheckoutPaymentTransaction } from "./checkout.ts";
 
 test("createCheckoutSession calls fetch with correct headers and payload", async () => {
   const mockResponse = {
@@ -81,5 +83,99 @@ test("createCheckoutSession handles request failure gracefully", async () => {
     );
   } finally {
     globalThis.fetch = originalFetch;
+  }
+});
+
+test("buildCheckoutPaymentTransaction without memo", async () => {
+  const payerAddress = Keypair.random().publicKey();
+  const receiverAddress = Keypair.random().publicKey();
+
+  const { Horizon, Account } = await import("@stellar/stellar-sdk");
+  const originalLoadAccount = Horizon.Server.prototype.loadAccount;
+  Horizon.Server.prototype.loadAccount = async function (address: string) {
+    const account = new Account(address, "1");
+    (account as unknown as { balances: Horizon.AccountResponse["balances"] }).balances = [
+      { asset_type: "native", balance: "100.00" },
+    ] as unknown as Horizon.AccountResponse["balances"];
+    return account as unknown as Horizon.AccountResponse;
+  };
+
+  try {
+    const xdr = await buildCheckoutPaymentTransaction({
+      payerAddress,
+      receiverAddress,
+      amount: "10.00",
+      asset: "native",
+    });
+
+    const { TransactionBuilder, Networks } = await import("@stellar/stellar-sdk");
+    const tx = TransactionBuilder.fromXDR(xdr, Networks.TESTNET) as Transaction;
+    assert.equal(tx.memo.type, "none");
+  } finally {
+    Horizon.Server.prototype.loadAccount = originalLoadAccount;
+  }
+});
+
+test("buildCheckoutPaymentTransaction with numeric memo (Memo.id)", async () => {
+  const payerAddress = Keypair.random().publicKey();
+  const receiverAddress = Keypair.random().publicKey();
+
+  const { Horizon, Account } = await import("@stellar/stellar-sdk");
+  const originalLoadAccount = Horizon.Server.prototype.loadAccount;
+  Horizon.Server.prototype.loadAccount = async function (address: string) {
+    const account = new Account(address, "1");
+    (account as unknown as { balances: Horizon.AccountResponse["balances"] }).balances = [
+      { asset_type: "native", balance: "100.00" },
+    ] as unknown as Horizon.AccountResponse["balances"];
+    return account as unknown as Horizon.AccountResponse;
+  };
+
+  try {
+    const xdr = await buildCheckoutPaymentTransaction({
+      payerAddress,
+      receiverAddress,
+      amount: "10.00",
+      asset: "native",
+      memo: "123456789",
+    });
+
+    const { TransactionBuilder, Networks } = await import("@stellar/stellar-sdk");
+    const tx = TransactionBuilder.fromXDR(xdr, Networks.TESTNET) as Transaction;
+    assert.equal(tx.memo.type, "id");
+    assert.equal(tx.memo.value?.toString(), "123456789");
+  } finally {
+    Horizon.Server.prototype.loadAccount = originalLoadAccount;
+  }
+});
+
+test("buildCheckoutPaymentTransaction with text memo (Memo.text)", async () => {
+  const payerAddress = Keypair.random().publicKey();
+  const receiverAddress = Keypair.random().publicKey();
+
+  const { Horizon, Account } = await import("@stellar/stellar-sdk");
+  const originalLoadAccount = Horizon.Server.prototype.loadAccount;
+  Horizon.Server.prototype.loadAccount = async function (address: string) {
+    const account = new Account(address, "1");
+    (account as unknown as { balances: Horizon.AccountResponse["balances"] }).balances = [
+      { asset_type: "native", balance: "100.00" },
+    ] as unknown as Horizon.AccountResponse["balances"];
+    return account as unknown as Horizon.AccountResponse;
+  };
+
+  try {
+    const xdr = await buildCheckoutPaymentTransaction({
+      payerAddress,
+      receiverAddress,
+      amount: "10.00",
+      asset: "native",
+      memo: "hello-pdax",
+    });
+
+    const { TransactionBuilder, Networks } = await import("@stellar/stellar-sdk");
+    const tx = TransactionBuilder.fromXDR(xdr, Networks.TESTNET) as Transaction;
+    assert.equal(tx.memo.type, "text");
+    assert.equal(tx.memo.value?.toString(), "hello-pdax");
+  } finally {
+    Horizon.Server.prototype.loadAccount = originalLoadAccount;
   }
 });

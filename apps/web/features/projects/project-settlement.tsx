@@ -163,12 +163,14 @@ function SearchableSelect({
         <div className="absolute z-50 min-w-[8rem] w-full overflow-hidden rounded-md border border-zinc-200 bg-card text-card-foreground shadow-md animate-in fade-in-0 zoom-in-95 duration-100 mt-1 max-h-60 flex flex-col">
           <div className="flex items-center border-b border-zinc-100 px-3 py-2">
             <SearchIcon className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+            {/* eslint-disable-next-line jsx-a11y/no-autofocus */}
             <input
               className="flex h-6 w-full rounded-md bg-transparent text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
               placeholder="Search..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               autoFocus
+              aria-label="Search options"
             />
           </div>
           <div className="overflow-y-auto max-h-48 p-1">

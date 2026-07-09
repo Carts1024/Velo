@@ -167,11 +167,19 @@ For `inhouse` routing:
 * Velo always sets `receiverAddress` to the `project.ownerAddress` for security.
 * This prevents a leaked API key or bad client request from redirecting funds to a different wallet. To change the receiver, create or use a project whose `ownerAddress` is the desired receiver.
 
-For `pdax` routing (implemented in future slices):
-* Velo performs a secure, server-side deposit destination lookup against PDAX.
-* The resolved deposit address is stored as `receiverAddress`.
-* The returned destination tag is stored as `receiverMemo` (as a Stellar memo tag), which is required to prevent lost deposits.
-* If the PDAX lookup fails, the API returns `503 anchor_unavailable` and prevents checkout session creation.
+For `pdax` routing:
+* **PDAX Connection Check**: The project must have a connected and active PDAX provider connection configured in the dashboard (stored in `providerConnections`). If not connected, the V2 creation fails with a validation error indicating that the PDAX provider is not connected.
+* **Asset Mapping**: Assets are mapped automatically for the PDAX deposit lookup:
+  - `native` and `XLM` -> `XLM`
+  - `USDC` (and its trustlines `USDC:*`) -> `USDCXLM`
+* **Deposit Destination Lookup**: Velo performs a secure, server-side lookup against PDAX's `/pdax-institution/v1/crypto/deposit` endpoint.
+* **Storage & Routing**:
+  - The resolved deposit address is stored as `receiverAddress`.
+  - The returned destination tag is stored as `receiverMemo` (a Stellar memo ID or text), ensuring proper merchant mapping and preventing lost funds.
+  - The mapped currency code is stored as `anchorDepositCurrency`.
+* **Outage Resiliency**: If the PDAX API lookup fails or returns an invalid address, Velo returns `503 anchor_unavailable` and guarantees that **no** partial checkout intent or database session record is created.
+
+---
 
 
 ## Checkout Flow

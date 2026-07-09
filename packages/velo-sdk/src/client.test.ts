@@ -226,13 +226,13 @@ test("Velo checkout.sessions.create and paymentIntents.create construct correct 
     const velo = new Velo({ apiKey: "test-key", baseUrl: "https://api.example.com" });
     const res1 = await velo.checkout.sessions.create({ amount: "10.00", asset: "USDC" });
     assert.deepEqual(res1, { id: "pi_123", object: "payment_intent" });
-    assert.equal(calledUrl, "https://api.example.com/api/v1/payment-intents");
+    assert.equal(calledUrl, "https://api.example.com/api/v2/payment-intents");
     assert.equal(calledOptions?.method, "POST");
     assert.equal(calledOptions?.body, JSON.stringify({ amount: "10.00", asset: "USDC" }));
 
     const res2 = await velo.paymentIntents.create({ amount: "20.00", asset: "USDC" });
     assert.deepEqual(res2, { id: "pi_123", object: "payment_intent" });
-    assert.equal(calledUrl, "https://api.example.com/api/v1/payment-intents");
+    assert.equal(calledUrl, "https://api.example.com/api/v2/payment-intents");
     assert.equal(calledOptions?.method, "POST");
     assert.equal(calledOptions?.body, JSON.stringify({ amount: "20.00", asset: "USDC" }));
   } finally {
@@ -256,7 +256,7 @@ test("Velo paymentIntents.retrieve retrieves payment intent by id with encoding"
     const velo = new Velo({ apiKey: "test-key", baseUrl: "https://api.example.com" });
     const res = await velo.paymentIntents.retrieve("pi/123");
     assert.deepEqual(res, { id: "pi_123", object: "payment_intent" });
-    assert.equal(calledUrl, "https://api.example.com/api/v1/payment-intents/pi%2F123");
+    assert.equal(calledUrl, "https://api.example.com/api/v2/payment-intents/pi%2F123");
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -289,7 +289,7 @@ test("Velo paymentIntents.list parses query parameters correctly", async () => {
     assert.deepEqual(res, { object: "list", data: [], hasMore: false, nextCursor: null });
     assert.equal(
       calledUrl,
-      "https://api.example.com/api/v1/payment-intents?status=paid&limit=50&cursor=abc",
+      "https://api.example.com/api/v2/payment-intents?status=paid&limit=50&cursor=abc",
     );
   } finally {
     globalThis.fetch = originalFetch;
@@ -377,6 +377,72 @@ test("POST with idempotency key retries on 500", async () => {
     );
     assert.deepEqual(res, { id: "pi_123", object: "payment_intent" });
     assert.equal(calls, 2);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("Velo checkout.sessions.create serializes anchor parameter", async () => {
+  const originalFetch = globalThis.fetch;
+  let calledUrl = "";
+  let calledOptions: RequestInit | undefined;
+
+  globalThis.fetch = async (url, options) => {
+    calledUrl = url.toString();
+    calledOptions = options;
+    return new Response(JSON.stringify({ id: "pi_123", object: "payment_intent" }), {
+      status: 201,
+      headers: { "Content-Type": "application/json" },
+    });
+  };
+
+  try {
+    const velo = new Velo({ apiKey: "test-key", baseUrl: "https://api.example.com" });
+    await velo.checkout.sessions.create({ amount: "10.00", asset: "USDC", anchor: "pdax" });
+    assert.equal(calledUrl, "https://api.example.com/api/v2/payment-intents");
+    const body = JSON.parse(calledOptions?.body as string);
+    assert.equal(body.anchor, "pdax");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("Velo paymentIntents.retrieve returns V2 fields", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => {
+    return new Response(
+      JSON.stringify({
+        id: "pi_123",
+        object: "payment_intent",
+        paymentIntentId: "pi_123",
+        status: "created",
+        amount: "10.00",
+        asset: "native",
+        description: null,
+        checkoutUrl: "http://localhost:3000/pay/pi_123",
+        successUrl: null,
+        cancelUrl: null,
+        anchor: "pdax",
+        receiverAddress: "G-DEPOSIT",
+        receiverMemo: "12345",
+        anchorDepositCurrency: "XLM",
+        payerAddress: "G-PAYER",
+        expiresAt: "2026-07-01T00:30:00.000Z",
+        createdAt: "2026-07-01T00:00:00.000Z",
+        updatedAt: "2026-07-01T00:00:00.000Z",
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } },
+    );
+  };
+
+  try {
+    const velo = new Velo({ apiKey: "test-key", baseUrl: "https://api.example.com" });
+    const res = await velo.paymentIntents.retrieve("pi_123");
+    assert.equal(res.anchor, "pdax");
+    assert.equal(res.receiverAddress, "G-DEPOSIT");
+    assert.equal(res.receiverMemo, "12345");
+    assert.equal(res.anchorDepositCurrency, "XLM");
+    assert.equal(res.payerAddress, "G-PAYER");
   } finally {
     globalThis.fetch = originalFetch;
   }

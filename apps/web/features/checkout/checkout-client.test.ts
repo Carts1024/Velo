@@ -26,3 +26,14 @@ test("checkout client does not mark Horizon submission success as paid", () => {
   assert.doesNotMatch(source, /status:\s*["']paid["']/);
   assert.match(source, /backend scanner confirms settlement/);
 });
+
+test("checkout client renders recipient details and memo based on anchor", () => {
+  const source = readFileSync(new URL("./checkout-client.tsx", import.meta.url), "utf8");
+
+  assert.match(
+    source,
+    /intent\.anchor\s*===\s*["']pdax["']\s*\?\s*["']PDAX Deposit Address["']\s*:\s*["']Recipient Address["']/,
+  );
+  assert.match(source, /intent\.receiverMemo/);
+  assert.match(source, /memo:\s*intent\.receiverMemo/);
+});

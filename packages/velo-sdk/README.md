@@ -49,6 +49,37 @@ const paymentIntent = await velo.paymentIntents.retrieve("pi_12345");
 console.log(`Payment status: ${paymentIntent.status}`);
 ```
 
+### Dual-Anchor Routing (V2)
+
+Velo SDK (V2) supports routing payments through different anchors: `inhouse` (default) or `pdax`.
+
+To request a specific anchor explicitly during checkout session creation, pass the optional `anchor` parameter:
+
+```ts
+const session = await velo.checkout.sessions.create({
+  amount: "10.00",
+  asset: "USDC",
+  anchor: "pdax", // or "inhouse"
+  description: "Dual-anchor payment",
+  successUrl: "https://yourdomain.com/success",
+  cancelUrl: "https://yourdomain.com/cancel",
+});
+```
+
+API keys can be scoped to specific anchors. If an explicit `anchor` conflicts with the API key's scoped anchor, a `VeloValidationError` is thrown.
+
+Retrieving or creating a payment intent in V2 returns the following anchor-aware response properties:
+
+```ts
+const intent = await velo.paymentIntents.retrieve("pi_12345");
+
+console.log(intent.anchor); // 'inhouse' | 'pdax'
+console.log(intent.receiverAddress); // Destination wallet address (e.g. project owner or PDAX deposit address)
+console.log(intent.receiverMemo); // String memo/tag if required (e.g. PDAX tag, else null)
+console.log(intent.anchorDepositCurrency); // Mapped deposit currency (e.g. 'USDCXLM', else null)
+console.log(intent.payerAddress); // Wallet address of the payer, populated after checkout flow
+```
+
 ---
 
 ## Webhook Verification

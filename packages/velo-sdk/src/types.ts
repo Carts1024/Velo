@@ -17,6 +17,11 @@ export type PaymentIntent = {
   checkoutUrl: string | null;
   successUrl: string | null;
   cancelUrl: string | null;
+  anchor?: "inhouse" | "pdax";
+  receiverAddress?: string;
+  receiverMemo?: string | null;
+  anchorDepositCurrency?: string | null;
+  payerAddress?: string | null;
   expiresAt: string;
   createdAt: string;
   updatedAt: string;
@@ -35,6 +40,7 @@ export type CreateCheckoutSessionParams = {
   description?: string;
   successUrl?: string;
   cancelUrl?: string;
+  anchor?: "inhouse" | "pdax";
 };
 
 export type RequestOptions = {

@@ -45,7 +45,7 @@ export class Velo {
         params: CreateCheckoutSessionParams,
         options?: RequestOptions,
       ): Promise<PaymentIntent> => {
-        return this.http.request<PaymentIntent>("POST", "/api/v1/payment-intents", params, options);
+        return this.http.request<PaymentIntent>("POST", "/api/v2/payment-intents", params, options);
       },
     },
   };
@@ -55,7 +55,7 @@ export class Velo {
       params: CreateCheckoutSessionParams,
       options?: RequestOptions,
     ): Promise<PaymentIntent> => {
-      return this.http.request<PaymentIntent>("POST", "/api/v1/payment-intents", params, options);
+      return this.http.request<PaymentIntent>("POST", "/api/v2/payment-intents", params, options);
     },
     retrieve: async (id: string, options?: RequestOptions): Promise<PaymentIntent> => {
       if (!id || typeof id !== "string" || id.trim() === "") {
@@ -63,7 +63,7 @@ export class Velo {
       }
       return this.http.request<PaymentIntent>(
         "GET",
-        `/api/v1/payment-intents/${encodeURIComponent(id)}`,
+        `/api/v2/payment-intents/${encodeURIComponent(id)}`,
         undefined,
         options,
       );
@@ -72,7 +72,7 @@ export class Velo {
       query?: ListPaymentIntentsQuery,
       options?: RequestOptions,
     ): Promise<ListResponse<PaymentIntent>> => {
-      let path = "/api/v1/payment-intents";
+      let path = "/api/v2/payment-intents";
       const searchParams = new URLSearchParams();
       if (query?.status) {
         searchParams.append("status", query.status);
