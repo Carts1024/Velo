@@ -539,3 +539,155 @@ test("payment anchor resolution precedence and mismatch rejections", async () =>
     "Anchor mismatch: Requested anchor does not match the API key's scoped anchor.",
   );
 });
+
+test("public payment intent v2 action and PDAX lookup", async () => {
+  const t = convexTest(schema, modules);
+
+  const ownerAddress = "GD7O2C226SF2677PFFUVD6O2ICFOBNCWPI5Z46N43ZSFQGLM65U3I2SP";
+  const owner = asWallet(t, ownerAddress);
+
+  // Set UAT credentials in env
+  process.env.PDAX_UAT_USERNAME = "merchant@test.com";
+  process.env.PDAX_UAT_PASSWORD = "password123";
+  process.env.PDAX_UAT_BASE_URL = "https://uat.services.sandbox.pdax.ph/api/pdax-api";
+
+  // Create project
+  const projectId = await owner.mutation(api.projects.mutation.createDraft, {
+    name: "V2 Test Store",
+    slug: "v2-test-store",
+    description: "Testing V2 PDAX Action",
+    metadataJson: "{}",
+    metadataHash: "0000000000000000000000000000000000000000000000000000000000000000",
+    ownerAddress,
+  });
+
+  await owner.mutation(api.projects.mutation.markPaymentAccessActive, {
+    id: projectId,
+    checkoutCredits: 100,
+  });
+
+  const { rawKey } = await owner.mutation(api.projects.mutation.generateApiKey, {
+    id: projectId,
+    label: "Key-None",
+  });
+  const apiKeyHash = await sha256Hex(rawKey);
+
+  // 1. Without connected PDAX connection, it should fail for anchor = pdax
+  const resNoConnection = (await t.action(api.payment_intents.actions.createPublicPaymentIntentV2, {
+    apiKeyHash,
+    amount: "10.00",
+    asset: "native",
+    anchor: "pdax",
+  })) as { authorized: boolean; reason?: string };
+  expect(resNoConnection.authorized).toBe(false);
+  if (!resNoConnection.authorized) {
+    expect(resNoConnection.reason).toContain("PDAX provider not connected");
+  }
+
+  // 2. Connect the PDAX provider connection
+  await t.mutation(internal.provider_connections.mutation.upsertInternal, {
+    projectId,
+    provider: "pdax",
+    status: "connected",
+  });
+
+  // Mock fetch
+  const originalFetch = globalThis.fetch;
+  let mockShouldFail = false;
+
+  globalThis.fetch = async (input, _init) => {
+    const url = input.toString();
+
+    if (url.includes("/pdax-institution/v1/login")) {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          email: "merchant@test.com",
+          username: "merchant-username",
+          groups: ["exchange_user"],
+          token_type: "Bearer",
+          preferred_mfa: "SOFTWARE_TOKEN_MFA",
+          expiry: 600,
+          access_token: "mock-access-token",
+          id_token: "mock-id-token",
+          refresh_token: "mock-refresh-token",
+        }),
+      } as Response;
+    }
+
+    if (url.includes("/pdax-institution/v1/crypto/deposit")) {
+      if (mockShouldFail) {
+        return {
+          ok: false,
+          status: 503,
+          json: async () => ({
+            code: "503",
+            message: "Service Unavailable",
+          }),
+        } as Response;
+      }
+
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          status: "success",
+          data: {
+            currency: "USDCXLM",
+            address: "G-MOCK-PDAX-DEPOSIT-ADDRESS",
+            tag: "123456",
+          },
+        }),
+      } as Response;
+    }
+
+    return {
+      ok: false,
+      status: 404,
+      json: async () => ({}),
+    } as Response;
+  };
+
+  try {
+    // 3. Successful PDAX action call
+    const resSuccess = (await t.action(api.payment_intents.actions.createPublicPaymentIntentV2, {
+      apiKeyHash,
+      amount: "15.00",
+      asset: "USDC",
+      anchor: "pdax",
+    })) as {
+      authorized: boolean;
+      idempotencyConflict?: boolean;
+      intent: {
+        anchor: string;
+        receiverAddress: string;
+        receiverMemo?: string;
+        anchorDepositCurrency?: string;
+      };
+    };
+
+    expect(resSuccess.authorized).toBe(true);
+    if (!resSuccess.authorized || "idempotencyConflict" in resSuccess) {
+      throw new Error("Expected successful creation");
+    }
+
+    expect(resSuccess.intent.anchor).toBe("pdax");
+    expect(resSuccess.intent.receiverAddress).toBe("G-MOCK-PDAX-DEPOSIT-ADDRESS");
+    expect(resSuccess.intent.receiverMemo).toBe("123456");
+    expect(resSuccess.intent.anchorDepositCurrency).toBe("USDCXLM");
+
+    // 4. Failed PDAX lookup triggers anchor_unavailable
+    mockShouldFail = true;
+    await expect(
+      t.action(api.payment_intents.actions.createPublicPaymentIntentV2, {
+        apiKeyHash,
+        amount: "20.00",
+        asset: "USDC",
+        anchor: "pdax",
+      }),
+    ).rejects.toThrow("PDAX payment anchor is currently unavailable");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

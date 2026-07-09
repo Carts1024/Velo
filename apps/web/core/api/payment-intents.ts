@@ -39,6 +39,7 @@ type CreatePaymentIntentBody = {
   description?: string;
   successUrl?: string;
   cancelUrl?: string;
+  anchor?: string;
 };
 
 export function getApiKeyHashOrError(request: { headers: Headers }) {
@@ -109,6 +110,38 @@ export function publicPaymentIntentFromDoc(intent: PublicPaymentIntentDoc, appUr
   };
 }
 
+export type PublicPaymentIntentDocV2 = PublicPaymentIntentDoc & {
+  anchor?: "inhouse" | "pdax";
+  receiverAddress: string;
+  receiverMemo?: string;
+  anchorDepositCurrency?: string;
+  payerAddress?: string;
+};
+
+export function publicPaymentIntentFromDocV2(intent: PublicPaymentIntentDocV2, appUrl: string) {
+  const paymentIntentId = intent._id;
+  return {
+    id: paymentIntentId,
+    object: "payment_intent" as const,
+    paymentIntentId,
+    status: intent.status,
+    amount: intent.amount,
+    asset: intent.asset,
+    description: intent.description ?? null,
+    checkoutUrl: `${appUrl}/pay/${paymentIntentId}`,
+    successUrl: intent.successUrl ?? null,
+    cancelUrl: intent.cancelUrl ?? null,
+    anchor: intent.anchor ?? "inhouse",
+    receiverAddress: intent.receiverAddress,
+    receiverMemo: intent.receiverMemo ?? null,
+    anchorDepositCurrency: intent.anchorDepositCurrency ?? null,
+    payerAddress: intent.payerAddress ?? null,
+    expiresAt: new Date(intent.expiresAt).toISOString(),
+    createdAt: new Date(intent.createdAt).toISOString(),
+    updatedAt: new Date(intent.updatedAt).toISOString(),
+  };
+}
+
 export async function parseCreatePaymentIntentBody(request: { json: () => Promise<unknown> }) {
   let body: unknown;
   try {
@@ -135,11 +168,14 @@ export async function parseCreatePaymentIntentBody(request: { json: () => Promis
   }
 
   const parsed: CreatePaymentIntentBody = { amount };
-  for (const field of ["asset", "description", "successUrl", "cancelUrl"] as const) {
+  for (const field of ["asset", "description", "successUrl", "cancelUrl", "anchor"] as const) {
     const value = body[field];
     if (value !== undefined) {
       if (typeof value !== "string") {
         return validationError(`${field} must be a string.`, field);
+      }
+      if (field === "anchor" && value !== "inhouse" && value !== "pdax") {
+        return validationError("anchor must be 'inhouse' or 'pdax'.", "anchor");
       }
       parsed[field] = value;
     }

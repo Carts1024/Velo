@@ -1,9 +1,13 @@
 import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
 
-import { query } from "../_generated/server";
+import { internalQuery, query } from "../_generated/server";
 import { projectOwnerOrNull } from "../projects/helpers";
-import { verifyApiKeyForPayments } from "./helpers";
+import {
+  verifyApiKeyForPayments,
+  resolvePaymentAnchor,
+  createPaymentIntentFingerprint,
+} from "./helpers";
 
 const paymentIntentStatusValidator = v.union(
   v.literal("created"),
@@ -203,6 +207,79 @@ export const getProjectStats = query({
         averageLatency,
       },
       recentPayments,
+    };
+  },
+});
+
+export const resolveIntentRequest = internalQuery({
+  args: {
+    apiKeyHash: v.string(),
+    amount: v.string(),
+    asset: v.string(),
+    description: v.optional(v.string()),
+    successUrl: v.optional(v.string()),
+    cancelUrl: v.optional(v.string()),
+    idempotencyKey: v.optional(v.string()),
+    anchor: v.optional(v.union(v.literal("inhouse"), v.literal("pdax"))),
+  },
+  handler: async (ctx, args) => {
+    const auth = await verifyApiKeyForPayments(ctx, args.apiKeyHash);
+    if (!auth.authorized) {
+      return { authorized: false as const, reason: auth.reason };
+    }
+
+    const resolvedAnchor = resolvePaymentAnchor({
+      requestedAnchor: args.anchor,
+      apiKeyAnchor: auth.apiKey.paymentAnchor,
+      projectDefaultAnchor: auth.project.defaultPaymentAnchor,
+    });
+
+    const connection = await ctx.db
+      .query("providerConnections")
+      .withIndex("by_project_provider", (q) =>
+        q.eq("projectId", auth.project._id).eq("provider", "pdax"),
+      )
+      .unique();
+
+    const hasPdaxConnection = connection ? connection.status === "connected" : false;
+
+    if (args.idempotencyKey !== undefined) {
+      const existing = await ctx.db
+        .query("paymentIntentIdempotencyKeys")
+        .withIndex("by_project_and_key", (q) =>
+          q.eq("projectId", auth.project._id).eq("key", args.idempotencyKey!),
+        )
+        .unique();
+
+      if (existing) {
+        const requestFingerprint = createPaymentIntentFingerprint(args);
+        if (existing.requestFingerprint !== requestFingerprint) {
+          return {
+            authorized: true as const,
+            status: "idempotency_conflict" as const,
+            projectId: auth.project._id,
+          };
+        }
+
+        const intent = await ctx.db.get(existing.paymentIntentId);
+        if (intent && intent.projectId === auth.project._id) {
+          return {
+            authorized: true as const,
+            status: "idempotency_replay" as const,
+            projectId: auth.project._id,
+            intent,
+          };
+        }
+      }
+    }
+
+    return {
+      authorized: true as const,
+      status: "proceed" as const,
+      resolvedAnchor,
+      projectId: auth.project._id,
+      ownerAddress: auth.project.ownerAddress,
+      hasPdaxConnection,
     };
   },
 });

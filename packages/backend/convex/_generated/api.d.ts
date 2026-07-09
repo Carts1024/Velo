@@ -17,6 +17,7 @@ import type * as crons from "../crons.js";
 import type * as feedback_mutation from "../feedback/mutation.js";
 import type * as feedback_query from "../feedback/query.js";
 import type * as payAccessSync from "../payAccessSync.js";
+import type * as payment_intents_actions from "../payment_intents/actions.js";
 import type * as payment_intents_helpers from "../payment_intents/helpers.js";
 import type * as payment_intents_mutations from "../payment_intents/mutations.js";
 import type * as payment_intents_queries from "../payment_intents/queries.js";
@@ -71,6 +72,7 @@ declare const fullApi: ApiFromModules<{
   "feedback/mutation": typeof feedback_mutation;
   "feedback/query": typeof feedback_query;
   payAccessSync: typeof payAccessSync;
+  "payment_intents/actions": typeof payment_intents_actions;
   "payment_intents/helpers": typeof payment_intents_helpers;
   "payment_intents/mutations": typeof payment_intents_mutations;
   "payment_intents/queries": typeof payment_intents_queries;
