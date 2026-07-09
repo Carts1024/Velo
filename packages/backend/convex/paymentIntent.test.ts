@@ -2,7 +2,7 @@
 import { convexTest } from "convex-test";
 import { expect, test } from "vitest";
 
-import type { Doc } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 
 import { api, internal } from "./_generated/api";
 import schema from "./schema";
@@ -431,4 +431,111 @@ test("public retrieve and list are scoped to the API key project", async () => {
   if (!pendingList.authorized) throw new Error("expected pending list");
   expect(pendingList.page.page).toHaveLength(1);
   expect(pendingList.page.page[0]._id).toBe(a2.intent._id);
+});
+
+test("payment anchor resolution precedence and mismatch rejections", async () => {
+  const t = convexTest(schema, modules);
+  const ownerAddress = "GD7O2C226SF2677PFFUVD6O2ICFOBNCWPI5Z46N43ZSFQGLM65U3I2SP";
+  const owner = asWallet(t, ownerAddress);
+
+  // Helper to generate scoped keys
+  const createProjectWithAnchor = async (slug: string, defaultAnchor?: "inhouse" | "pdax") => {
+    const projectId = await owner.mutation(api.projects.mutation.createDraft, {
+      name: "Anchor Test Project",
+      slug,
+      description: "Testing payment anchors",
+      metadataJson: "{}",
+      metadataHash: "0000000000000000000000000000000000000000000000000000000000000000",
+      ownerAddress,
+      defaultPaymentAnchor: defaultAnchor,
+    });
+
+    await owner.mutation(api.projects.mutation.markPaymentAccessActive, {
+      id: projectId,
+      checkoutCredits: 100,
+    });
+
+    return projectId;
+  };
+
+  const generateScopedKey = async (
+    projectId: Id<"projects">,
+    paymentAnchor?: "inhouse" | "pdax",
+  ) => {
+    const { rawKey } = await owner.mutation(api.projects.mutation.generateApiKey, {
+      id: projectId,
+      label: `Key-${paymentAnchor || "none"}`,
+      paymentAnchor,
+    });
+    return sha256Hex(rawKey);
+  };
+
+  // Case 4: Default fallback is "inhouse" when project default is omitted
+  const projDefaultOmitted = await createProjectWithAnchor("default-omitted");
+  const keyUnscoped = await generateScopedKey(projDefaultOmitted);
+
+  const resOmitted = await t.mutation(api.payment_intents.mutations.createPublicPaymentIntent, {
+    apiKeyHash: keyUnscoped,
+    amount: "10.00",
+    asset: "native",
+  });
+  expect(resOmitted.authorized).toBe(true);
+  if (!resOmitted.authorized || "idempotencyConflict" in resOmitted)
+    throw new Error("expected create");
+  expect(resOmitted.intent.anchor).toBe("inhouse");
+
+  // Case 3: Omitted key anchor, falls back to project default (e.g., "pdax")
+  const projPdaxDefault = await createProjectWithAnchor("pdax-default", "pdax");
+  const keyForPdaxDefault = await generateScopedKey(projPdaxDefault);
+
+  const resProjDefault = await t.mutation(api.payment_intents.mutations.createPublicPaymentIntent, {
+    apiKeyHash: keyForPdaxDefault,
+    amount: "20.00",
+    asset: "native",
+  });
+  expect(resProjDefault.authorized).toBe(true);
+  if (!resProjDefault.authorized || "idempotencyConflict" in resProjDefault)
+    throw new Error("expected create");
+  expect(resProjDefault.intent.anchor).toBe("pdax");
+
+  // Case 2: Scoped key (e.g. "pdax") overrides project default (e.g. "inhouse")
+  const projInhouseDefault = await createProjectWithAnchor("inhouse-default", "inhouse");
+  const keyScopedPdax = await generateScopedKey(projInhouseDefault, "pdax");
+
+  const resScopedKey = await t.mutation(api.payment_intents.mutations.createPublicPaymentIntent, {
+    apiKeyHash: keyScopedPdax,
+    amount: "30.00",
+    asset: "native",
+  });
+  expect(resScopedKey.authorized).toBe(true);
+  if (!resScopedKey.authorized || "idempotencyConflict" in resScopedKey)
+    throw new Error("expected create");
+  expect(resScopedKey.intent.anchor).toBe("pdax");
+
+  // Case 1: Explicit request matches scoped key anchor
+  const resExplicitMatch = await t.mutation(
+    api.payment_intents.mutations.createPublicPaymentIntent,
+    {
+      apiKeyHash: keyScopedPdax,
+      amount: "40.00",
+      asset: "native",
+      anchor: "pdax",
+    },
+  );
+  expect(resExplicitMatch.authorized).toBe(true);
+  if (!resExplicitMatch.authorized || "idempotencyConflict" in resExplicitMatch)
+    throw new Error("expected create");
+  expect(resExplicitMatch.intent.anchor).toBe("pdax");
+
+  // Case 1 Mismatch: Explicit request does not match scoped key anchor (pdax key vs inhouse request)
+  await expect(
+    t.mutation(api.payment_intents.mutations.createPublicPaymentIntent, {
+      apiKeyHash: keyScopedPdax,
+      amount: "50.00",
+      asset: "native",
+      anchor: "inhouse",
+    }),
+  ).rejects.toThrow(
+    "Anchor mismatch: Requested anchor does not match the API key's scoped anchor.",
+  );
 });

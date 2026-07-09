@@ -20,6 +20,9 @@ export default defineTable({
   txHash: v.optional(v.string()),
   successUrl: v.optional(v.string()),
   cancelUrl: v.optional(v.string()),
+  anchor: v.optional(v.union(v.literal("inhouse"), v.literal("pdax"))),
+  receiverMemo: v.optional(v.string()),
+  anchorDepositCurrency: v.optional(v.string()),
   expiresAt: v.number(), // Unix timestamp (createdAt + 30 mins)
   createdAt: v.number(),
   updatedAt: v.number(),

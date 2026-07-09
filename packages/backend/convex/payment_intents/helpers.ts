@@ -1,3 +1,5 @@
+import { ConvexError } from "convex/values";
+
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 
 /**
@@ -37,6 +39,7 @@ export function createPaymentIntentFingerprint(args: {
   description?: string;
   successUrl?: string;
   cancelUrl?: string;
+  anchor?: string;
 }) {
   return JSON.stringify({
     amount: args.amount,
@@ -44,6 +47,7 @@ export function createPaymentIntentFingerprint(args: {
     cancelUrl: args.cancelUrl ?? null,
     description: args.description ?? null,
     successUrl: args.successUrl ?? null,
+    anchor: args.anchor ?? null,
   });
 }
 
@@ -59,3 +63,32 @@ export const STATUS_TRANSITIONS: Record<string, ReadonlySet<string>> = {
   pending: new Set(["paid", "failed", "expired", "cancelled"]),
   failed: new Set(["pending", "paid", "expired", "cancelled"]),
 };
+
+/**
+ * Resolves the payment anchor based on the requested anchor, API key scope, and project defaults.
+ * Throws a ConvexError if an explicit anchor request conflicts with the API key's scoped anchor.
+ */
+export function resolvePaymentAnchor(args: {
+  requestedAnchor?: "inhouse" | "pdax";
+  apiKeyAnchor?: "inhouse" | "pdax";
+  projectDefaultAnchor?: "inhouse" | "pdax";
+}): "inhouse" | "pdax" {
+  if (args.requestedAnchor !== undefined) {
+    if (args.apiKeyAnchor !== undefined && args.requestedAnchor !== args.apiKeyAnchor) {
+      throw new ConvexError(
+        "Anchor mismatch: Requested anchor does not match the API key's scoped anchor.",
+      );
+    }
+    return args.requestedAnchor;
+  }
+
+  if (args.apiKeyAnchor !== undefined) {
+    return args.apiKeyAnchor;
+  }
+
+  if (args.projectDefaultAnchor !== undefined) {
+    return args.projectDefaultAnchor;
+  }
+
+  return "inhouse";
+}

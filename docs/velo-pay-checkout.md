@@ -96,6 +96,32 @@ Successful response:
 
 Send the buyer to `checkoutUrl`.
 
+## Payment Anchors and Routing (V2)
+
+Velo Pay V2 (`/api/v2/payment-intents`) introduces anchor-aware payment routing with support for `inhouse` (default) and `pdax` anchors.
+
+### Anchor Scoping and Precedence Rules
+
+When creating a payment intent, the routing anchor is resolved deterministically based on the following precedence hierarchy:
+
+1. **Explicit Request Parameter**: If a request explicitly specifies `anchor: "inhouse"` or `anchor: "pdax"`, that value is used.
+   * *Security check*: If the API key used for the request is scoped to a specific anchor, the requested `anchor` **must** match the API key's scoped `paymentAnchor`, otherwise the request will fail with an anchor mismatch validation error.
+2. **API Key Scope**: If the request omits the `anchor` parameter, the payment routing falls back to the API key's scoped `paymentAnchor` value (`"inhouse"` or `"pdax"`), if one is configured for the key.
+3. **Project Default**: If the API key is not scoped, the routing falls back to the Project's `defaultPaymentAnchor` settings (`"inhouse"` or `"pdax"`), configured in the project settings.
+4. **System Default**: If no explicit request, API key scope, or project default is configured, Velo defaults to `"inhouse"`.
+
+### Database Configuration (Sprint 1: Foundation)
+The database schema has been updated to support anchor resolution:
+* `projects.defaultPaymentAnchor`: `"inhouse" | "pdax"` (defaults to `"inhouse"`).
+* `apiKeys.paymentAnchor`: `"inhouse" | "pdax"` (allows API keys to be scoped to a single anchor path).
+* `paymentIntents.anchor`: `"inhouse" | "pdax"` (stores the resolved anchor on the intent).
+* `paymentIntents.receiverMemo`: `string` (stores the memo tag, required for PDAX deposit validation).
+* `paymentIntents.anchorDepositCurrency`: `string` (stores the currency code mapped for deposit lookups).
+
+### API V1 Backward Compatibility
+`/api/v1/payment-intents` continues to function exactly as before, with all creations defaulting to the `inhouse` flow.
+
+
 ## Read Payment Intents
 
 The API also supports server-side reads with the same API key authentication:
@@ -134,19 +160,19 @@ List responses include `data`, `hasMore`, and `nextCursor` for pagination.
 
 For simple Testnet testing, send `"asset": "native"` explicitly. This creates an XLM payment and avoids USDC trustline setup.
 
-## Receiver Address
+## Receiver Address and Memo
 
-The API request does not accept `receiverAddress`.
+For `inhouse` routing:
+* The API request does not accept `receiverAddress`.
+* Velo always sets `receiverAddress` to the `project.ownerAddress` for security.
+* This prevents a leaked API key or bad client request from redirecting funds to a different wallet. To change the receiver, create or use a project whose `ownerAddress` is the desired receiver.
 
-Velo always sets:
+For `pdax` routing (implemented in future slices):
+* Velo performs a secure, server-side deposit destination lookup against PDAX.
+* The resolved deposit address is stored as `receiverAddress`.
+* The returned destination tag is stored as `receiverMemo` (as a Stellar memo tag), which is required to prevent lost deposits.
+* If the PDAX lookup fails, the API returns `503 anchor_unavailable` and prevents checkout session creation.
 
-```ts
-receiverAddress: project.ownerAddress
-```
-
-This is intentional. It prevents a leaked API key or bad client request from redirecting funds to a different wallet.
-
-To change the receiver, create or use a project whose `ownerAddress` is the desired receiver.
 
 ## Checkout Flow
 

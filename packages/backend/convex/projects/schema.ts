@@ -29,6 +29,7 @@ export default defineTable({
   paymentAccessActive: v.optional(v.boolean()),
   checkoutCredits: v.optional(v.number()),
   paymentAccessLastSyncAt: v.optional(v.number()),
+  defaultPaymentAnchor: v.optional(v.union(v.literal("inhouse"), v.literal("pdax"))),
   createdAt: v.number(),
   updatedAt: v.number(),
 })

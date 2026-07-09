@@ -6,6 +6,7 @@ import {
   createPaymentIntentFingerprint,
   PAYMENT_INTENT_EXPIRY_MS,
   STATUS_TRANSITIONS,
+  resolvePaymentAnchor,
   verifyApiKeyForPayments,
 } from "./helpers";
 
@@ -20,6 +21,7 @@ export const createPaymentIntent = mutation({
     description: v.optional(v.string()),
     successUrl: v.optional(v.string()),
     cancelUrl: v.optional(v.string()),
+    anchor: v.optional(v.union(v.literal("inhouse"), v.literal("pdax"))),
   },
   handler: async (ctx, args) => {
     // 1. Authenticate using API key hash
@@ -43,6 +45,13 @@ export const createPaymentIntent = mutation({
 
     const now = Date.now();
 
+    // Resolve payment anchor
+    const resolvedAnchor = resolvePaymentAnchor({
+      requestedAnchor: args.anchor,
+      apiKeyAnchor: apiKey.paymentAnchor,
+      projectDefaultAnchor: project.defaultPaymentAnchor,
+    });
+
     // 2. Insert payment intent, using the project ownerAddress as the receiver for security
     const id = await ctx.db.insert("paymentIntents", {
       projectId: project._id,
@@ -54,6 +63,7 @@ export const createPaymentIntent = mutation({
       status: "created",
       ...(args.successUrl !== undefined ? { successUrl: args.successUrl } : {}),
       ...(args.cancelUrl !== undefined ? { cancelUrl: args.cancelUrl } : {}),
+      anchor: resolvedAnchor,
       expiresAt: now + PAYMENT_INTENT_EXPIRY_MS,
       createdAt: now,
       updatedAt: now,
@@ -88,6 +98,7 @@ export const createPublicPaymentIntent = mutation({
     successUrl: v.optional(v.string()),
     cancelUrl: v.optional(v.string()),
     idempotencyKey: v.optional(v.string()),
+    anchor: v.optional(v.union(v.literal("inhouse"), v.literal("pdax"))),
   },
   handler: async (ctx, args) => {
     const auth = await verifyApiKeyForPayments(ctx, args.apiKeyHash);
@@ -131,6 +142,13 @@ export const createPublicPaymentIntent = mutation({
       }
     }
 
+    // Resolve payment anchor
+    const resolvedAnchor = resolvePaymentAnchor({
+      requestedAnchor: args.anchor,
+      apiKeyAnchor: auth.apiKey.paymentAnchor,
+      projectDefaultAnchor: auth.project.defaultPaymentAnchor,
+    });
+
     const paymentIntentId = await ctx.db.insert("paymentIntents", {
       projectId: auth.project._id,
       amount: args.amount,
@@ -141,6 +159,7 @@ export const createPublicPaymentIntent = mutation({
       status: "created",
       ...(args.successUrl !== undefined ? { successUrl: args.successUrl } : {}),
       ...(args.cancelUrl !== undefined ? { cancelUrl: args.cancelUrl } : {}),
+      anchor: resolvedAnchor,
       expiresAt: now + PAYMENT_INTENT_EXPIRY_MS,
       createdAt: now,
       updatedAt: now,
