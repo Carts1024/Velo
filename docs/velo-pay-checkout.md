@@ -192,21 +192,26 @@ Hosted checkout page:
 
 Buyer flow:
 
-1. Opens checkout URL.
-2. Connects Stellar wallet.
-3. Reviews amount, asset, network, receiver, and wallet address.
-4. Clicks pay.
-5. App preflights:
-   - payer and receiver are different
-   - amount is positive
-   - receiver account exists
-   - trustlines exist for non-native asset
-   - payer has enough asset balance
-6. Wallet signs transaction.
-7. App marks payment intent `pending`.
-8. App submits transaction to Horizon.
-9. App keeps the intent `pending` while Velo verifies the transaction.
-10. The backend scanner confirms the transaction over RPC and marks the intent `paid` or `failed`.
+1. **Opens checkout URL**: The checkout page loads the payment intent from the backend.
+2. **Connects Stellar wallet**: The user connects their Stellar wallet (e.g., Freighter).
+3. **Reviews Payment Details (V2 Enhancements)**:
+   * **Receiver Address Labeling**: The interface dynamically adapts based on the payment intent's anchor:
+     - For `inhouse`, it shows the **Recipient Address** (the merchant/project owner's address).
+     - For `pdax`, it shows the **PDAX Deposit Address** (the temporary address retrieved from the PDAX deposit lookup).
+   * **Memo Display**: If the payment intent has a `receiverMemo` (such as a PDAX destination tag), it is displayed as **Memo / Destination Tag**. This is critical for PDAX routing to ensure the deposit is mapped correctly.
+   * **Payer Address**: Displays the connected buyer's wallet address.
+4. **Clicks pay**.
+5. **App preflights**:
+   - Payer and receiver are different.
+   - Amount is positive.
+   - Receiver account exists on the network.
+   - Trustlines exist for non-native assets.
+   - Payer has enough asset balance.
+6. **Wallet signs transaction**: The transaction is constructed by the app with the optional memo (if present) and sent to the wallet for signing.
+7. **App marks payment intent `pending`**: At this stage, the connected wallet address is stored in the database as `payerAddress`, along with the deterministic transaction hash `txHash`.
+8. **App submits transaction to Horizon**.
+9. **App keeps the intent `pending` while Velo verifies the transaction**.
+10. **The backend scanner confirms the transaction over RPC and marks the intent `paid` or `failed`**.
 
 ## Payment Statuses
 

@@ -59,6 +59,7 @@ This guide describes how to run through a full, end-to-end demo of **Velo Pay** 
        {
          amount: "10.00",
          asset: "native", // XLM
+         anchor: "pdax", // Optional V2 parameter: 'inhouse' | 'pdax'
          description: "Demo payment",
          successUrl: "http://localhost:3000/pay/demo/success",
          cancelUrl: "http://localhost:3000/pay/demo/cancel",
@@ -69,8 +70,8 @@ This guide describes how to run through a full, end-to-end demo of **Velo Pay** 
      console.log("Pay here:", session.checkoutUrl);
      ```
 2. **Create Payment Intent**:
-   - You can also call `POST /api/v1/payment-intents` directly or use the project Integration page for SDK, cURL, Next.js, and fetch snippets.
-   - To inspect existing intents, use `GET /api/v1/payment-intents` with optional `status`, `limit`, and `cursor` query parameters.
+   - You can also call the V2 endpoint `POST /api/v2/payment-intents` directly or use the project Integration page for SDK, cURL, Next.js, and fetch snippets.
+   - To inspect existing intents, use `GET /api/v2/payment-intents` with optional `status`, `limit`, and `cursor` query parameters.
 
 ---
 
@@ -78,12 +79,15 @@ This guide describes how to run through a full, end-to-end demo of **Velo Pay** 
 
 1. **Open Checkout Page**:
    - Visit the generated checkout URL: `/pay/[paymentIntentId]`.
-2. **Payment Review**:
+2. **Payment Review (V2 Enhancements)**:
    - Connect the customer's wallet.
    - Verify the amount, merchant name, and asset to be paid.
+   - *Dynamic Labeling*: The UI automatically formats recipient details based on the intent's resolved anchor:
+     - For `inhouse` anchors, it displays **Recipient Address** (the merchant owner's wallet).
+     - For `pdax` anchors, it displays **PDAX Deposit Address** and requires a **Memo / Destination Tag** (which is constructed automatically into the Stellar transaction).
    - *Insufficient Balance Check*: If the wallet has insufficient funds, a prominent error alert will display to prevent transaction failure.
 3. **Submit Payment**:
-   - Click **Pay Now** and sign the transaction in the wallet.
+   - Click **Pay Now** and sign the transaction in the wallet. The transaction is securely built to include the memo tag if routed via `pdax`.
    - The UI immediately transitions to the **Payment Processing** screen, displaying the transaction hash and disabling further checkout actions to prevent duplicate submissions.
    - If the payment expires while reviewing, the page automatically locks out and displays a **Payment Expired** notice.
 

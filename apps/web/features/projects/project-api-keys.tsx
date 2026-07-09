@@ -7,7 +7,16 @@ import { CopyButton } from "@repo/ui/components/common/copy-button";
 import { Badge } from "@repo/ui/components/ui-customs/badge";
 import { Alert, AlertDescription, AlertTitle } from "@repo/ui/components/ui/alert";
 import { Button } from "@repo/ui/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@repo/ui/components/ui/dialog";
 import { Input } from "@repo/ui/components/ui/input";
+import { Label } from "@repo/ui/components/ui/label";
 import { Skeleton } from "@repo/ui/components/ui/skeleton";
 import {
   Table,
@@ -51,6 +60,8 @@ export function ProjectApiKeys({ projectId }: { projectId: string }) {
   const [isGeneratingKey, setIsGeneratingKey] = useState(false);
   const [isRevokingKey, setIsRevokingKey] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
+  const [isGenerateDialogOpen, setIsGenerateDialogOpen] = useState(false);
+  const [selectedAnchor, setSelectedAnchor] = useState<"inhouse" | "pdax">("inhouse");
 
   async function handleGenerateKey() {
     const label = apiKeyLabel.trim();
@@ -64,9 +75,14 @@ export function ProjectApiKeys({ projectId }: { projectId: string }) {
     setLocalError(null);
 
     try {
-      const result = await generateApiKey({ id: typedProjectId, label });
+      const result = await generateApiKey({
+        id: typedProjectId,
+        label,
+        paymentAnchor: selectedAnchor,
+      });
       setNewRawKey(result.rawKey);
       setApiKeyLabel("");
+      setIsGenerateDialogOpen(false);
     } catch (error) {
       setLocalError(apiKeyErrorMessage(error));
     } finally {
@@ -196,29 +212,18 @@ export function ProjectApiKeys({ projectId }: { projectId: string }) {
               Use labels that identify environment or service owner.
             </p>
           </div>
-          <div className="flex w-full flex-col gap-2 sm:flex-row lg:max-w-lg">
-            <Input
-              aria-label="API key label"
-              placeholder="Key label, e.g. Production"
-              value={apiKeyLabel}
-              onChange={(event) => {
-                setApiKeyLabel(event.target.value);
-                setLocalError(null);
-              }}
-              disabled={isGeneratingKey}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" && apiKeyLabel.trim() && !isGeneratingKey) {
-                  void handleGenerateKey();
-                }
-              }}
-            />
+          <div className="flex shrink-0">
             <Button
-              onClick={() => void handleGenerateKey()}
-              disabled={isGeneratingKey || !apiKeyLabel.trim()}
+              onClick={() => {
+                setApiKeyLabel("");
+                setSelectedAnchor("inhouse");
+                setLocalError(null);
+                setIsGenerateDialogOpen(true);
+              }}
               className="shrink-0"
             >
-              <KeyIcon />
-              {isGeneratingKey ? "Generating..." : "Generate key"}
+              <KeyIcon className="mr-2 size-4" />
+              Generate key
             </Button>
           </div>
         </div>
@@ -262,6 +267,7 @@ export function ProjectApiKeys({ projectId }: { projectId: string }) {
                   <TableHead>Label</TableHead>
                   <TableHead>Prefix</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Payment Anchor</TableHead>
                   <TableHead>Created</TableHead>
                   <TableHead>Usage</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -275,6 +281,11 @@ export function ProjectApiKeys({ projectId }: { projectId: string }) {
                     <TableCell>
                       <Badge variant={key.revoked ? "gray" : "success"}>
                         {key.revoked ? "revoked" : "active"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={key.paymentAnchor === "pdax" ? "warning" : "info"}>
+                        {key.paymentAnchor === "pdax" ? "PDAX" : "In-house"}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-xs text-zinc-500">
@@ -307,6 +318,74 @@ export function ProjectApiKeys({ projectId }: { projectId: string }) {
             </Table>
           )}
         </div>
+
+        <Dialog open={isGenerateDialogOpen} onOpenChange={setIsGenerateDialogOpen}>
+          <DialogContent className="sm:max-w-[425px] bg-white text-zinc-950">
+            <DialogHeader>
+              <DialogTitle>Generate API key</DialogTitle>
+              <DialogDescription>Create a new API key for {project.name}.</DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              {localError ? (
+                <Alert variant="destructive">
+                  <AlertCircleIcon className="size-4" />
+                  <AlertTitle>API key request failed</AlertTitle>
+                  <AlertDescription>{localError}</AlertDescription>
+                </Alert>
+              ) : null}
+              <div className="grid gap-2">
+                <Label htmlFor="api-key-name" className="text-zinc-700">
+                  Key label
+                </Label>
+                <Input
+                  id="api-key-name"
+                  placeholder="e.g. Production, Development"
+                  value={apiKeyLabel}
+                  onChange={(e) => {
+                    setApiKeyLabel(e.target.value);
+                    setLocalError(null);
+                  }}
+                  disabled={isGeneratingKey}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="api-key-anchor" className="text-zinc-700">
+                  Payment routing
+                </Label>
+                <select
+                  id="api-key-anchor"
+                  value={selectedAnchor}
+                  onChange={(e) => setSelectedAnchor(e.target.value as "inhouse" | "pdax")}
+                  disabled={isGeneratingKey}
+                  className="flex h-9 w-full rounded-md border border-zinc-200 bg-white px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-zinc-400 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <option value="inhouse">Velo's own process (In-house)</option>
+                  <option value="pdax">PDAX Anchor</option>
+                </select>
+                <p className="text-[11px] text-zinc-500 mt-0.5">
+                  {selectedAnchor === "inhouse"
+                    ? "Standard payment flow routing directly to project owner address."
+                    : "Routed via PDAX. Requires connected PDAX provider. Includes memo tags."}
+                </p>
+              </div>
+            </div>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button
+                variant="outline"
+                onClick={() => setIsGenerateDialogOpen(false)}
+                disabled={isGeneratingKey}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => void handleGenerateKey()}
+                disabled={isGeneratingKey || !apiKeyLabel.trim()}
+              >
+                {isGeneratingKey ? "Generating..." : "Generate key"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {activeKeys.length > 0 ? (
           <div className="border-t border-zinc-200 bg-zinc-50/40 p-4">

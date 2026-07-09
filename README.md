@@ -152,9 +152,12 @@ flowchart TD
 Current API routes:
 
 ```txt
-POST /api/v1/payment-intents
-GET  /api/v1/payment-intents
-GET  /api/v1/payment-intents/[id]
+POST /api/v2/payment-intents      # V2 anchor-aware routing (supports optional 'anchor')
+GET  /api/v2/payment-intents      # V2 list
+GET  /api/v2/payment-intents/[id] # V2 retrieve
+POST /api/v1/payment-intents      # Legacy V1 (defaults to inhouse)
+GET  /api/v1/payment-intents      # Legacy V1 list
+GET  /api/v1/payment-intents/[id] # Legacy V1 retrieve
 GET  /api/v1/events
 GET  /api/v1/transactions/[hash]
 GET  /api/v1/webhooks/deliveries
@@ -168,6 +171,8 @@ API behavior:
 - Active payment access is required before API-created PaymentIntents are authorized.
 - PaymentIntent creation supports `Idempotency-Key` conflict detection and replay.
 - PaymentIntent list supports status filtering, limits, cursors, and SDK pagination.
+- V2 endpoint supports routing anchor resolution: explicit `anchor` parameter (`"inhouse"` or `"pdax"`), falling back to API key scope, project default, and finally `"inhouse"`.
+- Scoped API keys reject mismatches with client-requested anchors.
 - Current routes use in-memory key/project rate limiting and return `X-RateLimit-*` headers.
 
 ### Webhooks
