@@ -168,6 +168,7 @@ export function filterContractEvents<T extends FilterableContractEvent>(
 export async function fetchRecentContractEvents(input: {
   rpcUrl: string;
   contractIds: string[];
+  cursor?: string;
   afterLedger?: number;
   ledgerWindow?: number;
   limit?: number;
@@ -179,17 +180,28 @@ export async function fetchRecentContractEvents(input: {
   }
 
   const server = new rpc.Server(input.rpcUrl);
-  const latest = await server.getLatestLedger();
-  const ledgerWindow = Math.max(1, input.ledgerWindow ?? DEFAULT_LEDGER_WINDOW);
-  const startLedger = Math.max(
-    1,
-    input.afterLedger !== undefined ? input.afterLedger + 1 : latest.sequence - ledgerWindow + 1,
-  );
-  const response = await server.getEvents({
-    startLedger,
-    filters: [{ type: "contract", contractIds }],
-    limit: Math.min(DEFAULT_EVENT_LIMIT, Math.max(1, input.limit ?? DEFAULT_EVENT_LIMIT)),
-  });
+  const limit = Math.min(DEFAULT_EVENT_LIMIT, Math.max(1, input.limit ?? DEFAULT_EVENT_LIMIT));
+
+  let response;
+  if (input.cursor) {
+    response = await server.getEvents({
+      filters: [{ type: "contract", contractIds }],
+      cursor: input.cursor,
+      limit,
+    });
+  } else {
+    const latest = await server.getLatestLedger();
+    const ledgerWindow = Math.max(1, input.ledgerWindow ?? DEFAULT_LEDGER_WINDOW);
+    const startLedger = Math.max(
+      1,
+      input.afterLedger !== undefined ? input.afterLedger + 1 : latest.sequence - ledgerWindow + 1,
+    );
+    response = await server.getEvents({
+      startLedger,
+      filters: [{ type: "contract", contractIds }],
+      limit,
+    });
+  }
 
   return {
     events: response.events.map((event) => normalizeRpcEvent(event)),

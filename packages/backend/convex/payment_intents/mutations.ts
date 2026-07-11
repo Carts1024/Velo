@@ -265,6 +265,13 @@ export const updateStatus = mutation({
 
     await ctx.db.patch(args.paymentIntentId, patch);
 
+    if (args.status === "pending" && args.txHash) {
+      await ctx.scheduler.runAfter(0, internal.payment_intents.scanner.watchTransaction, {
+        paymentIntentId: args.paymentIntentId,
+        txHash: args.txHash,
+      });
+    }
+
     if (args.status === "failed") {
       await ctx.scheduler.runAfter(0, internal.webhookDelivery.trigger, {
         projectId: intent.projectId,

@@ -21,7 +21,10 @@ export const lookup = action({
       hash,
     });
 
-    if (!args.forceRefresh && cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS) {
+    const isTerminal = cached && (cached.status === "success" || cached.status === "failed");
+    const ttl = isTerminal ? CACHE_TTL_MS : 0;
+
+    if (!args.forceRefresh && cached && Date.now() - cached.fetchedAt < ttl) {
       return {
         hash: cached.hash,
         network: cached.network,

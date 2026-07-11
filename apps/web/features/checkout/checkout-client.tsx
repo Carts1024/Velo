@@ -84,6 +84,7 @@ export function CheckoutClient({ paymentIntentId }: CheckoutClientProps) {
   });
 
   const updateStatus = useMutation(api.payment_intents.mutations.updateStatus);
+  const reportSubmitted = useMutation(api.transactions.mutation.reportSubmitted);
   const timer = useTimeRemaining(intent?.expiresAt);
 
   // Auto-reconnect from stored platform session (stale = previous session in localStorage)
@@ -156,6 +157,11 @@ export function CheckoutClient({ paymentIntentId }: CheckoutClientProps) {
 
       // 5. Horizon accepted the transaction; backend scanner confirms settlement.
       if (result.successful) {
+        try {
+          await reportSubmitted({ hash: txHash });
+        } catch (err) {
+          console.error("Failed to report transaction submission:", err);
+        }
         setStep("submitted");
       } else {
         await updateStatus({

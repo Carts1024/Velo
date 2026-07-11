@@ -8,6 +8,7 @@ export const storePollResult = internalMutation({
   args: {
     projectId: v.id("projects"),
     latestLedger: v.optional(v.number()),
+    cursor: v.optional(v.string()),
     events: v.array(
       v.object({
         eventId: v.string(),
@@ -46,6 +47,31 @@ export const storePollResult = internalMutation({
       }
     }
 
-    await storePollSuccess(ctx, args.projectId, args.latestLedger, observedAt);
+    let ledgerLag: number | undefined;
+    let timeLagMs: number | undefined;
+
+    if (args.latestLedger !== undefined) {
+      const lastEvent = args.events[args.events.length - 1];
+      const lastPolledLedger = lastEvent ? lastEvent.ledger : args.latestLedger;
+      ledgerLag = Math.max(0, args.latestLedger - lastPolledLedger);
+    }
+
+    const latestEventWithTimestamp = args.events
+      .slice()
+      .reverse()
+      .find((e) => e.timestamp !== undefined);
+    if (latestEventWithTimestamp?.timestamp !== undefined) {
+      timeLagMs = Math.max(0, observedAt - latestEventWithTimestamp.timestamp);
+    }
+
+    await storePollSuccess(
+      ctx,
+      args.projectId,
+      args.latestLedger,
+      args.cursor,
+      observedAt,
+      ledgerLag,
+      timeLagMs,
+    );
   },
 });

@@ -24,6 +24,7 @@ export const checkPendingPayments = internalAction({
   handler: async (ctx): Promise<{ totalChecked: number; processedCount: number }> => {
     const pendingIntents = (await ctx.runQuery(
       internal.payment_intents.scanner.getPendingPaymentIntents,
+      { limit: 100 },
     )) as Doc<"paymentIntents">[];
     let processedCount = 0;
     const url = rpcUrl();
@@ -80,15 +81,18 @@ export const checkPendingPayments = internalAction({
 });
 
 /**
- * Returns all payment intents in 'pending' status.
+ * Returns all payment intents in 'pending' status. Bounded by a limit.
  */
 export const getPendingPaymentIntents = internalQuery({
-  args: {},
-  handler: async (ctx) => {
+  args: {
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const limit = args.limit ?? 100;
     return await ctx.db
       .query("paymentIntents")
       .withIndex("by_status", (q) => q.eq("status", "pending"))
-      .collect();
+      .take(limit);
   },
 });
 
@@ -105,5 +109,85 @@ export const decrementProjectCredits = internalMutation({
         updatedAt: Date.now(),
       });
     }
+  },
+});
+
+/**
+ * Internal query to fetch the projectId of a payment intent.
+ */
+export const getIntentProject = internalQuery({
+  args: { paymentIntentId: v.id("paymentIntents") },
+  handler: async (ctx, args) => {
+    const intent = await ctx.db.get(args.paymentIntentId);
+    return intent ? intent.projectId : null;
+  },
+});
+
+/**
+ * Background action to poll Stellar RPC with adaptive jittered backoff.
+ */
+export const watchTransaction = internalAction({
+  args: {
+    paymentIntentId: v.id("paymentIntents"),
+    txHash: v.string(),
+  },
+  handler: async (ctx, args): Promise<{ status: string }> => {
+    const url = rpcUrl();
+    const startTime = Date.now();
+    const timeoutMs = 60 * 1000;
+    let delay = 250;
+
+    while (Date.now() - startTime < timeoutMs) {
+      // Re-query current status of the payment intent to see if it was already updated by scanner/reconciliation
+      const currentIntent = await ctx.runQuery(
+        internal.payment_intents.queries.getPaymentIntentInternal,
+        {
+          paymentIntentId: args.paymentIntentId,
+        },
+      );
+
+      if (!currentIntent || currentIntent.status === "paid" || currentIntent.status === "failed") {
+        return { status: currentIntent?.status ?? "not_found" };
+      }
+
+      try {
+        const result = await lookupTestnetTransaction(url, args.txHash);
+
+        if (result.status === "success") {
+          await ctx.runMutation(internal.payment_intents.mutations.markVerifiedPaid, {
+            paymentIntentId: args.paymentIntentId,
+            txHash: args.txHash,
+          });
+          const projectId = await ctx.runQuery(internal.payment_intents.scanner.getIntentProject, {
+            paymentIntentId: args.paymentIntentId,
+          });
+          if (projectId) {
+            await ctx.runMutation(internal.payment_intents.scanner.decrementProjectCredits, {
+              projectId,
+            });
+            // Fast-path event polling
+            await ctx.scheduler.runAfter(0, internal.contractEventPolling.pollProjectInternal, {
+              projectId,
+            });
+          }
+          return { status: "success" };
+        } else if (result.status === "failed") {
+          await ctx.runMutation(api.payment_intents.mutations.updateStatus, {
+            paymentIntentId: args.paymentIntentId,
+            status: "failed",
+          });
+          return { status: "failed" };
+        }
+      } catch (error) {
+        console.error(`Error checking transaction ${args.txHash} in watchTransaction:`, error);
+      }
+
+      const jitter = Math.random() * 100;
+      await new Promise((resolve) => setTimeout(resolve, delay + jitter));
+      delay = Math.min(delay * 2, 5000);
+    }
+
+    console.log(`watchTransaction for ${args.txHash} timed out. Handing off to reconciliation.`);
+    return { status: "timeout" };
   },
 });

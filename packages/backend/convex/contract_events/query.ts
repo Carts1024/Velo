@@ -140,6 +140,7 @@ export const getPollTarget = internalQuery({
         .filter((contract) => contract.status === "active")
         .map((contract) => contract.contractId),
       lastLedger: poller?.lastLedger,
+      cursor: poller?.cursor,
     };
   },
 });
@@ -176,9 +177,36 @@ export const listScheduledTargets = internalQuery({
         projectId,
         contractIds,
         lastLedger: poller?.lastLedger,
+        cursor: poller?.cursor,
       });
     }
 
     return targets;
+  },
+});
+
+export const getPollTargetInternal = internalQuery({
+  args: {
+    projectId: v.id("projects"),
+  },
+  handler: async (ctx, args) => {
+    const project = await ctx.db.get(args.projectId);
+    if (!project || project.status !== "registered") {
+      throw new Error("Only registered projects can poll contract events");
+    }
+
+    const contracts = await ctx.db
+      .query("projectContracts")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .take(100);
+    const poller = await pollerForProject(ctx, args.projectId);
+
+    return {
+      contractIds: contracts
+        .filter((contract) => contract.status === "active")
+        .map((contract) => contract.contractId),
+      lastLedger: poller?.lastLedger,
+      cursor: poller?.cursor,
+    };
   },
 });

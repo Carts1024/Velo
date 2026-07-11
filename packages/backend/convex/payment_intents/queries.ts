@@ -377,3 +377,10 @@ export const getProjectPaymentLifecycleByCorrelation = query({
     return lifecycleProjection(args.correlationId, intents, deliveries);
   },
 });
+
+export const getPaymentIntentInternal = internalQuery({
+  args: { paymentIntentId: v.id("paymentIntents") },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.paymentIntentId);
+  },
+});

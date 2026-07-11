@@ -9,6 +9,7 @@ export default defineTable({
     v.literal("failed"),
     v.literal("not_found"),
     v.literal("pending"),
+    v.literal("submitted"),
     v.literal("unavailable"),
     v.literal("unsupported"),
   ),
