@@ -141,8 +141,10 @@ export async function buildCheckoutPaymentTransaction(
   }
 
   const server = new Horizon.Server(horizonUrl);
-  const account = await server.loadAccount(payerAddress);
-  const receiverAccount = await server.loadAccount(receiverAddress);
+  const [account, receiverAccount] = await Promise.all([
+    server.loadAccount(payerAddress),
+    server.loadAccount(receiverAddress),
+  ]);
   const stellarAsset = parseAsset(assetStr);
   const paymentAmount = Number.parseFloat(amount);
 

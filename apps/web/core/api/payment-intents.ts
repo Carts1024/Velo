@@ -116,6 +116,16 @@ export type PublicPaymentIntentDocV2 = PublicPaymentIntentDoc & {
   receiverMemo?: string;
   anchorDepositCurrency?: string;
   payerAddress?: string;
+  stageTimestamps?: {
+    created: number;
+    awaiting_signature?: number;
+    signed?: number;
+    submitted?: number;
+    confirmed?: number;
+    failed?: number;
+    cancelled?: number;
+    expired?: number;
+  };
 };
 
 export function publicPaymentIntentFromDocV2(intent: PublicPaymentIntentDocV2, appUrl: string) {
@@ -139,6 +149,32 @@ export function publicPaymentIntentFromDocV2(intent: PublicPaymentIntentDocV2, a
     expiresAt: new Date(intent.expiresAt).toISOString(),
     createdAt: new Date(intent.createdAt).toISOString(),
     updatedAt: new Date(intent.updatedAt).toISOString(),
+    stageTimestamps: intent.stageTimestamps
+      ? {
+          created: new Date(intent.stageTimestamps.created).toISOString(),
+          awaiting_signature: intent.stageTimestamps.awaiting_signature
+            ? new Date(intent.stageTimestamps.awaiting_signature).toISOString()
+            : null,
+          signed: intent.stageTimestamps.signed
+            ? new Date(intent.stageTimestamps.signed).toISOString()
+            : null,
+          submitted: intent.stageTimestamps.submitted
+            ? new Date(intent.stageTimestamps.submitted).toISOString()
+            : null,
+          confirmed: intent.stageTimestamps.confirmed
+            ? new Date(intent.stageTimestamps.confirmed).toISOString()
+            : null,
+          failed: intent.stageTimestamps.failed
+            ? new Date(intent.stageTimestamps.failed).toISOString()
+            : null,
+          cancelled: intent.stageTimestamps.cancelled
+            ? new Date(intent.stageTimestamps.cancelled).toISOString()
+            : null,
+          expired: intent.stageTimestamps.expired
+            ? new Date(intent.stageTimestamps.expired).toISOString()
+            : null,
+        }
+      : null,
   };
 }
 

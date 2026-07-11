@@ -25,6 +25,18 @@ export default defineTable({
   anchorDepositCurrency: v.optional(v.string()),
   // Public request correlation, deliberately opaque and never derived from wallet data.
   correlationId: v.optional(v.string()),
+  stageTimestamps: v.optional(
+    v.object({
+      created: v.number(),
+      awaiting_signature: v.optional(v.number()),
+      signed: v.optional(v.number()),
+      submitted: v.optional(v.number()),
+      confirmed: v.optional(v.number()),
+      failed: v.optional(v.number()),
+      cancelled: v.optional(v.number()),
+      expired: v.optional(v.number()),
+    }),
+  ),
   expiresAt: v.number(), // Unix timestamp (createdAt + 30 mins)
   createdAt: v.number(),
   updatedAt: v.number(),

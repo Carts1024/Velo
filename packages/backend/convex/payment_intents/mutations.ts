@@ -67,6 +67,9 @@ export const createPaymentIntent = mutation({
       anchor: resolvedAnchor,
       ...(args.correlationId !== undefined ? { correlationId: args.correlationId } : {}),
       expiresAt: now + PAYMENT_INTENT_EXPIRY_MS,
+      stageTimestamps: {
+        created: now,
+      },
       createdAt: now,
       updatedAt: now,
     });
@@ -166,6 +169,9 @@ export const createPublicPaymentIntent = mutation({
       anchor: resolvedAnchor,
       ...(args.correlationId !== undefined ? { correlationId: args.correlationId } : {}),
       expiresAt: now + PAYMENT_INTENT_EXPIRY_MS,
+      stageTimestamps: {
+        created: now,
+      },
       createdAt: now,
       updatedAt: now,
     });
@@ -263,6 +269,12 @@ export const updateStatus = mutation({
       patch.txHash = args.txHash;
     }
 
+    const stageKey = args.status === "pending" ? "submitted" : args.status;
+    const updatedStageTimestamps = intent.stageTimestamps
+      ? { ...intent.stageTimestamps, [stageKey]: now }
+      : { created: intent.createdAt, [stageKey]: now };
+    patch.stageTimestamps = updatedStageTimestamps;
+
     await ctx.db.patch(args.paymentIntentId, patch);
 
     if (args.status === "pending" && args.txHash) {
@@ -311,10 +323,15 @@ export const markVerifiedPaid = internalMutation({
       throw new ConvexError(`Invalid verified paid transition: ${intent.status} -> paid`);
     }
 
+    const updatedStageTimestamps = intent.stageTimestamps
+      ? { ...intent.stageTimestamps, confirmed: now }
+      : { created: intent.createdAt, confirmed: now };
+
     await ctx.db.patch(args.paymentIntentId, {
       status: "paid",
       txHash: args.txHash,
       updatedAt: now,
+      stageTimestamps: updatedStageTimestamps,
     });
 
     await ctx.scheduler.runAfter(0, internal.webhookDelivery.trigger, {
@@ -323,6 +340,159 @@ export const markVerifiedPaid = internalMutation({
       paymentIntentId: args.paymentIntentId,
       ...(intent.correlationId !== undefined ? { correlationId: intent.correlationId } : {}),
     });
+  },
+});
+
+export const prepareOrInsertPaymentIntentV2 = internalMutation({
+  args: {
+    apiKeyHash: v.string(),
+    correlationId: v.optional(v.string()),
+    amount: v.string(),
+    asset: v.string(),
+    description: v.optional(v.string()),
+    successUrl: v.optional(v.string()),
+    cancelUrl: v.optional(v.string()),
+    idempotencyKey: v.optional(v.string()),
+    anchor: v.optional(v.union(v.literal("inhouse"), v.literal("pdax"))),
+  },
+  handler: async (ctx, args) => {
+    const auth = await verifyApiKeyForPayments(ctx, args.apiKeyHash);
+    if (!auth.authorized) {
+      return { status: "unauthorized" as const, reason: auth.reason };
+    }
+
+    const resolvedAnchor = resolvePaymentAnchor({
+      requestedAnchor: args.anchor,
+      apiKeyAnchor: auth.apiKey.paymentAnchor,
+      projectDefaultAnchor: auth.project.defaultPaymentAnchor,
+    });
+
+    const now = Date.now();
+
+    if (args.idempotencyKey !== undefined) {
+      const existing = await ctx.db
+        .query("paymentIntentIdempotencyKeys")
+        .withIndex("by_project_and_key", (q) =>
+          q.eq("projectId", auth.project._id).eq("key", args.idempotencyKey!),
+        )
+        .unique();
+
+      if (existing) {
+        const requestFingerprint = createPaymentIntentFingerprint({
+          amount: args.amount,
+          asset: args.asset,
+          description: args.description,
+          successUrl: args.successUrl,
+          cancelUrl: args.cancelUrl,
+          anchor: resolvedAnchor,
+        });
+
+        if (existing.requestFingerprint !== requestFingerprint) {
+          return {
+            status: "idempotency_conflict" as const,
+            projectId: auth.project._id,
+          };
+        }
+
+        const intent = await ctx.db.get(existing.paymentIntentId);
+        if (intent && intent.projectId === auth.project._id) {
+          await ctx.db.patch(auth.apiKeyId, {
+            lastUsedAt: now,
+            requestCount: auth.apiKey.requestCount + 1,
+          });
+          return {
+            status: "idempotency_replay" as const,
+            projectId: auth.project._id,
+            intent,
+          };
+        }
+      }
+    }
+
+    if (resolvedAnchor === "pdax") {
+      const connection = await ctx.db
+        .query("providerConnections")
+        .withIndex("by_project_provider", (q) =>
+          q.eq("projectId", auth.project._id).eq("provider", "pdax"),
+        )
+        .unique();
+
+      const hasPdaxConnection = connection ? connection.status === "connected" : false;
+      if (!hasPdaxConnection) {
+        return {
+          status: "pdax_not_connected" as const,
+          reason: "PDAX provider not connected for this project.",
+        };
+      }
+
+      return {
+        status: "pdax_required" as const,
+        projectId: auth.project._id,
+      };
+    }
+
+    const paymentIntentId = await ctx.db.insert("paymentIntents", {
+      projectId: auth.project._id,
+      amount: args.amount,
+      asset: args.asset,
+      receiverAddress: auth.project.ownerAddress,
+      merchantName: auth.project.name,
+      ...(args.description !== undefined ? { description: args.description } : {}),
+      status: "created",
+      ...(args.successUrl !== undefined ? { successUrl: args.successUrl } : {}),
+      ...(args.cancelUrl !== undefined ? { cancelUrl: args.cancelUrl } : {}),
+      anchor: "inhouse",
+      ...(args.correlationId !== undefined ? { correlationId: args.correlationId } : {}),
+      expiresAt: now + PAYMENT_INTENT_EXPIRY_MS,
+      stageTimestamps: {
+        created: now,
+      },
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    if (args.idempotencyKey !== undefined) {
+      const requestFingerprint = createPaymentIntentFingerprint({
+        amount: args.amount,
+        asset: args.asset,
+        description: args.description,
+        successUrl: args.successUrl,
+        cancelUrl: args.cancelUrl,
+        anchor: "inhouse",
+      });
+
+      await ctx.db.insert("paymentIntentIdempotencyKeys", {
+        projectId: auth.project._id,
+        key: args.idempotencyKey,
+        requestFingerprint,
+        paymentIntentId,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+
+    await ctx.db.patch(auth.apiKeyId, {
+      lastUsedAt: now,
+      requestCount: auth.apiKey.requestCount + 1,
+    });
+
+    await ctx.scheduler.runAfter(0, internal.webhookDelivery.trigger, {
+      projectId: auth.project._id,
+      eventType: "payment.created",
+      paymentIntentId,
+      ...(args.correlationId !== undefined ? { correlationId: args.correlationId } : {}),
+    });
+
+    const intent = await ctx.db.get(paymentIntentId);
+    if (!intent) {
+      throw new ConvexError("Payment intent not found after creation");
+    }
+
+    return {
+      status: "inhouse_success" as const,
+      projectId: auth.project._id,
+      intent,
+    };
   },
 });
 
@@ -344,7 +514,7 @@ export const insertPublicPaymentIntentV2 = internalMutation({
   handler: async (ctx, args) => {
     const auth = await verifyApiKeyForPayments(ctx, args.apiKeyHash);
     if (!auth.authorized) {
-      throw new ConvexError(auth.reason || "Unauthorized");
+      return { status: "unauthorized" as const, reason: auth.reason || "Unauthorized" };
     }
 
     const now = Date.now();
@@ -358,7 +528,23 @@ export const insertPublicPaymentIntentV2 = internalMutation({
         .unique();
 
       if (existing) {
-        throw new ConvexError("Idempotency conflict or replay detected");
+        const requestFingerprint = createPaymentIntentFingerprint({
+          amount: args.amount,
+          asset: args.asset,
+          description: args.description,
+          successUrl: args.successUrl,
+          cancelUrl: args.cancelUrl,
+          anchor: args.anchor,
+        });
+
+        if (existing.requestFingerprint !== requestFingerprint) {
+          return { status: "idempotency_conflict" as const };
+        }
+
+        const intent = await ctx.db.get(existing.paymentIntentId);
+        if (intent && intent.projectId === auth.project._id) {
+          return { status: "idempotency_replay" as const, intent };
+        }
       }
     }
 
@@ -377,6 +563,9 @@ export const insertPublicPaymentIntentV2 = internalMutation({
       receiverMemo: args.receiverMemo,
       anchorDepositCurrency: args.anchorDepositCurrency,
       expiresAt: now + PAYMENT_INTENT_EXPIRY_MS,
+      stageTimestamps: {
+        created: now,
+      },
       createdAt: now,
       updatedAt: now,
     });
@@ -418,6 +607,6 @@ export const insertPublicPaymentIntentV2 = internalMutation({
       throw new ConvexError("Payment intent not found after creation");
     }
 
-    return intent;
+    return { status: "success" as const, intent };
   },
 });

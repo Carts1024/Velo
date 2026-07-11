@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 
+import { internal } from "../_generated/api";
 import { internalMutation, mutation } from "../_generated/server";
 import { normalizeCreatedAt } from "./helpers";
 
@@ -51,6 +52,15 @@ export const store = internalMutation({
 export const reportSubmitted = mutation({
   args: {
     hash: v.string(),
+    paymentIntentId: v.optional(v.id("paymentIntents")),
+    payerAddress: v.optional(v.string()),
+    stageTimestamps: v.optional(
+      v.object({
+        startedSigning: v.number(),
+        signed: v.number(),
+        submitted: v.number(),
+      }),
+    ),
   },
   handler: async (ctx, args) => {
     const existing = await ctx.db
@@ -69,14 +79,54 @@ export const reportSubmitted = mutation({
       events: [],
     };
 
+    let txId;
     if (existing) {
       // Only transition if not already in a terminal state
       if (existing.status !== "success" && existing.status !== "failed") {
         await ctx.db.patch(existing._id, value);
       }
-      return existing._id;
+      txId = existing._id;
+    } else {
+      txId = await ctx.db.insert("transactions", value);
     }
 
-    return await ctx.db.insert("transactions", value);
+    if (args.paymentIntentId) {
+      const intent = await ctx.db.get(args.paymentIntentId);
+      if (intent && (intent.status === "created" || intent.status === "pending")) {
+        const patch: Record<string, unknown> = {
+          status: "pending",
+          txHash: args.hash,
+          updatedAt: now,
+        };
+
+        if (args.payerAddress !== undefined) {
+          patch.payerAddress = args.payerAddress;
+        }
+
+        const currentStageTimestamps = intent.stageTimestamps || { created: intent.createdAt };
+        const newStageTimestamps = args.stageTimestamps
+          ? {
+              ...currentStageTimestamps,
+              awaiting_signature: args.stageTimestamps.startedSigning,
+              signed: args.stageTimestamps.signed,
+              submitted: args.stageTimestamps.submitted,
+            }
+          : {
+              ...currentStageTimestamps,
+              submitted: now,
+            };
+
+        patch.stageTimestamps = newStageTimestamps;
+        await ctx.db.patch(args.paymentIntentId, patch);
+
+        // Schedule watcher (if transition is to pending and txHash exists, which matches our args)
+        await ctx.scheduler.runAfter(0, internal.payment_intents.scanner.watchTransaction, {
+          paymentIntentId: args.paymentIntentId,
+          txHash: args.hash,
+        });
+      }
+    }
+
+    return txId;
   },
 });

@@ -92,6 +92,9 @@ export const getPaymentIntent = query({
       return {
         ...intent,
         status: "expired" as const,
+        stageTimestamps: intent.stageTimestamps
+          ? { ...intent.stageTimestamps, expired: intent.expiresAt }
+          : { created: intent.createdAt, expired: intent.expiresAt },
       };
     }
 

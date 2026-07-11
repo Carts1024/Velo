@@ -121,8 +121,14 @@ export function CheckoutClient({ paymentIntentId }: CheckoutClientProps) {
     setError(null);
     setStep("submitting");
     let markedPending = false;
+    let txHash = "";
+    let startedSigningAt = 0;
+    let signedAt = 0;
+    let submittedAt = 0;
 
     try {
+      startedSigningAt = Date.now();
+
       // 1. Build the payment transaction and fail early before changing intent state.
       const unsignedXdr = await buildCheckoutPaymentTransaction({
         payerAddress: wallet.address,
@@ -136,29 +142,32 @@ export function CheckoutClient({ paymentIntentId }: CheckoutClientProps) {
 
       // 2. Request signature from connected wallet
       const signedXdr = await wallet.signTransaction(unsignedXdr);
+      signedAt = Date.now();
 
       // Deterministically extract the transaction hash
-      const txHash = getTransactionHash(signedXdr);
+      txHash = getTransactionHash(signedXdr);
 
-      // 3. Transition to pending once the transaction is ready to submit.
-      await updateStatus({
-        paymentIntentId: intentId,
-        status: "pending",
-        payerAddress: wallet.address,
-        txHash,
-      });
-      markedPending = true;
-
-      // 4. Submit signed XDR to Stellar network
+      // 3. Submit signed XDR directly to Stellar network
+      submittedAt = Date.now();
       const result = await submitCheckoutTransaction({
         signedXdr,
         horizonUrl: stellarConfig.horizonUrl,
       });
 
-      // 5. Horizon accepted the transaction; backend scanner confirms settlement.
+      // 4. Horizon accepted the transaction; backend scanner confirms settlement. Update backend in a single combined call.
       if (result.successful) {
         try {
-          await reportSubmitted({ hash: txHash });
+          await reportSubmitted({
+            hash: txHash,
+            paymentIntentId: intentId,
+            payerAddress: wallet.address,
+            stageTimestamps: {
+              startedSigning: startedSigningAt,
+              signed: signedAt,
+              submitted: submittedAt,
+            },
+          });
+          markedPending = true;
         } catch (err) {
           console.error("Failed to report transaction submission:", err);
         }
@@ -183,12 +192,32 @@ export function CheckoutClient({ paymentIntentId }: CheckoutClientProps) {
       setError(message);
       setStep("review");
 
-      if (!markedPending) {
+      if (markedPending) {
         return;
       }
 
       if (!isTerminalSubmissionFailure(message)) {
-        setStep("submitted");
+        // For non-terminal failures, report as submitted/pending so watcher can verify it on-chain
+        if (txHash) {
+          try {
+            await reportSubmitted({
+              hash: txHash,
+              paymentIntentId: intentId,
+              payerAddress: wallet.address,
+              stageTimestamps: {
+                startedSigning: startedSigningAt,
+                signed: signedAt,
+                submitted: submittedAt,
+              },
+            });
+            markedPending = true;
+            setStep("submitted");
+          } catch (reportErr) {
+            console.error("Failed to report non-terminal submission:", reportErr);
+          }
+        } else {
+          setStep("submitted");
+        }
         return;
       }
 
@@ -203,7 +232,7 @@ export function CheckoutClient({ paymentIntentId }: CheckoutClientProps) {
         // ignore status update failures
       }
     }
-  }, [intent, wallet, intentId, updateStatus, paymentIntentId, router]);
+  }, [intent, wallet, intentId, updateStatus, reportSubmitted, paymentIntentId, router]);
 
   const handleCancelClick = useCallback(async () => {
     try {
