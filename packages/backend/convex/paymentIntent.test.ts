@@ -68,6 +68,7 @@ test("payment intent lifecycle", async () => {
   // Create a payment intent using the public mutation
   const { paymentIntentId } = await t.mutation(api.payment_intents.mutations.createPaymentIntent, {
     apiKeyHash,
+    correlationId: "pay-2026-lifecycle-0001",
     amount: "150.50",
     asset: "native",
     description: "Order #44591",
@@ -83,6 +84,7 @@ test("payment intent lifecycle", async () => {
   expect(intent?.status).toBe("created");
   expect(intent?.amount).toBe("150.50");
   expect(intent?.merchantName).toBe("Merchant Store");
+  expect(intent?.correlationId).toBe("pay-2026-lifecycle-0001");
 
   // Transition to pending state
   const payerAddress = "GDFX...PAYER";
@@ -124,6 +126,73 @@ test("payment intent lifecycle", async () => {
   });
   expect(intent?.status).toBe("paid");
   expect(intent?.txHash).toBe(txHash);
+
+  await owner.mutation(api.webhook_endpoints.mutation.saveSettings, {
+    projectId,
+    url: "https://api.example.com/webhook",
+    enabled: true,
+    eventTypes: ["payment.succeeded"],
+  });
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({ ok: true, status: 200 }) as Response;
+  try {
+    await t.action(internal.webhookDelivery.trigger, {
+      projectId,
+      eventType: "payment.succeeded",
+      paymentIntentId,
+      correlationId: "pay-2026-lifecycle-0001",
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+
+  const lifecycle = await owner.query(
+    api.payment_intents.queries.getProjectPaymentLifecycleByCorrelation,
+    {
+      projectId,
+      correlationId: "pay-2026-lifecycle-0001",
+    },
+  );
+  expect(lifecycle).not.toBeNull();
+  if (!lifecycle) throw new Error("expected authorized lifecycle trace");
+  expect(lifecycle.paymentIntents).toEqual([
+    expect.objectContaining({ id: paymentIntentId, status: "paid", transactionHash: txHash }),
+  ]);
+  expect(lifecycle.webhookDeliveries).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        paymentIntentId,
+        eventType: "payment.succeeded",
+        status: "success",
+      }),
+    ]),
+  );
+  expect(lifecycle.stages.map((stage) => stage.name)).toContain("payment_intent.paid");
+  expect(lifecycle.stages.map((stage) => stage.name)).toContain("webhook.success");
+
+  await expect(
+    t.query(api.payment_intents.queries.getProjectPaymentLifecycleByCorrelation, {
+      projectId,
+      correlationId: "pay-2026-lifecycle-0001",
+    }),
+  ).rejects.toThrow("Not authenticated");
+
+  const otherOwnerAddress = "GBCX...OTHER";
+  const otherOwner = asWallet(t, otherOwnerAddress);
+  await otherOwner.mutation(api.projects.mutation.createDraft, {
+    name: "Other Merchant",
+    slug: "other-merchant",
+    description: "Cross-project trace access test",
+    metadataJson: "{}",
+    metadataHash: "1111111111111111111111111111111111111111111111111111111111111111",
+    ownerAddress: otherOwnerAddress,
+  });
+  expect(
+    await otherOwner.query(api.payment_intents.queries.getProjectPaymentLifecycleByCorrelation, {
+      projectId,
+      correlationId: "pay-2026-lifecycle-0001",
+    }),
+  ).toBeNull();
 
   // Listing by project
   const intentsList = await owner.query(api.payment_intents.queries.listByProject, {

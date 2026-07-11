@@ -2,7 +2,7 @@
 
 import crypto from "crypto";
 
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 
 import type { Doc } from "./_generated/dataModel";
 import type { WebhookDeliveryId } from "./webhook_deliveries/types";
@@ -22,11 +22,24 @@ type DeliveryTarget = {
   providerEvent?: Doc<"providerEvents"> | null;
 };
 
+const CORRELATION_ID_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9._:-]{7,127}$/;
+
+function testCorrelationId(value: string | undefined) {
+  if (value === undefined) {
+    return crypto.randomUUID();
+  }
+  if (!CORRELATION_ID_PATTERN.test(value)) {
+    throw new ConvexError("Invalid correlation ID");
+  }
+  return value;
+}
+
 function buildPayload(
   target: DeliveryTarget,
   eventType: WebhookEventType,
   test = false,
   overrideEventId?: string,
+  correlationId?: string,
 ) {
   const event = target.contractEvent;
   const paymentIntent = target.paymentIntent;
@@ -36,6 +49,7 @@ function buildPayload(
     type: eventType,
     test,
     sentAt,
+    ...(correlationId !== undefined ? { correlationId } : {}),
     project: {
       id: target.project._id,
       registryProjectId: target.project.registryProjectId,
@@ -277,11 +291,13 @@ export const sendTest = action({
     settlementQuoteId: v.optional(v.id("settlementQuotes")),
     settlementTransactionId: v.optional(v.id("settlementTransactions")),
     providerEventId: v.optional(v.id("providerEvents")),
+    correlationId: v.optional(v.string()),
   },
   handler: async (
     ctx,
     args,
   ): Promise<{ deliveryId: WebhookDeliveryId; status: "success" | "failed" }> => {
+    const correlationId = testCorrelationId(args.correlationId);
     const identity = await requireIdentity(ctx);
     const target: DeliveryTarget = await ctx.runQuery(
       internal.webhook_endpoints.query.getDeliveryTarget,
@@ -316,6 +332,8 @@ export const sendTest = action({
       },
       args.eventType,
       true,
+      undefined,
+      correlationId,
     );
     const signatureHeader = computeSignatureHeader(payload, target.endpoint.signingSecret);
     const deliveryId: WebhookDeliveryId = await ctx.runMutation(
@@ -327,6 +345,7 @@ export const sendTest = action({
         destinationHost: target.endpoint.destinationHost,
         payloadSummary: payloadSummary(payload),
         paymentIntentId: args.paymentIntentId,
+        correlationId,
       },
     );
 
@@ -339,6 +358,7 @@ export const sendTest = action({
           "user-agent": "Velo-Webhook/1.0",
           "x-velo-event": args.eventType,
           "x-velo-delivery": deliveryId,
+          "x-correlation-id": correlationId,
           ...(signatureHeader ? { "x-velo-signature": signatureHeader } : {}),
         },
         body: JSON.stringify(payload),
@@ -397,6 +417,7 @@ export const trigger = internalAction({
     providerEventId: v.optional(v.id("providerEvents")),
     deliveryId: v.optional(v.id("webhookDeliveries")),
     attemptCount: v.optional(v.number()),
+    correlationId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const target = await ctx.runQuery(internal.webhook_endpoints.query.getDeliveryTargetInternal, {
@@ -412,6 +433,7 @@ export const trigger = internalAction({
     let deliveryId = args.deliveryId;
     let attemptCount = args.attemptCount ?? 1;
     let overrideEventId: string | undefined = undefined;
+    const correlationId = args.correlationId ?? target.paymentIntent?.correlationId;
 
     if (deliveryId) {
       // This is a retry attempt
@@ -449,6 +471,7 @@ export const trigger = internalAction({
       args.eventType,
       false,
       overrideEventId,
+      correlationId,
     );
     const signatureHeader = computeSignatureHeader(payload, target.endpoint.signingSecret);
 
@@ -461,6 +484,7 @@ export const trigger = internalAction({
         destinationHost: target.endpoint.destinationHost,
         payloadSummary: payloadSummary(payload),
         paymentIntentId: args.paymentIntentId,
+        correlationId,
       });
     }
 
@@ -473,6 +497,7 @@ export const trigger = internalAction({
           "user-agent": "Velo-Webhook/1.0",
           "x-velo-event": args.eventType,
           "x-velo-delivery": String(deliveryId),
+          ...(correlationId ? { "x-correlation-id": correlationId } : {}),
           ...(signatureHeader ? { "x-velo-signature": signatureHeader } : {}),
         },
         body: JSON.stringify(payload),
@@ -506,6 +531,7 @@ export const trigger = internalAction({
             paymentIntentId: args.paymentIntentId,
             deliveryId,
             attemptCount: attemptCount + 1,
+            correlationId,
           });
         } else {
           await ctx.runMutation(internal.webhook_deliveries.mutation.finish, {
@@ -537,6 +563,7 @@ export const trigger = internalAction({
           paymentIntentId: args.paymentIntentId,
           deliveryId,
           attemptCount: attemptCount + 1,
+          correlationId,
         });
       } else {
         await ctx.runMutation(internal.webhook_deliveries.mutation.finish, {

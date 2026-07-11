@@ -23,6 +23,8 @@ export default defineTable({
   anchor: v.optional(v.union(v.literal("inhouse"), v.literal("pdax"))),
   receiverMemo: v.optional(v.string()),
   anchorDepositCurrency: v.optional(v.string()),
+  // Public request correlation, deliberately opaque and never derived from wallet data.
+  correlationId: v.optional(v.string()),
   expiresAt: v.number(), // Unix timestamp (createdAt + 30 mins)
   createdAt: v.number(),
   updatedAt: v.number(),
@@ -30,4 +32,6 @@ export default defineTable({
   .index("by_project", ["projectId"])
   .index("by_project_created_at", ["projectId", "createdAt"])
   .index("by_project_status_created_at", ["projectId", "status", "createdAt"])
+  .index("by_correlation_id", ["correlationId"])
+  .index("by_project_and_correlation_id", ["projectId", "correlationId"])
   .index("by_status", ["status"]);

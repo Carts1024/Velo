@@ -160,3 +160,58 @@ test("webhook delivery retry and backoff lifecycle", async () => {
     globalThis.fetch = originalFetch;
   }
 });
+
+test("webhook delivery preserves correlation ID in storage, payload, and headers", async () => {
+  const t = convexTest(schema, modules);
+  const ownerAddress = "GD7O2C226SF2677PFFUVD6O2ICFOBNCWPI5Z46N43ZSFQGLM65U3I2SP";
+  const owner = asWallet(t, ownerAddress);
+  const projectId = await owner.mutation(api.projects.mutation.createDraft, {
+    name: "Correlation Merchant",
+    slug: "correlation-merchant",
+    description: "Webhook correlation test",
+    metadataJson: "{}",
+    metadataHash: "0000000000000000000000000000000000000000000000000000000000000000",
+    ownerAddress,
+  });
+  await owner.mutation(api.webhook_endpoints.mutation.saveSettings, {
+    projectId,
+    url: "https://api.example.com/webhook",
+    enabled: true,
+    eventTypes: ["payment.succeeded"],
+  });
+
+  const originalFetch = globalThis.fetch;
+  let receivedCorrelationId: string | null = null;
+  let payloadCorrelationId: string | undefined;
+  globalThis.fetch = async (_url, init) => {
+    const headers = new Headers(init?.headers);
+    receivedCorrelationId = headers.get("x-correlation-id");
+    payloadCorrelationId = JSON.parse(String(init?.body)).correlationId;
+    return { ok: true, status: 200 } as Response;
+  };
+
+  try {
+    await expect(
+      owner.action(api.webhookDelivery.sendTest, {
+        projectId,
+        eventType: "payment.succeeded",
+        correlationId: "Bearer tk_live_should_not_echo",
+      }),
+    ).rejects.toThrow("Invalid correlation ID");
+
+    await owner.action(api.webhookDelivery.sendTest, {
+      projectId,
+      eventType: "payment.succeeded",
+      correlationId: "pay-2026-webhook-0001",
+    });
+    const deliveries = await owner.query(api.webhook_deliveries.query.listByProject, {
+      projectId,
+      limit: 10,
+    });
+    expect(deliveries[0].correlationId).toBe("pay-2026-webhook-0001");
+    expect(receivedCorrelationId).toBe("pay-2026-webhook-0001");
+    expect(payloadCorrelationId).toBe("pay-2026-webhook-0001");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

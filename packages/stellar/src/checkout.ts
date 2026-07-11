@@ -231,6 +231,7 @@ export type CreatePaymentIntentParams = {
   successUrl?: string;
   cancelUrl?: string;
   baseUrl?: string;
+  correlationId?: string;
 };
 
 export type CreatePaymentIntentResult = {
@@ -246,7 +247,7 @@ export type CreatePaymentIntentResult = {
 export async function createCheckoutSession(
   params: CreatePaymentIntentParams,
 ): Promise<CreatePaymentIntentResult> {
-  const { apiKey, baseUrl = "http://localhost:3000", ...body } = params;
+  const { apiKey, baseUrl = "http://localhost:3000", correlationId, ...body } = params;
 
   if (!apiKey) {
     throw new Error("API key is required");
@@ -257,6 +258,7 @@ export async function createCheckoutSession(
     headers: {
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
+      ...(correlationId ? { "X-Correlation-Id": correlationId } : {}),
     },
     body: JSON.stringify(body),
   });

@@ -10,6 +10,11 @@ import {
 import { rateLimiter } from "@/core/api/rate-limit";
 import { env } from "@/core/config/env";
 import { stellarConfig } from "@/core/config/stellar";
+import {
+  completeRequestTelemetry,
+  measureTelemetryStage,
+  startRequestTelemetry,
+} from "@/core/observability";
 import { api } from "@repo/backend/convex/_generated/api";
 import { ConvexHttpClient } from "convex/browser";
 import { NextRequest, NextResponse } from "next/server";
@@ -37,25 +42,30 @@ type PublicPaymentIntentListResult =
     };
 
 export async function POST(request: NextRequest) {
+  const telemetry = startRequestTelemetry(request, "payment_intent.create.v2");
+  const complete = <T extends Response>(response: T) =>
+    completeRequestTelemetry(telemetry, response);
   const auth = getApiKeyHashOrError(request);
   if (!auth.ok) {
-    return auth.response;
+    return complete(auth.response);
   }
 
   const rateLimitResult = rateLimiter.checkLimit(auth.apiKeyHash);
   if (!rateLimitResult.allowed) {
-    return veloErrorResponse({
-      status: 429,
-      type: "rate_limit_error",
-      code: "rate_limit_exceeded",
-      message: "Rate limit exceeded.",
-      headers: rateLimitResult.headers,
-    });
+    return complete(
+      veloErrorResponse({
+        status: 429,
+        type: "rate_limit_error",
+        code: "rate_limit_exceeded",
+        message: "Rate limit exceeded.",
+        headers: rateLimitResult.headers,
+      }),
+    );
   }
 
   const parsed = await parseCreatePaymentIntentBody(request);
   if (!parsed.ok) {
-    return attachHeaders(parsed.response, rateLimitResult.headers);
+    return complete(attachHeaders(parsed.response, rateLimitResult.headers));
   }
 
   try {
@@ -66,30 +76,35 @@ export async function POST(request: NextRequest) {
     const convex = new ConvexHttpClient(env.NEXT_PUBLIC_CONVEX_URL);
 
     // Call the Convex Action for V2, which coordinates the PDAX API lookup
-    const result = (await convex.action(api.payment_intents.actions.createPublicPaymentIntentV2, {
-      apiKeyHash: auth.apiKeyHash,
-      amount: parsed.body.amount,
-      asset: resolvedAsset,
-      ...(parsed.body.description !== undefined ? { description: parsed.body.description } : {}),
-      ...(parsed.body.successUrl !== undefined ? { successUrl: parsed.body.successUrl } : {}),
-      ...(parsed.body.cancelUrl !== undefined ? { cancelUrl: parsed.body.cancelUrl } : {}),
-      ...(parsed.body.anchor !== undefined
-        ? { anchor: parsed.body.anchor as "inhouse" | "pdax" }
-        : {}),
-      ...(getIdempotencyKey(request) !== undefined
-        ? { idempotencyKey: getIdempotencyKey(request) }
-        : {}),
-    })) as PublicPaymentIntentMutationResult;
+    const result = (await measureTelemetryStage(telemetry, "convex.action", () =>
+      convex.action(api.payment_intents.actions.createPublicPaymentIntentV2, {
+        apiKeyHash: auth.apiKeyHash,
+        correlationId: telemetry.correlationId,
+        amount: parsed.body.amount,
+        asset: resolvedAsset,
+        ...(parsed.body.description !== undefined ? { description: parsed.body.description } : {}),
+        ...(parsed.body.successUrl !== undefined ? { successUrl: parsed.body.successUrl } : {}),
+        ...(parsed.body.cancelUrl !== undefined ? { cancelUrl: parsed.body.cancelUrl } : {}),
+        ...(parsed.body.anchor !== undefined
+          ? { anchor: parsed.body.anchor as "inhouse" | "pdax" }
+          : {}),
+        ...(getIdempotencyKey(request) !== undefined
+          ? { idempotencyKey: getIdempotencyKey(request) }
+          : {}),
+      }),
+    )) as PublicPaymentIntentMutationResult;
 
     if (!result.authorized) {
-      return attachHeaders(
-        veloErrorResponse({
-          status: 401,
-          type: "auth_error",
-          code: "invalid_api_key",
-          message: result.reason || "Invalid API key.",
-        }),
-        rateLimitResult.headers,
+      return complete(
+        attachHeaders(
+          veloErrorResponse({
+            status: 401,
+            type: "auth_error",
+            code: "invalid_api_key",
+            message: result.reason || "Invalid API key.",
+          }),
+          rateLimitResult.headers,
+        ),
       );
     }
 
@@ -98,14 +113,16 @@ export async function POST(request: NextRequest) {
     }
 
     if ("idempotencyConflict" in result && result.idempotencyConflict) {
-      return attachHeaders(
-        veloErrorResponse({
-          status: 409,
-          type: "idempotency_error",
-          code: "idempotency_key_conflict",
-          message: "Idempotency-Key was already used with a different request body.",
-        }),
-        rateLimitResult.headers,
+      return complete(
+        attachHeaders(
+          veloErrorResponse({
+            status: 409,
+            type: "idempotency_error",
+            code: "idempotency_key_conflict",
+            message: "Idempotency-Key was already used with a different request body.",
+          }),
+          rateLimitResult.headers,
+        ),
       );
     }
 
@@ -119,7 +136,7 @@ export async function POST(request: NextRequest) {
         status: result.idempotencyReplay ? 200 : 201,
       },
     );
-    return attachHeaders(response, rateLimitResult.headers);
+    return complete(attachHeaders(response, rateLimitResult.headers));
   } catch (error) {
     console.error("Payment intent V2 creation failed:", error);
 
@@ -130,69 +147,82 @@ export async function POST(request: NextRequest) {
         (data && data.code === "anchor_unavailable") ||
         error.message.includes("anchor_unavailable")
       ) {
-        return attachHeaders(
-          veloErrorResponse({
-            status: 503,
-            type: "api_error",
-            code: "anchor_unavailable",
-            message: "The requested payment anchor is currently unavailable.",
-          }),
-          rateLimitResult.headers,
+        return complete(
+          attachHeaders(
+            veloErrorResponse({
+              status: 503,
+              type: "api_error",
+              code: "anchor_unavailable",
+              message: "The requested payment anchor is currently unavailable.",
+            }),
+            rateLimitResult.headers,
+          ),
         );
       }
     }
 
-    return attachHeaders(
-      veloErrorResponse({
-        status: 500,
-        type: "api_error",
-        code: "internal_error",
-        message: "Internal server error.",
-      }),
-      rateLimitResult.headers,
+    return complete(
+      attachHeaders(
+        veloErrorResponse({
+          status: 500,
+          type: "api_error",
+          code: "internal_error",
+          message: "Internal server error.",
+        }),
+        rateLimitResult.headers,
+      ),
     );
   }
 }
 
 export async function GET(request: NextRequest) {
+  const telemetry = startRequestTelemetry(request, "payment_intent.list.v2");
+  const complete = <T extends Response>(response: T) =>
+    completeRequestTelemetry(telemetry, response);
   const auth = getApiKeyHashOrError(request);
   if (!auth.ok) {
-    return auth.response;
+    return complete(auth.response);
   }
 
   const rateLimitResult = rateLimiter.checkLimit(auth.apiKeyHash);
   if (!rateLimitResult.allowed) {
-    return veloErrorResponse({
-      status: 429,
-      type: "rate_limit_error",
-      code: "rate_limit_exceeded",
-      message: "Rate limit exceeded.",
-      headers: rateLimitResult.headers,
-    });
+    return complete(
+      veloErrorResponse({
+        status: 429,
+        type: "rate_limit_error",
+        code: "rate_limit_exceeded",
+        message: "Rate limit exceeded.",
+        headers: rateLimitResult.headers,
+      }),
+    );
   }
 
   const parsed = parseListPaymentIntentQuery(request.nextUrl.searchParams);
   if (!parsed.ok) {
-    return attachHeaders(parsed.response, rateLimitResult.headers);
+    return complete(attachHeaders(parsed.response, rateLimitResult.headers));
   }
 
   try {
     const convex = new ConvexHttpClient(env.NEXT_PUBLIC_CONVEX_URL);
-    const result = (await convex.query(api.payment_intents.queries.listPublicPaymentIntents, {
-      apiKeyHash: auth.apiKeyHash,
-      ...(parsed.status !== undefined ? { status: parsed.status } : {}),
-      paginationOpts: parsed.paginationOpts,
-    })) as PublicPaymentIntentListResult;
+    const result = (await measureTelemetryStage(telemetry, "convex.query", () =>
+      convex.query(api.payment_intents.queries.listPublicPaymentIntents, {
+        apiKeyHash: auth.apiKeyHash,
+        ...(parsed.status !== undefined ? { status: parsed.status } : {}),
+        paginationOpts: parsed.paginationOpts,
+      }),
+    )) as PublicPaymentIntentListResult;
 
     if (!result.authorized) {
-      return attachHeaders(
-        veloErrorResponse({
-          status: 401,
-          type: "auth_error",
-          code: "invalid_api_key",
-          message: result.reason || "Invalid API key.",
-        }),
-        rateLimitResult.headers,
+      return complete(
+        attachHeaders(
+          veloErrorResponse({
+            status: 401,
+            type: "auth_error",
+            code: "invalid_api_key",
+            message: result.reason || "Invalid API key.",
+          }),
+          rateLimitResult.headers,
+        ),
       );
     }
 
@@ -206,17 +236,19 @@ export async function GET(request: NextRequest) {
       hasMore: !result.page.isDone,
       nextCursor: result.page.isDone ? null : result.page.continueCursor,
     });
-    return attachHeaders(response, rateLimitResult.headers);
+    return complete(attachHeaders(response, rateLimitResult.headers));
   } catch (error) {
     console.error("Payment intent list failed:", error);
-    return attachHeaders(
-      veloErrorResponse({
-        status: 500,
-        type: "api_error",
-        code: "internal_error",
-        message: "Internal server error.",
-      }),
-      rateLimitResult.headers,
+    return complete(
+      attachHeaders(
+        veloErrorResponse({
+          status: 500,
+          type: "api_error",
+          code: "internal_error",
+          message: "Internal server error.",
+        }),
+        rateLimitResult.headers,
+      ),
     );
   }
 }

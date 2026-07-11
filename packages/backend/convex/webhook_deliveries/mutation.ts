@@ -11,6 +11,7 @@ export const createPending = internalMutation({
     destinationHost: v.string(),
     payloadSummary: v.any(),
     paymentIntentId: v.optional(v.id("paymentIntents")),
+    correlationId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const now = Date.now();
@@ -98,6 +99,7 @@ export const scheduleRetry = internalMutation({
     paymentIntentId: v.optional(v.id("paymentIntents")),
     deliveryId: v.id("webhookDeliveries"),
     attemptCount: v.number(),
+    correlationId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const { delaySeconds, ...triggerArgs } = args;

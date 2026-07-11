@@ -1,6 +1,8 @@
 import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
 
+import type { Doc } from "../_generated/dataModel";
+
 import { internalQuery, query } from "../_generated/server";
 import { projectOwnerOrNull } from "../projects/helpers";
 import {
@@ -296,5 +298,82 @@ export const getPaidPdaxIntents = internalQuery({
         q.eq("projectId", args.projectId).eq("status", "paid"),
       )
       .collect();
+  },
+});
+
+function lifecycleProjection(
+  correlationId: string,
+  intents: Doc<"paymentIntents">[],
+  deliveries: Doc<"webhookDeliveries">[],
+) {
+  const paymentIntents = intents.map((intent) => ({
+    id: intent._id,
+    status: intent.status,
+    transactionHash: intent.txHash ?? null,
+    createdAt: intent.createdAt,
+    updatedAt: intent.updatedAt,
+  }));
+  const webhookDeliveries = deliveries.map((delivery) => ({
+    id: delivery._id,
+    paymentIntentId: delivery.paymentIntentId ?? null,
+    eventType: delivery.eventType,
+    status: delivery.status,
+    attemptCount: delivery.attemptCount,
+    createdAt: delivery.createdAt,
+    lastAttemptAt: delivery.lastAttemptAt,
+    httpStatus: delivery.httpStatus ?? null,
+    responseTimeMs: delivery.responseTimeMs ?? null,
+  }));
+
+  return {
+    correlationId,
+    paymentIntents,
+    webhookDeliveries,
+    stages: [
+      ...paymentIntents.flatMap((intent) => [
+        { name: "payment_intent.created", at: intent.createdAt, paymentIntentId: intent.id },
+        {
+          name: `payment_intent.${intent.status}`,
+          at: intent.updatedAt,
+          paymentIntentId: intent.id,
+        },
+      ]),
+      ...webhookDeliveries.flatMap((delivery) => [
+        { name: "webhook.queued", at: delivery.createdAt, deliveryId: delivery.id },
+        { name: `webhook.${delivery.status}`, at: delivery.lastAttemptAt, deliveryId: delivery.id },
+      ]),
+    ].sort((left, right) => left.at - right.at),
+  };
+}
+
+/**
+ * Project-operator trace lookup. Ownership is verified before either indexed
+ * read, so a correlation ID cannot enumerate another project's activity.
+ */
+export const getProjectPaymentLifecycleByCorrelation = query({
+  args: {
+    projectId: v.id("projects"),
+    correlationId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    if (!(await projectOwnerOrNull(ctx, args.projectId))) {
+      return null;
+    }
+
+    const intents = await ctx.db
+      .query("paymentIntents")
+      .withIndex("by_project_and_correlation_id", (q) =>
+        q.eq("projectId", args.projectId).eq("correlationId", args.correlationId),
+      )
+      .take(10);
+    const deliveries = await ctx.db
+      .query("webhookDeliveries")
+      .withIndex("by_project_and_correlation_id_created_at", (q) =>
+        q.eq("projectId", args.projectId).eq("correlationId", args.correlationId),
+      )
+      .order("asc")
+      .take(100);
+
+    return lifecycleProjection(args.correlationId, intents, deliveries);
   },
 });

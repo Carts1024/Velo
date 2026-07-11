@@ -36,6 +36,7 @@ test("createCheckoutSession calls fetch with correct headers and payload", async
       successUrl: "https://example.com/success",
       cancelUrl: "https://example.com/cancel",
       baseUrl: "http://localhost:3000",
+      correlationId: "sdk-2026-0001",
     });
 
     assert.equal(fetchCalled, true);
@@ -45,6 +46,7 @@ test("createCheckoutSession calls fetch with correct headers and payload", async
     const headers = calledOptions?.headers as Record<string, string>;
     assert.equal(headers["Authorization"], "Bearer tk_live_abcdef1234567890abcdef1234567890");
     assert.equal(headers["Content-Type"], "application/json");
+    assert.equal(headers["X-Correlation-Id"], "sdk-2026-0001");
 
     const body = JSON.parse(calledOptions?.body as string);
     assert.equal(body.amount, "5.50");

@@ -43,6 +43,9 @@ jobs:
       - name: Run Tests
         run: pnpm test
 
+      - name: Benchmark Harness Smoke Test
+        run: pnpm benchmark:smoke
+
   test-rust:
     name: Smart Contract Tests
     runs-on: ubuntu-latest

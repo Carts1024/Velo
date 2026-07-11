@@ -1,0 +1,58 @@
+{
+  "version": 1,
+  "scenarios": [
+    {
+      "id": "payment-intent-create",
+      "journey": "Payment-intent creation",
+      "adapter": "http",
+      "method": "POST",
+      "path": "/api/v2/payment-intents",
+      "headers": { "content-type": "application/json", "idempotency-key": "bench-${RUN_ID}-${SAMPLE}" },
+      "body": { "amount": "1.00", "asset": "USDC", "description": "Sprint 1 benchmark" },
+      "requiredEnv": ["VELO_BENCHMARK_BASE_URL", "VELO_BENCHMARK_API_KEY"]
+    },
+    {
+      "id": "payment-intent-list",
+      "journey": "Read-only public API",
+      "adapter": "http",
+      "method": "GET",
+      "path": "/api/v2/payment-intents?limit=20",
+      "requiredEnv": ["VELO_BENCHMARK_BASE_URL", "VELO_BENCHMARK_API_KEY"]
+    },
+    {
+      "id": "checkout-preparation",
+      "journey": "Hosted checkout preparation",
+      "adapter": "browser-fixture",
+      "requiredEnv": ["VELO_BENCHMARK_CHECKOUT_URL"],
+      "fixture": "Record navigation-start through checkout-ready in a browser trace fixture keyed by VELO_BENCHMARK_CHECKOUT_URL."
+    },
+    {
+      "id": "transaction-submission",
+      "journey": "Transaction submission",
+      "adapter": "stellar-rpc-fixture",
+      "requiredEnv": ["VELO_BENCHMARK_SIGNED_XDR", "VELO_BENCHMARK_RPC_URL"],
+      "fixture": "Record sendTransaction submission timing with a disposable signed transaction fixture; never submit production transactions."
+    },
+    {
+      "id": "confirmation-detection",
+      "journey": "Confirmation observation",
+      "adapter": "lifecycle-trace-fixture",
+      "requiredEnv": ["VELO_BENCHMARK_CORRELATION_ID"],
+      "fixture": "Extract submitted, observed, and canonical-state timestamps from one persisted correlation ID."
+    },
+    {
+      "id": "ui-propagation",
+      "journey": "Canonical state to subscribed UI",
+      "adapter": "browser-fixture",
+      "requiredEnv": ["VELO_BENCHMARK_CHECKOUT_URL"],
+      "fixture": "Record canonical-state mutation through subscribed UI render in a browser trace fixture."
+    },
+    {
+      "id": "webhook-delivery",
+      "journey": "Webhook first attempt and acknowledgement",
+      "adapter": "lifecycle-trace-fixture",
+      "requiredEnv": ["VELO_BENCHMARK_CORRELATION_ID"],
+      "fixture": "Extract canonical update, webhook attempt, and acknowledgement timestamps from the persisted delivery correlation ID."
+    }
+  ]
+}

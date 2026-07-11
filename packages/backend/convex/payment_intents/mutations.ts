@@ -16,6 +16,7 @@ import {
 export const createPaymentIntent = mutation({
   args: {
     apiKeyHash: v.string(),
+    correlationId: v.optional(v.string()),
     amount: v.string(),
     asset: v.string(),
     description: v.optional(v.string()),
@@ -64,6 +65,7 @@ export const createPaymentIntent = mutation({
       ...(args.successUrl !== undefined ? { successUrl: args.successUrl } : {}),
       ...(args.cancelUrl !== undefined ? { cancelUrl: args.cancelUrl } : {}),
       anchor: resolvedAnchor,
+      ...(args.correlationId !== undefined ? { correlationId: args.correlationId } : {}),
       expiresAt: now + PAYMENT_INTENT_EXPIRY_MS,
       createdAt: now,
       updatedAt: now,
@@ -79,6 +81,7 @@ export const createPaymentIntent = mutation({
       projectId: project._id,
       eventType: "payment.created",
       paymentIntentId: id,
+      ...(args.correlationId !== undefined ? { correlationId: args.correlationId } : {}),
     });
 
     return { paymentIntentId: id, projectId: project._id };
@@ -92,6 +95,7 @@ export const createPaymentIntent = mutation({
 export const createPublicPaymentIntent = mutation({
   args: {
     apiKeyHash: v.string(),
+    correlationId: v.optional(v.string()),
     amount: v.string(),
     asset: v.string(),
     description: v.optional(v.string()),
@@ -160,6 +164,7 @@ export const createPublicPaymentIntent = mutation({
       ...(args.successUrl !== undefined ? { successUrl: args.successUrl } : {}),
       ...(args.cancelUrl !== undefined ? { cancelUrl: args.cancelUrl } : {}),
       anchor: resolvedAnchor,
+      ...(args.correlationId !== undefined ? { correlationId: args.correlationId } : {}),
       expiresAt: now + PAYMENT_INTENT_EXPIRY_MS,
       createdAt: now,
       updatedAt: now,
@@ -185,6 +190,7 @@ export const createPublicPaymentIntent = mutation({
       projectId: auth.project._id,
       eventType: "payment.created",
       paymentIntentId,
+      ...(args.correlationId !== undefined ? { correlationId: args.correlationId } : {}),
     });
 
     const intent = await ctx.db.get(paymentIntentId);
@@ -264,6 +270,7 @@ export const updateStatus = mutation({
         projectId: intent.projectId,
         eventType: "payment.failed",
         paymentIntentId: args.paymentIntentId,
+        ...(intent.correlationId !== undefined ? { correlationId: intent.correlationId } : {}),
       });
     }
   },
@@ -307,6 +314,7 @@ export const markVerifiedPaid = internalMutation({
       projectId: intent.projectId,
       eventType: "payment.succeeded",
       paymentIntentId: args.paymentIntentId,
+      ...(intent.correlationId !== undefined ? { correlationId: intent.correlationId } : {}),
     });
   },
 });
@@ -314,6 +322,7 @@ export const markVerifiedPaid = internalMutation({
 export const insertPublicPaymentIntentV2 = internalMutation({
   args: {
     apiKeyHash: v.string(),
+    correlationId: v.optional(v.string()),
     amount: v.string(),
     asset: v.string(),
     description: v.optional(v.string()),
@@ -357,6 +366,7 @@ export const insertPublicPaymentIntentV2 = internalMutation({
       ...(args.successUrl !== undefined ? { successUrl: args.successUrl } : {}),
       ...(args.cancelUrl !== undefined ? { cancelUrl: args.cancelUrl } : {}),
       anchor: args.anchor,
+      ...(args.correlationId !== undefined ? { correlationId: args.correlationId } : {}),
       receiverMemo: args.receiverMemo,
       anchorDepositCurrency: args.anchorDepositCurrency,
       expiresAt: now + PAYMENT_INTENT_EXPIRY_MS,
@@ -393,6 +403,7 @@ export const insertPublicPaymentIntentV2 = internalMutation({
       projectId: auth.project._id,
       eventType: "payment.created",
       paymentIntentId,
+      ...(args.correlationId !== undefined ? { correlationId: args.correlationId } : {}),
     });
 
     const intent = await ctx.db.get(paymentIntentId);

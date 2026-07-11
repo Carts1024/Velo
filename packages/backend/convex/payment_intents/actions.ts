@@ -17,6 +17,7 @@ function mapAssetToPdax(asset: string): string {
 export const createPublicPaymentIntentV2 = action({
   args: {
     apiKeyHash: v.string(),
+    correlationId: v.optional(v.string()),
     amount: v.string(),
     asset: v.string(),
     description: v.optional(v.string()),
@@ -91,6 +92,7 @@ export const createPublicPaymentIntentV2 = action({
           internal.payment_intents.mutations.insertPublicPaymentIntentV2,
           {
             apiKeyHash: args.apiKeyHash,
+            correlationId: args.correlationId,
             amount: args.amount,
             asset: args.asset,
             description: args.description,
@@ -123,6 +125,7 @@ export const createPublicPaymentIntentV2 = action({
         internal.payment_intents.mutations.insertPublicPaymentIntentV2,
         {
           apiKeyHash: args.apiKeyHash,
+          correlationId: args.correlationId,
           amount: args.amount,
           asset: args.asset,
           description: args.description,
