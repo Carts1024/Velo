@@ -23,6 +23,11 @@ type DeliveryTarget = {
 };
 
 const CORRELATION_ID_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9._:-]{7,127}$/;
+const WEBHOOK_CONNECT_TIMEOUT_MS = 2_000;
+const WEBHOOK_TOTAL_TIMEOUT_MS = 8_000;
+const MAX_WEBHOOK_ATTEMPTS = 5;
+const MAX_RETRY_DELAY_SECONDS = 900;
+const RETRY_DELAYS_SECONDS = [0, 15, 60, 300, 900];
 
 function testCorrelationId(value: string | undefined) {
   if (value === undefined) {
@@ -266,6 +271,61 @@ function computeSignatureHeader(payload: unknown, secret?: string): string | und
   return `t=${timestamp},v1=${hash}`;
 }
 
+function parseRetryAfterSeconds(value: string | null, now = Date.now()) {
+  if (!value) {
+    return undefined;
+  }
+  const seconds = Number(value);
+  if (Number.isFinite(seconds)) {
+    return Math.max(0, Math.min(MAX_RETRY_DELAY_SECONDS, seconds));
+  }
+  const date = Date.parse(value);
+  if (!Number.isFinite(date)) {
+    return undefined;
+  }
+  return Math.max(0, Math.min(MAX_RETRY_DELAY_SECONDS, Math.ceil((date - now) / 1000)));
+}
+
+function nextRetryDelaySeconds(attemptCount: number, retryAfterHeader?: string | null) {
+  const retryAfter = parseRetryAfterSeconds(retryAfterHeader ?? null);
+  if (retryAfter !== undefined) {
+    return retryAfter;
+  }
+  const baseDelay = RETRY_DELAYS_SECONDS[attemptCount] ?? MAX_RETRY_DELAY_SECONDS;
+  return Math.min(MAX_RETRY_DELAY_SECONDS, baseDelay * (0.75 + Math.random() * 0.5));
+}
+
+function isRetryableWebhookStatus(status: number) {
+  return status === 408 || status === 429 || status >= 500;
+}
+
+async function fetchWithDeadlines(url: string, init: RequestInit) {
+  const controller = new AbortController();
+  const connectTimer = setTimeout(() => {
+    controller.abort(
+      new Error(`Webhook connect deadline exceeded after ${WEBHOOK_CONNECT_TIMEOUT_MS}ms`),
+    );
+  }, WEBHOOK_CONNECT_TIMEOUT_MS);
+  const totalTimer = setTimeout(() => {
+    controller.abort(new Error(`Webhook total deadline exceeded after ${WEBHOOK_TOTAL_TIMEOUT_MS}ms`));
+  }, WEBHOOK_TOTAL_TIMEOUT_MS);
+
+  try {
+    return await fetch(url, {
+      ...init,
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (controller.signal.reason instanceof Error) {
+      throw controller.signal.reason;
+    }
+    throw error;
+  } finally {
+    clearTimeout(connectTimer);
+    clearTimeout(totalTimer);
+  }
+}
+
 export const sendTest = action({
   args: {
     projectId: v.id("projects"),
@@ -351,7 +411,7 @@ export const sendTest = action({
 
     const startTime = Date.now();
     try {
-      const response = await fetch(target.endpoint.url, {
+      const response = await fetchWithDeadlines(target.endpoint.url, {
         method: "POST",
         headers: {
           "content-type": "application/json",
@@ -362,7 +422,6 @@ export const sendTest = action({
           ...(signatureHeader ? { "x-velo-signature": signatureHeader } : {}),
         },
         body: JSON.stringify(payload),
-        signal: AbortSignal.timeout(10_000),
       });
       const responseTimeMs = Date.now() - startTime;
       const status = response.ok ? "success" : "failed";
@@ -418,6 +477,7 @@ export const trigger = internalAction({
     deliveryId: v.optional(v.id("webhookDeliveries")),
     attemptCount: v.optional(v.number()),
     correlationId: v.optional(v.string()),
+    nextAttemptAt: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const target = await ctx.runQuery(internal.webhook_endpoints.query.getDeliveryTargetInternal, {
@@ -446,6 +506,9 @@ export const trigger = internalAction({
       });
       if (existingDelivery?.payloadSummary?.id) {
         overrideEventId = existingDelivery.payloadSummary.id;
+      }
+      if (existingDelivery?.deadLetter && args.attemptCount === undefined) {
+        return;
       }
     }
 
@@ -490,7 +553,7 @@ export const trigger = internalAction({
 
     const startTime = Date.now();
     try {
-      const response = await fetch(target.endpoint.url, {
+      const response = await fetchWithDeadlines(target.endpoint.url, {
         method: "POST",
         headers: {
           "content-type": "application/json",
@@ -501,7 +564,6 @@ export const trigger = internalAction({
           ...(signatureHeader ? { "x-velo-signature": signatureHeader } : {}),
         },
         body: JSON.stringify(payload),
-        signal: AbortSignal.timeout(10_000),
       });
       const responseTimeMs = Date.now() - startTime;
 
@@ -514,24 +576,33 @@ export const trigger = internalAction({
         });
       } else {
         const errorMessage = `Endpoint returned HTTP ${response.status}`;
-        if (attemptCount < 5) {
+        const retryableStatus = isRetryableWebhookStatus(response.status);
+        if (retryableStatus && attemptCount < MAX_WEBHOOK_ATTEMPTS) {
+          const delaySeconds = nextRetryDelaySeconds(
+            attemptCount,
+            response.headers.get("retry-after"),
+          );
+          const nextAttemptAt = Date.now() + delaySeconds * 1000;
           await ctx.runMutation(internal.webhook_deliveries.mutation.logAttemptFailure, {
             deliveryId,
             httpStatus: response.status,
             errorMessage,
             responseTimeMs,
+            nextAttemptAt,
           });
-          const RETRY_DELAYS = [0, 15, 60, 300, 900];
-          const delaySeconds = RETRY_DELAYS[attemptCount] ?? 900;
           await ctx.runMutation(internal.webhook_deliveries.mutation.scheduleRetry, {
             delaySeconds,
             projectId: args.projectId,
             eventType: args.eventType,
             contractEventId: args.contractEventId,
             paymentIntentId: args.paymentIntentId,
+            settlementQuoteId: args.settlementQuoteId,
+            settlementTransactionId: args.settlementTransactionId,
+            providerEventId: args.providerEventId,
             deliveryId,
             attemptCount: attemptCount + 1,
             correlationId,
+            nextAttemptAt,
           });
         } else {
           await ctx.runMutation(internal.webhook_deliveries.mutation.finish, {
@@ -540,6 +611,7 @@ export const trigger = internalAction({
             httpStatus: response.status,
             errorMessage,
             responseTimeMs,
+            deadLetter: retryableStatus,
           });
         }
       }
@@ -547,23 +619,28 @@ export const trigger = internalAction({
       const responseTimeMs = Date.now() - startTime;
       const errorMessage = error instanceof Error ? error.message : "Webhook request failed";
 
-      if (attemptCount < 5) {
+      if (attemptCount < MAX_WEBHOOK_ATTEMPTS) {
+        const delaySeconds = nextRetryDelaySeconds(attemptCount);
+        const nextAttemptAt = Date.now() + delaySeconds * 1000;
         await ctx.runMutation(internal.webhook_deliveries.mutation.logAttemptFailure, {
           deliveryId,
           errorMessage,
           responseTimeMs,
+          nextAttemptAt,
         });
-        const RETRY_DELAYS = [0, 15, 60, 300, 900];
-        const delaySeconds = RETRY_DELAYS[attemptCount] ?? 900;
         await ctx.runMutation(internal.webhook_deliveries.mutation.scheduleRetry, {
           delaySeconds,
           projectId: args.projectId,
           eventType: args.eventType,
           contractEventId: args.contractEventId,
           paymentIntentId: args.paymentIntentId,
+          settlementQuoteId: args.settlementQuoteId,
+          settlementTransactionId: args.settlementTransactionId,
+          providerEventId: args.providerEventId,
           deliveryId,
           attemptCount: attemptCount + 1,
           correlationId,
+          nextAttemptAt,
         });
       } else {
         await ctx.runMutation(internal.webhook_deliveries.mutation.finish, {
@@ -571,6 +648,7 @@ export const trigger = internalAction({
           status: "failed",
           errorMessage,
           responseTimeMs,
+          deadLetter: true,
         });
       }
     }

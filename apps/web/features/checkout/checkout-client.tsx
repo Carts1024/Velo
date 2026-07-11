@@ -29,6 +29,7 @@ import {
   ShieldCheckIcon,
   WalletIcon,
   XCircleIcon,
+  WifiOffIcon,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
@@ -77,6 +78,7 @@ export function CheckoutClient({ paymentIntentId }: CheckoutClientProps) {
   const wallet = useWallet();
   const [step, setStep] = useState<PaymentStep>("connect");
   const [error, setError] = useState<string | null>(null);
+  const [isOffline, setIsOffline] = useState(false);
 
   const intentId = paymentIntentId as Id<"paymentIntents">;
   const intent = useQuery(api.payment_intents.queries.getPaymentIntent, {
@@ -86,6 +88,17 @@ export function CheckoutClient({ paymentIntentId }: CheckoutClientProps) {
   const updateStatus = useMutation(api.payment_intents.mutations.updateStatus);
   const reportSubmitted = useMutation(api.transactions.mutation.reportSubmitted);
   const timer = useTimeRemaining(intent?.expiresAt);
+
+  useEffect(() => {
+    const update = () => setIsOffline(!window.navigator.onLine);
+    update();
+    window.addEventListener("online", update);
+    window.addEventListener("offline", update);
+    return () => {
+      window.removeEventListener("online", update);
+      window.removeEventListener("offline", update);
+    };
+  }, []);
 
   // Auto-reconnect from stored platform session (stale = previous session in localStorage)
   useEffect(() => {
@@ -449,6 +462,17 @@ export function CheckoutClient({ paymentIntentId }: CheckoutClientProps) {
               <AlertCircleIcon className="h-4 w-4" />
               <AlertTitle className="font-bold">Payment Error</AlertTitle>
               <AlertDescription className="text-xs">{error}</AlertDescription>
+            </Alert>
+          )}
+
+          {isOffline && (
+            <Alert className="border-amber-500/30 bg-amber-500/10">
+              <WifiOffIcon className="h-4 w-4" />
+              <AlertTitle>Connection interrupted</AlertTitle>
+              <AlertDescription className="text-xs">
+                Checkout status will reconcile automatically when this device reconnects. Keep this
+                page open and do not submit again until the authoritative status returns.
+              </AlertDescription>
             </Alert>
           )}
 

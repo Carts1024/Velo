@@ -2,7 +2,15 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { Velo } from "./client.ts";
-import { VeloAPIError, VeloAuthError, VeloRateLimitError, VeloValidationError } from "./errors.ts";
+import {
+  VeloAPIError,
+  VeloAuthError,
+  VeloProviderError,
+  VeloRateLimitError,
+  VeloSubmissionUnknownError,
+  VeloTimeoutError,
+  VeloValidationError,
+} from "./errors.ts";
 import { HttpClient, resolveBaseUrl } from "./http.ts";
 
 test("Velo constructor validates apiKey", () => {
@@ -98,12 +106,39 @@ test("HttpClient timeout behavior throws error", async () => {
       () => client.request("GET", "/test"),
       (err: unknown) => {
         assert.equal(err instanceof VeloAPIError, true);
+        assert.equal(err instanceof VeloTimeoutError, true);
         const error = err as VeloAPIError;
         assert.equal(error.status, 408);
         assert.match(error.message, /timed out/);
         return true;
       },
     );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("HttpClient preserves caller AbortSignal cancellation reason", async () => {
+  const originalFetch = globalThis.fetch;
+  const controller = new AbortController();
+  const callerReason = new DOMException("caller stopped waiting", "AbortError");
+
+  globalThis.fetch = async (_url, options) => {
+    setTimeout(() => controller.abort(callerReason), 5);
+    await new Promise((_resolve, reject) => {
+      options?.signal?.addEventListener("abort", () => reject(options.signal?.reason), {
+        once: true,
+      });
+    });
+    throw new Error("unreachable");
+  };
+
+  try {
+    const client = new HttpClient({ apiKey: "test-key", timeoutMs: 1000 });
+    await assert.rejects(() => client.request("GET", "/test", undefined, { signal: controller.signal }), {
+      name: "AbortError",
+      message: "caller stopped waiting",
+    });
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -200,6 +235,24 @@ test("HttpClient maps REST error responses correctly", async () => {
         assert.equal(error.status, 500);
         assert.equal(error.code, "internal_error");
         assert.equal(error.requestId, "req-id-123");
+        return true;
+      },
+    );
+
+    // 503 Provider Error -> VeloProviderError
+    globalThis.fetch = mockErrorResponse(
+      503,
+      "provider_error",
+      "Provider unavailable",
+      "provider_unavailable",
+    );
+    await assert.rejects(
+      () => client.request("POST", "/test"),
+      (err: unknown) => {
+        assert.equal(err instanceof VeloProviderError, true);
+        const error = err as VeloProviderError;
+        assert.equal(error.status, 503);
+        assert.equal(error.code, "provider_unavailable");
         return true;
       },
     );
@@ -377,6 +430,74 @@ test("POST with idempotency key retries on 500", async () => {
     );
     assert.deepEqual(res, { id: "pi_123", object: "payment_intent" });
     assert.equal(calls, 2);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("HttpClient sends correlation header and honors Retry-After on retryable responses", async () => {
+  const originalFetch = globalThis.fetch;
+  let calls = 0;
+  let correlationHeader: string | null = null;
+  const startedAt = Date.now();
+
+  globalThis.fetch = async (_url, options) => {
+    calls++;
+    correlationHeader = new Headers(options?.headers).get("x-correlation-id");
+    if (calls === 1) {
+      return new Response(
+        JSON.stringify({
+          error: { type: "rate_limit_error", message: "Slow down", code: "rate_limit" },
+        }),
+        {
+          status: 429,
+          headers: { "Content-Type": "application/json", "Retry-After": "0.02" },
+        },
+      );
+    }
+    return new Response(JSON.stringify({ ok: true }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  };
+
+  try {
+    const client = new HttpClient({ apiKey: "test-key", baseUrl: "https://api.example.com" });
+    const res = await client.request("GET", "/test", undefined, {
+      correlationId: "pay-2026-sdk-0001",
+    });
+    assert.deepEqual(res, { ok: true });
+    assert.equal(correlationHeader, "pay-2026-sdk-0001");
+    assert.equal(calls, 2);
+    assert.ok(Date.now() - startedAt >= 15);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("submission requests are not retried and network uncertainty is typed", async () => {
+  const originalFetch = globalThis.fetch;
+  let calls = 0;
+
+  globalThis.fetch = async () => {
+    calls++;
+    throw new TypeError("fetch failed");
+  };
+
+  try {
+    const client = new HttpClient({ apiKey: "test-key", baseUrl: "https://api.example.com" });
+    await assert.rejects(
+      () =>
+        client.request("POST", "/submit", { xdr: "AAAA" }, {
+          idempotencyKey: "submit-1",
+          submission: true,
+        }),
+      (err: unknown) => {
+        assert.equal(err instanceof VeloSubmissionUnknownError, true);
+        return true;
+      },
+    );
+    assert.equal(calls, 1);
   } finally {
     globalThis.fetch = originalFetch;
   }

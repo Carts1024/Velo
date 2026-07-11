@@ -1,6 +1,22 @@
 # Welcome to your Convex functions directory!
 
 Write your Convex functions here.
+
+## Webhook delivery operating notes
+
+Canonical payment and settlement mutations enqueue `internal.webhookDelivery.trigger` after the
+transaction commits. Delivery records are durable and keep one delivery ID/event ID across
+attempts (at-least-once delivery); consumers must deduplicate by delivery ID. Network failures,
+HTTP 408/429, and 5xx responses retry at most five times with bounded jitter and `Retry-After`
+support. A terminal retryable failure is marked `deadLetter: true` while retaining the existing
+`failed` status for compatibility. Owners can replay a delivery through
+`webhook_deliveries.mutation.replay`; replay is a new attempt on the same durable record.
+
+The worker uses an 8-second total outbound deadline and a 2-second connection/setup deadline.
+Convex/Fetch does not expose a portable phase-specific connect timer, so the setup deadline is a
+conservative bounded abort rather than a wire-level TCP-connect measurement. Queue delay is stored
+as `nextAttemptAt`/`lastAttemptAt`; endpoint response latency is stored separately in
+`responseTimeMs`.
 See https://docs.convex.dev/functions for more.
 
 A query function that takes two arguments looks like:

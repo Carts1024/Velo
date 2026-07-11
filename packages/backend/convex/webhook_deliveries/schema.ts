@@ -8,6 +8,10 @@ export default defineTable({
   destinationHost: v.string(),
   payloadSummary: v.any(),
   status: v.union(v.literal("pending"), v.literal("success"), v.literal("failed")),
+  // `failed` is retained for API compatibility; deadLetter makes terminal quarantine explicit.
+  deadLetter: v.optional(v.boolean()),
+  deadLetterAt: v.optional(v.number()),
+  replayedAt: v.optional(v.number()),
   httpStatus: v.optional(v.number()),
   errorMessage: v.optional(v.string()),
   attemptCount: v.number(),
@@ -16,6 +20,7 @@ export default defineTable({
   paymentIntentId: v.optional(v.id("paymentIntents")),
   correlationId: v.optional(v.string()),
   responseTimeMs: v.optional(v.number()),
+  nextAttemptAt: v.optional(v.number()),
 })
   .index("by_project_created_at", ["projectId", "createdAt"])
   .index("by_endpoint_created_at", ["endpointId", "createdAt"])

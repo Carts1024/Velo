@@ -134,6 +134,7 @@ test("webhook delivery retry and backoff lifecycle", async () => {
     });
     expect(deliveries[0].attemptCount).toBe(5);
     expect(deliveries[0].status).toBe("failed");
+    expect(deliveries[0].deadLetter).toBe(true);
 
     // 4. Test a successful delivery
     // Reset mock fetch to succeed
@@ -156,6 +157,57 @@ test("webhook delivery retry and backoff lifecycle", async () => {
     });
     expect(deliveries[0].status).toBe("success");
     expect(deliveries[0].attemptCount).toBe(1);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("webhook retry scheduling honors Retry-After for retryable endpoint failures", async () => {
+  const t = convexTest(schema, modules);
+
+  const ownerAddress = "GD7O2C226SF2677PFFUVD6O2ICFOBNCWPI5Z46N43ZSFQGLM65U3I2SP";
+  const owner = asWallet(t, ownerAddress);
+
+  const projectId = await owner.mutation(api.projects.mutation.createDraft, {
+    name: "Retry After Merchant",
+    slug: "retry-after-merchant",
+    description: "Testing retry-after scheduling",
+    metadataJson: "{}",
+    metadataHash: "0000000000000000000000000000000000000000000000000000000000000000",
+    ownerAddress,
+  });
+
+  await owner.mutation(api.webhook_endpoints.mutation.saveSettings, {
+    projectId,
+    url: "https://api.example.com/webhook",
+    enabled: true,
+    eventTypes: ["payment.succeeded"],
+  });
+
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => {
+    return new Response("", {
+      status: 429,
+      headers: { "Retry-After": "7" },
+    });
+  };
+
+  try {
+    const before = Date.now();
+    await t.action(internal.webhookDelivery.trigger, {
+      projectId,
+      eventType: "payment.succeeded",
+    });
+
+    const deliveries = await owner.query(api.webhook_deliveries.query.listByProject, {
+      projectId,
+      limit: 10,
+    });
+    expect(deliveries).toHaveLength(1);
+    expect(deliveries[0].status).toBe("pending");
+    expect(deliveries[0].httpStatus).toBe(429);
+    expect(deliveries[0].nextAttemptAt).toBeGreaterThanOrEqual(before + 7_000);
+    expect(deliveries[0].nextAttemptAt).toBeLessThan(before + 8_500);
   } finally {
     globalThis.fetch = originalFetch;
   }

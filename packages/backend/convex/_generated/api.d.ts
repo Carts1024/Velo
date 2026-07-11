@@ -8,11 +8,11 @@
  * @module
  */
 
-import type * as contractEventPolling from "../contractEventPolling.js";
 import type * as contract_events_helpers from "../contract_events/helpers.js";
 import type * as contract_events_mutation from "../contract_events/mutation.js";
 import type * as contract_events_query from "../contract_events/query.js";
 import type * as contract_events_types from "../contract_events/types.js";
+import type * as contractEventPolling from "../contractEventPolling.js";
 import type * as crons from "../crons.js";
 import type * as feedback_mutation from "../feedback/mutation.js";
 import type * as feedback_query from "../feedback/query.js";
@@ -51,7 +51,6 @@ import type * as transactions_query from "../transactions/query.js";
 import type * as transactions_types from "../transactions/types.js";
 import type * as users_mutation from "../users/mutation.js";
 import type * as users_query from "../users/query.js";
-import type * as webhookDelivery from "../webhookDelivery.js";
 import type * as webhook_deliveries_helpers from "../webhook_deliveries/helpers.js";
 import type * as webhook_deliveries_mutation from "../webhook_deliveries/mutation.js";
 import type * as webhook_deliveries_query from "../webhook_deliveries/query.js";
@@ -60,12 +59,8 @@ import type * as webhook_endpoints_helpers from "../webhook_endpoints/helpers.js
 import type * as webhook_endpoints_mutation from "../webhook_endpoints/mutation.js";
 import type * as webhook_endpoints_query from "../webhook_endpoints/query.js";
 import type * as webhook_endpoints_types from "../webhook_endpoints/types.js";
-
-import type {
-  ApiFromModules,
-  FilterApi,
-  FunctionReference,
-} from "convex/server";
+import type * as webhookDelivery from "../webhookDelivery.js";
+import type { ApiFromModules, FilterApi, FunctionReference } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
   contractEventPolling: typeof contractEventPolling;
@@ -130,10 +125,7 @@ declare const fullApi: ApiFromModules<{
  * const myFunctionReference = api.myModule.myFunction;
  * ```
  */
-export declare const api: FilterApi<
-  typeof fullApi,
-  FunctionReference<any, "public">
->;
+export declare const api: FilterApi<typeof fullApi, FunctionReference<any, "public">>;
 
 /**
  * A utility for referencing Convex functions in your app's internal API.
@@ -143,9 +135,6 @@ export declare const api: FilterApi<
  * const myFunctionReference = internal.myModule.myFunction;
  * ```
  */
-export declare const internal: FilterApi<
-  typeof fullApi,
-  FunctionReference<any, "internal">
->;
+export declare const internal: FilterApi<typeof fullApi, FunctionReference<any, "internal">>;
 
 export declare const components: {};

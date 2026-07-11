@@ -31,7 +31,11 @@ export type VeloConfig = {
   apiKey: string;
   baseUrl?: string;
   environment?: "production" | "testnet" | "development" | string;
+  /** Total wall-clock deadline for one SDK request, including retries. Defaults to 30 seconds. */
   timeoutMs?: number;
+  maxRetries?: number;
+  retryBaseDelayMs?: number;
+  retryMaxDelayMs?: number;
 };
 
 export type CreateCheckoutSessionParams = {
@@ -45,6 +49,14 @@ export type CreateCheckoutSessionParams = {
 
 export type RequestOptions = {
   idempotencyKey?: string;
+  correlationId?: string;
+  signal?: AbortSignal;
+  /** Overrides the client default total wall-clock deadline for this request. */
+  timeoutMs?: number;
+  /** Overrides the client default retry count for this request. */
+  maxRetries?: number;
+  /** Set for transaction submission calls whose network outcome must be reconciled, never retried. */
+  submission?: boolean;
 };
 
 export type ListPaymentIntentsQuery = {
