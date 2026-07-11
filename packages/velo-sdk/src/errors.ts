@@ -42,7 +42,9 @@ export class VeloProviderError extends VeloError {
 }
 
 export class VeloSubmissionUnknownError extends VeloError {
-  constructor(message = "Transaction submission outcome is unknown; reconcile by transaction hash") {
+  constructor(
+    message = "Transaction submission outcome is unknown; reconcile by transaction hash",
+  ) {
     super(message, { code: "submission_unknown" });
   }
 }

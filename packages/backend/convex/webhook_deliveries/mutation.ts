@@ -135,7 +135,8 @@ export const replay = mutation({
     const project = await ctx.db.get(delivery.projectId);
     if (
       !project ||
-      (project.ownerTokenIdentifier !== identity.tokenIdentifier && project.ownerAddress !== identity.subject)
+      (project.ownerTokenIdentifier !== identity.tokenIdentifier &&
+        project.ownerAddress !== identity.subject)
     ) {
       throw new Error("Not authorized to replay this delivery");
     }

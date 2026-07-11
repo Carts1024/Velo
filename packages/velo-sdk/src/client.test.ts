@@ -135,10 +135,13 @@ test("HttpClient preserves caller AbortSignal cancellation reason", async () => 
 
   try {
     const client = new HttpClient({ apiKey: "test-key", timeoutMs: 1000 });
-    await assert.rejects(() => client.request("GET", "/test", undefined, { signal: controller.signal }), {
-      name: "AbortError",
-      message: "caller stopped waiting",
-    });
+    await assert.rejects(
+      () => client.request("GET", "/test", undefined, { signal: controller.signal }),
+      {
+        name: "AbortError",
+        message: "caller stopped waiting",
+      },
+    );
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -488,10 +491,15 @@ test("submission requests are not retried and network uncertainty is typed", asy
     const client = new HttpClient({ apiKey: "test-key", baseUrl: "https://api.example.com" });
     await assert.rejects(
       () =>
-        client.request("POST", "/submit", { xdr: "AAAA" }, {
-          idempotencyKey: "submit-1",
-          submission: true,
-        }),
+        client.request(
+          "POST",
+          "/submit",
+          { xdr: "AAAA" },
+          {
+            idempotencyKey: "submit-1",
+            submission: true,
+          },
+        ),
       (err: unknown) => {
         assert.equal(err instanceof VeloSubmissionUnknownError, true);
         return true;

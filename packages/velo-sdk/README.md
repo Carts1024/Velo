@@ -206,10 +206,10 @@ app.post("/webhooks", express.raw({ type: "application/json" }), async (req, res
 
 Configure the following environment variables in your server environments:
 
-| Variable              | Required          | Description                                                                                     |
-| --------------------- | ----------------- | ----------------------------------------------------------------------------------------------- |
-| `VELO_API_KEY`        | **Yes**           | Your Velo project API key (e.g. `tk_live_...` or `tk_test_...`).                                |
-| `VELO_WEBHOOK_SECRET` | Only for Webhooks | Used to verify signature of incoming webhook events.                                            |
+| Variable              | Required          | Description                                                                                                                                                                               |
+| --------------------- | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `VELO_API_KEY`        | **Yes**           | Your Velo project API key (e.g. `tk_live_...` or `tk_test_...`).                                                                                                                          |
+| `VELO_WEBHOOK_SECRET` | Only for Webhooks | Used to verify signature of incoming webhook events.                                                                                                                                      |
 | `VELO_BASE_URL`       | No                | Overrides the default Velo API endpoint. SDK defaults are `https://api.velo.pay` for production, `https://api.testnet.velo.pay` for testnet, and `http://localhost:3000` for development. |
 
 ---

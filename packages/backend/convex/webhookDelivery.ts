@@ -307,7 +307,9 @@ async function fetchWithDeadlines(url: string, init: RequestInit) {
     );
   }, WEBHOOK_CONNECT_TIMEOUT_MS);
   const totalTimer = setTimeout(() => {
-    controller.abort(new Error(`Webhook total deadline exceeded after ${WEBHOOK_TOTAL_TIMEOUT_MS}ms`));
+    controller.abort(
+      new Error(`Webhook total deadline exceeded after ${WEBHOOK_TOTAL_TIMEOUT_MS}ms`),
+    );
   }, WEBHOOK_TOTAL_TIMEOUT_MS);
 
   try {

@@ -1,4 +1,5 @@
 import type { VeloConfig, RequestOptions } from "./types.ts";
+
 import {
   mapErrorResponse,
   VeloError,
@@ -30,7 +31,8 @@ function retryAfterMs(value: string | null, now = Date.now()): number | undefine
 function isNetworkError(error: unknown) {
   return (
     error instanceof TypeError ||
-    (error instanceof Error && /fetch failed|ECONNREFUSED|ENOTFOUND|network error/i.test(error.message))
+    (error instanceof Error &&
+      /fetch failed|ECONNREFUSED|ENOTFOUND|network error/i.test(error.message))
   );
 }
 
@@ -147,7 +149,10 @@ export class HttpClient {
         return payload as T;
       } catch (error) {
         if (options?.signal?.aborted) throw abortReason(options.signal);
-        if (error instanceof VeloTimeoutError || (error instanceof Error && error.name === "AbortError")) {
+        if (
+          error instanceof VeloTimeoutError ||
+          (error instanceof Error && error.name === "AbortError")
+        ) {
           if (options?.submission) throw new VeloSubmissionUnknownError();
           throw new VeloTimeoutError(`Request timed out after ${timeoutMs}ms`);
         }
