@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "scenarios": [
     {
       "id": "payment-intent-create",
@@ -8,7 +8,7 @@
       "method": "POST",
       "path": "/api/v2/payment-intents",
       "headers": { "content-type": "application/json", "idempotency-key": "bench-${RUN_ID}-${SAMPLE}" },
-      "body": { "amount": "1.00", "asset": "USDC", "description": "Sprint 1 benchmark" },
+      "body": { "amount": "1.00", "asset": "USDC", "description": "Sprint 6 authorized benchmark capture" },
       "requiredEnv": ["VELO_BENCHMARK_BASE_URL", "VELO_BENCHMARK_API_KEY"]
     },
     {

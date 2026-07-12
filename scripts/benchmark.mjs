@@ -4,6 +4,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { existsSync, readFileSync } from "node:fs";
 import { execSync } from "node:child_process";
+import { loadBenchmarkContract } from "./benchmark-contract.mjs";
 
 // Load environment variables using process.loadEnvFile
 const envFiles = [".env", ".env.local", ".env.benchmark", "apps/web/.env.local"];
@@ -48,6 +49,9 @@ const defaultEnv = {
   VELO_BENCHMARK_REGION: "local",
   VELO_BENCHMARK_NETWORK: process.env.NEXT_PUBLIC_STELLAR_NETWORK ?? "testnet",
   VELO_BENCHMARK_DEPENDENCY_VERSIONS: getDependencyVersions(),
+  VELO_BENCHMARK_DEPENDENCY_ENDPOINTS: "unresolved",
+  VELO_BENCHMARK_PAYLOAD_IDENTITY: "payment-intent-create-v2-usdc-1.00",
+  VELO_BENCHMARK_DATASET_IDENTITY: "authorized-fixture-required",
   VELO_BENCHMARK_REVISION: getGitRevision(),
 };
 
@@ -60,6 +64,7 @@ for (const [key, value] of Object.entries(defaultEnv)) {
 const args = parseArgs(process.argv.slice(2));
 const configPath = resolve(args.config ?? "benchmarks/scenarios.json");
 const config = JSON.parse(await readFile(configPath, "utf8"));
+const contract = await loadBenchmarkContract();
 const selectedScenarios = selectScenarios(config.scenarios, args);
 const outputs = [];
 
@@ -86,12 +91,18 @@ function selectScenarios(scenarios, parsedArgs) {
 
 async function runScenario(scenario, parsedArgs) {
   const samples = asPositiveInt(parsedArgs.samples ?? "1000", "samples");
-  const concurrency = asPositiveInt(parsedArgs.concurrency ?? "25", "concurrency");
+  const profile = getProfile(contract.profiles, parsedArgs.profile ?? process.env.VELO_BENCHMARK_PROFILE ?? contract.manifest.defaultProfile);
+  if (profile.sampleTarget && samples < profile.sampleTarget) throw new Error(`${profile.id} requires at least ${profile.sampleTarget} samples; received ${samples}`);
+  const concurrency = asPositiveInt(parsedArgs.concurrency ?? String(profile.concurrency ?? 1), "concurrency");
   const timeoutMs = asPositiveInt(
     parsedArgs["timeout-ms"] ?? process.env.VELO_BENCHMARK_TIMEOUT_MS ?? "10000",
     "timeout-ms",
   );
-  const metadata = scenarioMetadata(scenario, samples, concurrency, timeoutMs);
+  if (concurrency !== profile.concurrency) throw new Error(`${profile.id} requires concurrency ${profile.concurrency}; received ${concurrency}`);
+  const window = getAllowed(args.window ?? process.env.VELO_BENCHMARK_WINDOW ?? "morning", contract.manifest.windows, "window");
+  const mode = args["dry-run"] ? "dry-run" : getAllowed(args.mode ?? process.env.VELO_BENCHMARK_MODE ?? "capture", contract.manifest.modes, "mode");
+  if (args["dry-run"] && args.mode && args.mode !== "dry-run") throw new Error("--dry-run conflicts with --mode");
+  const metadata = scenarioMetadata(scenario, profile, window, mode, samples, concurrency, timeoutMs);
   const missingEnv = (scenario.requiredEnv ?? []).filter((name) => !process.env[name]);
 
   if (scenario.adapter !== "http") {
@@ -119,6 +130,8 @@ async function runScenario(scenario, parsedArgs) {
   );
   const wallDurationMs = performance.now() - wallStartedAt;
   const successful = samplesOut.filter((sample) => sample.status >= 200 && sample.status < 400);
+  const errorTaxonomy = countErrors(samplesOut);
+  const http503 = summarize503(samplesOut);
   const durations = successful.map((sample) => sample.durationMs).sort((left, right) => left - right);
 
   return {
@@ -126,16 +139,24 @@ async function runScenario(scenario, parsedArgs) {
     ...metadata,
     adapter: scenario.adapter,
     successfulSamples: successful.length,
+    attemptedSamples: samplesOut.length,
+    errorSamples: samplesOut.length - successful.length,
     errors: samplesOut.length - successful.length,
     timeouts: samplesOut.filter((sample) => sample.timeout).length,
     wallDurationMs: round(wallDurationMs),
     throughputPerSecond: round((samplesOut.length / Math.max(wallDurationMs, 1)) * 1000),
+    throughput: {
+      attemptedPerSecond: round((samplesOut.length / Math.max(wallDurationMs, 1)) * 1000),
+      successfulPerSecond: round((successful.length / Math.max(wallDurationMs, 1)) * 1000),
+    },
+    errorTaxonomy,
+    http503,
     latencyMs: percentiles(durations),
     samples: samplesOut,
   };
 }
 
-function scenarioMetadata(scenario, samples, concurrency, timeoutMs) {
+function scenarioMetadata(scenario, profile, window, mode, samples, concurrency, timeoutMs) {
   return {
     scenario: scenario.id,
     journey: scenario.journey,
@@ -145,10 +166,26 @@ function scenarioMetadata(scenario, samples, concurrency, timeoutMs) {
     runtime: process.version,
     network: process.env.VELO_BENCHMARK_NETWORK ?? "unresolved",
     dependencyVersions: process.env.VELO_BENCHMARK_DEPENDENCY_VERSIONS ?? "unresolved",
+    dependencyEndpoints: process.env.VELO_BENCHMARK_DEPENDENCY_ENDPOINTS ?? "unresolved",
+    payloadIdentity: process.env.VELO_BENCHMARK_PAYLOAD_IDENTITY ?? "unresolved",
+    datasetIdentity: process.env.VELO_BENCHMARK_DATASET_IDENTITY ?? "unresolved",
+    scenarioVersion: scenario.version ?? 2,
     sampleSize: samples,
     concurrency,
     timeoutMs,
-    profile: process.env.VELO_BENCHMARK_PROFILE ?? "normal",
+    profile: profile.id,
+    window,
+    mode,
+    manifestVersion: 2,
+    workload: {
+      requestedSamples: samples,
+      attemptedSamples: 0,
+      successfulSamples: 0,
+      concurrency,
+      timeoutMs,
+      targetRequestsPerSecond: profile.requestsPerSecond ?? null,
+      durationSeconds: profile.durationSeconds ?? null,
+    },
     runId: crypto.randomUUID(),
   };
 }
@@ -181,12 +218,14 @@ async function captureHttpSample(scenario, runId, sample, timeoutMs) {
       ...(scenario.body ? { body: JSON.stringify(scenario.body) } : {}),
       signal: controller.signal,
     });
+    const error = response.status >= 200 && response.status < 400 ? null : classifyHttpError(response.status, response.headers);
     return {
       sample,
       durationMs: round(performance.now() - startedAt),
       status: response.status,
       timeout: false,
       correlationId: response.headers.get("x-correlation-id"),
+      error,
     };
   } catch (error) {
     return {
@@ -194,11 +233,46 @@ async function captureHttpSample(scenario, runId, sample, timeoutMs) {
       durationMs: round(performance.now() - startedAt),
       status: 0,
       timeout: controller.signal.aborted,
-      error: error instanceof Error ? error.name : "Request failed",
+      error: null,
+      errorDetail: { class: controller.signal.aborted ? "timeout" : "network", code: error instanceof Error ? error.name : "request_failed" },
     };
   } finally {
     clearTimeout(timeout);
   }
+}
+
+function getProfile(profiles, id) {
+  const profile = profiles.profiles.find((entry) => entry.id === id);
+  if (!profile) throw new Error(`Unknown benchmark profile: ${id}`);
+  return profile;
+}
+
+function getAllowed(value, allowed, name) {
+  if (!allowed.includes(value)) throw new Error(`Invalid benchmark ${name}: ${value}`);
+  return value;
+}
+
+function classifyHttpError(status, headers) {
+  const errorClass = status >= 400 && status < 500 ? "http_4xx" : status >= 500 ? (status === 503 ? "http_5xx_503" : "http_5xx") : "unknown";
+  return { class: errorClass, code: headers.get("x-error-code"), dependency: headers.get("x-error-dependency"), source: headers.get("x-error-source"), attributed: Boolean(headers.get("x-error-dependency") || headers.get("x-error-source")) };
+}
+
+function countErrors(samples) {
+  const counts = { timeout: 0, http_4xx: 0, http_5xx: 0, http_5xx_503: 0, network: 0, unknown: 0 };
+  for (const sample of samples) {
+    if (sample.status >= 200 && sample.status < 400) continue;
+    const key = sample.error?.class ?? sample.errorDetail?.class ?? "unknown";
+    counts[key] = (counts[key] ?? 0) + 1;
+  }
+  return counts;
+}
+
+function summarize503(samples) {
+  const errors = samples.map((sample) => sample.error).filter((error) => error?.class === "http_5xx_503");
+  const byDependency = {};
+  for (const error of errors) if (error.dependency) byDependency[error.dependency] = (byDependency[error.dependency] ?? 0) + 1;
+  const attributedCount = errors.filter((error) => error.attributed).length;
+  return { count: errors.length, attributedCount, unattributedCount: errors.length - attributedCount, byDependency };
 }
 
 function parseArgs(values) {

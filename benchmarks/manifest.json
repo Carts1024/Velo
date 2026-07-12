@@ -1,0 +1,27 @@
+{
+  "version": 2,
+  "windows": ["morning", "afternoon", "evening"],
+  "modes": ["dry-run", "capture", "fixture"],
+  "defaultProfile": "normal",
+  "thresholds": {
+    "requiredRuns": 3,
+    "requiredSuccessfulSamples": 1000,
+    "maxErrorRate": 0.005,
+    "maxP95Regression": 0.05,
+    "requireBaseline": true,
+    "minSuccessfulThroughput": {
+      "normal": 10,
+      "growth": 50
+    }
+  },
+  "profiles": ["idle", "normal", "growth", "burst", "webhook-fan-out", "backlog-recovery", "degraded-dependency"],
+  "scenarios": [
+    "payment-intent-create",
+    "payment-intent-list",
+    "checkout-preparation",
+    "transaction-submission",
+    "confirmation-detection",
+    "ui-propagation",
+    "webhook-delivery"
+  ]
+}

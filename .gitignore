@@ -41,4 +41,8 @@ docs/prds/prd-velo-pdax/\[PDAX Institutional API – APAC Stellar Hackathon Inte
 docs/prds/prd-velo-pdax/PDAX API documentation.md
 docs/prds/prd-velo-pdax/pdax-contract-lock.md
 docs/plans
-benchmarks/
+docs/
+benchmarks/reports/*.json
+benchmarks/reports/*.md
+docs/operations/sprint-1-measurement-and-slo-lock.md
+docs/operations/sprint-5-scale-competitive-proof-release.md
