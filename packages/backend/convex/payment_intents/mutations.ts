@@ -75,11 +75,6 @@ export const createPaymentIntent = mutation({
     });
 
     // 3. Increment request count on the API key
-    await ctx.db.patch(apiKey._id, {
-      lastUsedAt: now,
-      requestCount: apiKey.requestCount + 1,
-    });
-
     await ctx.scheduler.runAfter(0, internal.webhookDelivery.trigger, {
       projectId: project._id,
       eventType: "payment.created",
@@ -135,10 +130,6 @@ export const createPublicPaymentIntent = mutation({
 
         const intent = await ctx.db.get(existing.paymentIntentId);
         if (intent && intent.projectId === auth.project._id) {
-          await ctx.db.patch(auth.apiKeyId, {
-            lastUsedAt: now,
-            requestCount: auth.apiKey.requestCount + 1,
-          });
           return {
             authorized: true as const,
             idempotencyReplay: true as const,
@@ -186,11 +177,6 @@ export const createPublicPaymentIntent = mutation({
         updatedAt: now,
       });
     }
-
-    await ctx.db.patch(auth.apiKeyId, {
-      lastUsedAt: now,
-      requestCount: auth.apiKey.requestCount + 1,
-    });
 
     await ctx.scheduler.runAfter(0, internal.webhookDelivery.trigger, {
       projectId: auth.project._id,
@@ -396,10 +382,6 @@ export const prepareOrInsertPaymentIntentV2 = internalMutation({
 
         const intent = await ctx.db.get(existing.paymentIntentId);
         if (intent && intent.projectId === auth.project._id) {
-          await ctx.db.patch(auth.apiKeyId, {
-            lastUsedAt: now,
-            requestCount: auth.apiKey.requestCount + 1,
-          });
           return {
             status: "idempotency_replay" as const,
             projectId: auth.project._id,
@@ -470,11 +452,6 @@ export const prepareOrInsertPaymentIntentV2 = internalMutation({
         updatedAt: now,
       });
     }
-
-    await ctx.db.patch(auth.apiKeyId, {
-      lastUsedAt: now,
-      requestCount: auth.apiKey.requestCount + 1,
-    });
 
     await ctx.scheduler.runAfter(0, internal.webhookDelivery.trigger, {
       projectId: auth.project._id,
@@ -589,11 +566,6 @@ export const insertPublicPaymentIntentV2 = internalMutation({
         updatedAt: now,
       });
     }
-
-    await ctx.db.patch(auth.apiKeyId, {
-      lastUsedAt: now,
-      requestCount: auth.apiKey.requestCount + 1,
-    });
 
     await ctx.scheduler.runAfter(0, internal.webhookDelivery.trigger, {
       projectId: auth.project._id,

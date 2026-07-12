@@ -248,6 +248,7 @@ export class PdaxClient {
     headers: Record<string, string>,
     body?: unknown,
     params?: Record<string, string | undefined>,
+    signal?: AbortSignal,
   ): Promise<T> {
     let url = `${this.baseUrl}${path}`;
     if (params) {
@@ -265,6 +266,7 @@ export class PdaxClient {
 
     const response = await fetch(url, {
       method,
+      signal,
       headers: {
         "Content-Type": "application/json",
         ...headers,
@@ -339,6 +341,7 @@ export class PdaxClient {
     accessToken: string,
     idToken: string,
     currency: string,
+    signal?: AbortSignal,
   ): Promise<PdaxCryptoDepositResponse> {
     const headers = {
       access_token: accessToken,
@@ -350,6 +353,7 @@ export class PdaxClient {
       headers,
       undefined,
       { currency },
+      signal,
     );
   }
 

@@ -2,10 +2,11 @@
   "name": "turbo-next-convex",
   "private": true,
   "scripts": {
+    "benchmark:gate": "node scripts/release-gate.mjs",
+    "benchmark:smoke": "node scripts/benchmark.mjs --dry-run --suite",
     "build": "turbo run build",
     "dev": "turbo run dev",
     "lint:fix": "turbo run lint:fix",
-    "benchmark:smoke": "node scripts/benchmark.mjs --dry-run --suite",
     "prepare": "husky",
     "test": "turbo run test"
   },

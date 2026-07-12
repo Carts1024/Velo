@@ -101,25 +101,37 @@ export const createPublicPaymentIntentV2 = action({
       try {
         const { accessToken, idToken, client } = await getOrRefreshPdaxConnection(ctx, projectId);
 
-        // Strict 5-second timeout for PDAX lookup
-        const timeoutPromise = new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error("PDAX API lookup timeout")), 5000),
-        );
+        // Strict 5-second timeout. Await fetch settlement to avoid dangling operations.
+        const timeoutSignal = AbortSignal.timeout(5000);
+        try {
+          const depositInfo = await client.cryptoDepositAddress(
+            accessToken,
+            idToken,
+            mappedAsset,
+            timeoutSignal,
+          );
 
-        const depositInfo = (await Promise.race([
-          client.cryptoDepositAddress(accessToken, idToken, mappedAsset),
-          timeoutPromise,
-        ])) as unknown as {
-          status: string;
-          data?: { address: string; tag?: string };
-        };
+          const validatedDepositInfo = depositInfo as unknown as {
+            status: string;
+            data?: { address: string; tag?: string };
+          };
 
-        if (depositInfo.status !== "success" || !depositInfo.data || !depositInfo.data.address) {
-          throw new Error("Invalid deposit lookup response from PDAX");
+          if (
+            validatedDepositInfo.status !== "success" ||
+            !validatedDepositInfo.data ||
+            !validatedDepositInfo.data.address
+          ) {
+            throw new Error("Invalid deposit lookup response from PDAX");
+          }
+
+          address = validatedDepositInfo.data.address;
+          tag = validatedDepositInfo.data.tag;
+        } catch (error) {
+          if (timeoutSignal.aborted) {
+            throw new Error("PDAX API lookup timeout");
+          }
+          throw error;
         }
-
-        address = depositInfo.data.address;
-        tag = depositInfo.data.tag;
 
         // Cache the resolved static address info
         pdaxCache.set(cacheKey, {
