@@ -5,10 +5,11 @@ export default defineTable({
   projectId: v.id("projects"),
   amount: v.string(),
   asset: v.string(), // e.g. "native" or "USDC:<issuer>"
-  receiverAddress: v.string(),
+  receiverAddress: v.optional(v.string()),
   merchantName: v.string(),
   description: v.optional(v.string()),
   status: v.union(
+    v.literal("awaiting_route"),
     v.literal("created"),
     v.literal("pending"),
     v.literal("paid"),
@@ -28,6 +29,8 @@ export default defineTable({
   stageTimestamps: v.optional(
     v.object({
       created: v.number(),
+      routeReady: v.optional(v.number()),
+      routeFailed: v.optional(v.number()),
       awaiting_signature: v.optional(v.number()),
       signed: v.optional(v.number()),
       submitted: v.optional(v.number()),

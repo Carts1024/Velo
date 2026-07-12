@@ -61,3 +61,21 @@ test("public payment intent v2 mapper defaults to inhouse anchor and nulls missi
   assert.equal(intent.anchorDepositCurrency, null);
   assert.equal(intent.payerAddress, null);
 });
+
+test("public payment intent v2 mapper exposes an unresolved asynchronous route safely", () => {
+  const intent = publicPaymentIntentFromDocV2(
+    {
+      _id: "pi_awaiting_route",
+      status: "awaiting_route",
+      amount: "10.00",
+      asset: "USDC",
+      anchor: "pdax",
+      expiresAt: 1782865800000,
+      createdAt: 1782864000000,
+      updatedAt: 1782864000000,
+    },
+    "https://app.velo.example",
+  );
+  assert.equal(intent.status, "awaiting_route");
+  assert.equal(intent.receiverAddress, null);
+});

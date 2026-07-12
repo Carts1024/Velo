@@ -4,7 +4,7 @@ This is the operator guide for the measurement artifacts added for Sprint 1 of t
 
 ## Current status
 
-**No live, authorized baseline has been captured. Do not make a latency, throughput, availability, or competitive-speed claim from this repository.** [`benchmarks/baselines/sprint-1-pending.json`](../../benchmarks/baselines/sprint-1-pending.json) deliberately records `pending_live_capture` and contains no measurements. The benchmark runner is checked in and its smoke validation runs in CI, but fixture scenarios do not yet capture latency until their declared fixtures are supplied.
+**No live, authorized baseline has been captured. Do not make a latency, throughput, availability, or competitive-speed claim from this repository.** [`benchmarks/baselines/sprint-1-pending.json`](../../benchmarks/baselines/sprint-1-pending.json) deliberately records `pending_live_capture` and contains no measurements. A checked-in report is present, but it is a single local `captured` run with a 2.5% error rate and is therefore non-qualifying; it is not a baseline. The benchmark runner is checked in and its smoke validation runs in CI, but fixture scenarios do not yet capture latency until their declared fixtures are supplied.
 
 The provisional targets in the [speed plan](../plans/velo-speed-sprint-plan.md#4-provisional-slos) remain proposed until the evidence gate below is met. A target that cannot be met must be revised to a documented baseline-relative gate, not presented as an achieved SLO.
 
@@ -81,9 +81,9 @@ node scripts/benchmark.mjs --scenario payment-intent-create --samples 1000 --con
 node scripts/benchmark.mjs --dry-run --suite
 ```
 
-HTTP scenarios are `payment-intent-create` and `payment-intent-list`. The registry also declares fixture contracts for checkout preparation, transaction submission, confirmation detection, UI propagation, and webhook delivery. Non-HTTP adapters return `fixture_capture_required` (or `fixture_contract_validated` in dry-run), an empty `samples` array, and **must never be included in a speed claim** until their fixture contract is implemented and supplied.
+HTTP scenarios are `payment-intent-create` and `payment-intent-list`. The registry also declares fixture contracts for checkout preparation, transaction submission, confirmation detection, UI propagation, and webhook delivery. Non-HTTP adapters return `fixture_capture_required` (or `fixture_contract_validated` in dry-run), an empty `samples` array, and **must never be included in a speed claim** until their fixture contract is implemented and supplied. Suite dry-run output is `suite_validated`; HTTP scenario dry-run output is `validated`. These statuses validate contracts only; `captured` means live output exists and still requires authorization and quality-gate review.
 
-Each HTTP request receives a unique `x-correlation-id`, an idempotency key where configured, and an `AbortSignal` deadline. The deadline is `--timeout-ms`, then `VELO_BENCHMARK_TIMEOUT_MS`, then 10,000 ms. A deadline expiry produces a sample with `status: 0` and `timeout: true`; it is counted as an error and excluded from latency percentiles.
+Each HTTP request receives a unique `x-correlation-id`, an idempotency key where configured, and an `AbortSignal` deadline. The deadline is `--timeout-ms`, then `VELO_BENCHMARK_TIMEOUT_MS`, then 10,000 ms. A deadline expiry produces a sample with `status: 0` and `timeout: true`; it is counted as an error and excluded from latency percentiles. For payment-intent creation, HTTP 503 `anchor_unavailable` is an API classification for unavailable anchor lookup; correlate the sample's ID with logs before attributing it to a specific PDAX cause.
 
 ### Result schema
 

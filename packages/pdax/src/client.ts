@@ -237,9 +237,14 @@ export type PdaxWebhookPayload = PdaxCryptoWebhookPayload | PdaxFiatWebhookPaylo
 
 export class PdaxClient {
   private baseUrl: string;
+  private timeoutMs: number;
 
-  constructor(baseUrl: string = "https://uat.services.sandbox.pdax.ph/api/pdax-api") {
+  constructor(
+    baseUrl: string = "https://uat.services.sandbox.pdax.ph/api/pdax-api",
+    options: { timeoutMs?: number } = {},
+  ) {
     this.baseUrl = baseUrl;
+    this.timeoutMs = Math.max(1, options.timeoutMs ?? 2_500);
   }
 
   private async request<T>(
@@ -264,38 +269,61 @@ export class PdaxClient {
       }
     }
 
-    const response = await fetch(url, {
-      method,
-      signal,
-      headers: {
-        "Content-Type": "application/json",
-        ...headers,
-      },
-      body: body ? JSON.stringify(body) : undefined,
-    });
+    const controller = new AbortController();
+    const onCallerAbort = () => controller.abort(signal?.reason);
+    if (signal?.aborted) onCallerAbort();
+    else signal?.addEventListener("abort", onCallerAbort, { once: true });
+    const timeout = setTimeout(
+      () => controller.abort(new Error(`PDAX request timed out after ${this.timeoutMs}ms`)),
+      this.timeoutMs,
+    );
 
-    if (!response.ok) {
-      let errorBody: unknown;
-      try {
-        errorBody = await response.json();
-      } catch {
+    try {
+      const response = await fetch(url, {
+        method,
+        signal: controller.signal,
+        headers: {
+          "Content-Type": "application/json",
+          ...headers,
+        },
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      if (!response.ok) {
+        let errorBody: unknown;
         try {
-          errorBody = await response.text();
+          errorBody = await response.json();
         } catch {
-          errorBody = null;
+          try {
+            errorBody = await response.text();
+          } catch {
+            errorBody = null;
+          }
         }
+        throw new PdaxError(
+          `PDAX API request failed with status ${response.status}`,
+          response.status,
+          errorBody,
+        );
       }
-      throw new PdaxError(
-        `PDAX API request failed with status ${response.status}`,
-        response.status,
-        errorBody,
-      );
-    }
 
-    return (await response.json()) as T;
+      return (await response.json()) as T;
+    } catch (error) {
+      if (controller.signal.aborted) {
+        const reason = controller.signal.reason;
+        throw reason instanceof Error ? reason : new Error("PDAX request aborted");
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeout);
+      signal?.removeEventListener("abort", onCallerAbort);
+    }
   }
 
-  async login(username: string, password: string): Promise<PdaxLoginResponse> {
+  async login(
+    username: string,
+    password: string,
+    signal?: AbortSignal,
+  ): Promise<PdaxLoginResponse> {
     return this.request<PdaxLoginResponse>(
       "/pdax-institution/v1/login",
       "POST",
@@ -304,10 +332,16 @@ export class PdaxClient {
         username,
         password,
       },
+      undefined,
+      signal,
     );
   }
 
-  async refresh(username: string, refreshToken: string): Promise<PdaxLoginResponse> {
+  async refresh(
+    username: string,
+    refreshToken: string,
+    signal?: AbortSignal,
+  ): Promise<PdaxLoginResponse> {
     return this.request<PdaxLoginResponse>(
       "/pdax-institution/v1/refresh-token",
       "PUT",
@@ -316,6 +350,8 @@ export class PdaxClient {
         username,
         refreshToken,
       },
+      undefined,
+      signal,
     );
   }
 

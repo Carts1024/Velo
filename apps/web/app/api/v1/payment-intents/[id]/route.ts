@@ -10,6 +10,8 @@ import { api } from "@repo/backend/convex/_generated/api";
 import { ConvexHttpClient } from "convex/browser";
 import { NextRequest, NextResponse } from "next/server";
 
+const convex = new ConvexHttpClient(env.NEXT_PUBLIC_CONVEX_URL);
+
 type PublicPaymentIntentRetrieveResult =
   | { authorized: false; reason?: string }
   | {
@@ -37,7 +39,6 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   }
 
   try {
-    const convex = new ConvexHttpClient(env.NEXT_PUBLIC_CONVEX_URL);
     const result = (await convex.query(api.payment_intents.queries.getPublicPaymentIntent, {
       apiKeyHash: auth.apiKeyHash,
       paymentIntentId: id,

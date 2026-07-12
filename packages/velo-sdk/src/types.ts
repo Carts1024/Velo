@@ -1,4 +1,5 @@
 export type PaymentIntentStatus =
+  | "awaiting_route"
   | "created"
   | "pending"
   | "paid"
@@ -18,7 +19,7 @@ export type PaymentIntent = {
   successUrl: string | null;
   cancelUrl: string | null;
   anchor?: "inhouse" | "pdax";
-  receiverAddress?: string;
+  receiverAddress?: string | null;
   receiverMemo?: string | null;
   anchorDepositCurrency?: string | null;
   payerAddress?: string | null;
@@ -97,7 +98,7 @@ export type WebhookPaymentIntentData = {
   id: string;
   amount: string;
   asset: string;
-  receiverAddress: string;
+  receiverAddress?: string;
   merchantName: string;
   description: string | null;
   status: PaymentIntentStatus;

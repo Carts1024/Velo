@@ -609,18 +609,12 @@ test("payment anchor resolution precedence and mismatch rejections", async () =>
   );
 });
 
-test("public payment intent v2 action and PDAX lookup", async () => {
+test("public payment intent v2 creates one awaiting route and completes it safely", async () => {
   const t = convexTest(schema, modules);
 
   const ownerAddress = "GD7O2C226SF2677PFFUVD6O2ICFOBNCWPI5Z46N43ZSFQGLM65U3I2SP";
   const owner = asWallet(t, ownerAddress);
 
-  // Set UAT credentials in env
-  process.env.PDAX_UAT_USERNAME = "merchant@test.com";
-  process.env.PDAX_UAT_PASSWORD = "password123";
-  process.env.PDAX_UAT_BASE_URL = "https://uat.services.sandbox.pdax.ph/api/pdax-api";
-
-  // Create project
   const projectId = await owner.mutation(api.projects.mutation.createDraft, {
     name: "V2 Test Store",
     slug: "v2-test-store",
@@ -641,17 +635,16 @@ test("public payment intent v2 action and PDAX lookup", async () => {
   });
   const apiKeyHash = await sha256Hex(rawKey);
 
-  // 1. Without connected PDAX connection, it should fail for anchor = pdax
-  const resNoConnection = (await t.action(api.payment_intents.actions.createPublicPaymentIntentV2, {
-    apiKeyHash,
-    amount: "10.00",
-    asset: "native",
-    anchor: "pdax",
-  })) as { authorized: boolean; reason?: string };
-  expect(resNoConnection.authorized).toBe(false);
-  if (!resNoConnection.authorized) {
-    expect(resNoConnection.reason).toContain("PDAX provider not connected");
-  }
+  const resNoConnection = await t.mutation(
+    api.payment_intents.mutations.createPublicPaymentIntentV2,
+    {
+      apiKeyHash,
+      amount: "10.00",
+      asset: "native",
+      anchor: "pdax",
+    },
+  );
+  expect(resNoConnection.status).toBe("anchor_not_connected");
 
   // 2. Connect the PDAX provider connection
   await t.mutation(internal.provider_connections.mutation.upsertInternal, {
@@ -660,103 +653,99 @@ test("public payment intent v2 action and PDAX lookup", async () => {
     status: "connected",
   });
 
-  // Mock fetch
-  const originalFetch = globalThis.fetch;
-  let mockShouldFail = false;
-
-  globalThis.fetch = async (input, _init) => {
-    const url = input.toString();
-
-    if (url.includes("/pdax-institution/v1/login")) {
-      return {
-        ok: true,
-        status: 200,
-        json: async () => ({
-          email: "merchant@test.com",
-          username: "merchant-username",
-          groups: ["exchange_user"],
-          token_type: "Bearer",
-          preferred_mfa: "SOFTWARE_TOKEN_MFA",
-          expiry: 600,
-          access_token: "mock-access-token",
-          id_token: "mock-id-token",
-          refresh_token: "mock-refresh-token",
-        }),
-      } as Response;
-    }
-
-    if (url.includes("/pdax-institution/v1/crypto/deposit")) {
-      if (mockShouldFail) {
-        return {
-          ok: false,
-          status: 503,
-          json: async () => ({
-            code: "503",
-            message: "Service Unavailable",
-          }),
-        } as Response;
-      }
-
-      return {
-        ok: true,
-        status: 200,
-        json: async () => ({
-          status: "success",
-          data: {
-            currency: "USDCXLM",
-            address: "G-MOCK-PDAX-DEPOSIT-ADDRESS",
-            tag: "123456",
-          },
-        }),
-      } as Response;
-    }
-
-    return {
-      ok: false,
-      status: 404,
-      json: async () => ({}),
-    } as Response;
-  };
-
-  try {
-    // 3. Successful PDAX action call
-    const resSuccess = (await t.action(api.payment_intents.actions.createPublicPaymentIntentV2, {
+  const create = () =>
+    t.mutation(api.payment_intents.mutations.createPublicPaymentIntentV2, {
       apiKeyHash,
       amount: "15.00",
       asset: "USDC",
       anchor: "pdax",
-    })) as {
-      authorized: boolean;
-      idempotencyConflict?: boolean;
-      intent: {
-        anchor: string;
-        receiverAddress: string;
-        receiverMemo?: string;
-        anchorDepositCurrency?: string;
-      };
-    };
+      idempotencyKey: "pdax-hot-key",
+    });
+  const results = await Promise.all(Array.from({ length: 100 }, create));
+  const first = results.find((result) => result.status === "success");
+  expect(first?.status).toBe("success");
+  if (!first || first.status !== "success") throw new Error("Expected initial creation");
+  expect(first.intent.status).toBe("awaiting_route");
+  expect(first.intent.receiverAddress).toBeUndefined();
+  expect(results.filter((result) => result.status === "success")).toHaveLength(1);
+  expect(results.filter((result) => result.status === "idempotency_replay")).toHaveLength(99);
 
-    expect(resSuccess.authorized).toBe(true);
-    if (!resSuccess.authorized || "idempotencyConflict" in resSuccess) {
-      throw new Error("Expected successful creation");
-    }
+  const counts = await t.run(async (ctx) => ({
+    intents: (await ctx.db.query("paymentIntents").collect()).length,
+    jobs: (await ctx.db.query("paymentIntentRouteJobs").collect()).length,
+  }));
+  expect(counts).toEqual({ intents: 1, jobs: 1 });
 
-    expect(resSuccess.intent.anchor).toBe("pdax");
-    expect(resSuccess.intent.receiverAddress).toBe("G-MOCK-PDAX-DEPOSIT-ADDRESS");
-    expect(resSuccess.intent.receiverMemo).toBe("123456");
-    expect(resSuccess.intent.anchorDepositCurrency).toBe("USDCXLM");
+  const leaseToken = "test-route-lease";
+  const claim = await t.mutation(internal.payment_intents.mutations.claimRouteJob, {
+    paymentIntentId: first.intent._id,
+    leaseToken,
+  });
+  expect(claim.status).toBe("claimed");
+  if (claim.status !== "claimed") throw new Error("Expected route claim");
+  expect(
+    (
+      await t.mutation(internal.payment_intents.mutations.claimProviderRoute, {
+        projectId,
+        mappedAsset: "USDCXLM",
+        leaseToken,
+      })
+    ).status,
+  ).toBe("claimed");
+  expect(
+    (
+      await t.mutation(internal.payment_intents.mutations.completePdaxRoute, {
+        paymentIntentId: first.intent._id,
+        leaseToken,
+        mappedAsset: "USDCXLM",
+        address: "G-MOCK-PDAX-DEPOSIT-ADDRESS",
+        memo: "123456",
+        fromCache: false,
+      })
+    ).applied,
+  ).toBe(true);
+  const completed = await t.query(api.payment_intents.queries.getPaymentIntent, {
+    paymentIntentId: first.intent._id,
+  });
+  expect(completed?.status).toBe("created");
+  expect(completed?.receiverAddress).toBe("G-MOCK-PDAX-DEPOSIT-ADDRESS");
 
-    // 4. Failed PDAX lookup triggers anchor_unavailable
-    mockShouldFail = true;
-    await expect(
-      t.action(api.payment_intents.actions.createPublicPaymentIntentV2, {
-        apiKeyHash,
-        amount: "20.00",
-        asset: "USDC",
-        anchor: "pdax",
-      }),
-    ).rejects.toThrow("PDAX payment anchor is currently unavailable");
-  } finally {
-    globalThis.fetch = originalFetch;
+  const failing = await t.mutation(api.payment_intents.mutations.createPublicPaymentIntentV2, {
+    apiKeyHash,
+    amount: "20.00",
+    asset: "USDC",
+    anchor: "pdax",
+    idempotencyKey: "pdax-failing-key",
+  });
+  if (failing.status !== "success") throw new Error("Expected failing-route fixture intent");
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    await t.run(async (ctx) => {
+      const job = await ctx.db
+        .query("paymentIntentRouteJobs")
+        .withIndex("by_payment_intent", (q) => q.eq("paymentIntentId", failing.intent._id))
+        .unique();
+      if (job) await ctx.db.patch(job._id, { nextAttemptAt: 0, leaseExpiresAt: undefined });
+    });
+    const token = `failure-lease-${attempt}`;
+    expect(
+      (
+        await t.mutation(internal.payment_intents.mutations.claimRouteJob, {
+          paymentIntentId: failing.intent._id,
+          leaseToken: token,
+        })
+      ).status,
+    ).toBe("claimed");
+    await t.mutation(internal.payment_intents.mutations.failPdaxRoute, {
+      paymentIntentId: failing.intent._id,
+      leaseToken: token,
+      errorCode: "provider_timeout",
+    });
   }
+  expect(
+    (
+      await t.query(api.payment_intents.queries.getPaymentIntent, {
+        paymentIntentId: failing.intent._id,
+      })
+    )?.status,
+  ).toBe("failed");
 });

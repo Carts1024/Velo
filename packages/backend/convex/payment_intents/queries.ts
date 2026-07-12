@@ -12,6 +12,7 @@ import {
 } from "./helpers";
 
 const paymentIntentStatusValidator = v.union(
+  v.literal("awaiting_route"),
   v.literal("created"),
   v.literal("pending"),
   v.literal("paid"),
@@ -88,7 +89,10 @@ export const getPaymentIntent = query({
     }
 
     // Check if the intent has expired and update status inline if needed
-    if (intent.status === "created" && Date.now() > intent.expiresAt) {
+    if (
+      (intent.status === "created" || intent.status === "awaiting_route") &&
+      Date.now() > intent.expiresAt
+    ) {
       return {
         ...intent,
         status: "expired" as const,

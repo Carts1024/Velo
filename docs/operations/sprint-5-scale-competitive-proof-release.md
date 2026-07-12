@@ -2,6 +2,8 @@
 
 This runbook turns the speed plan's final sprint into a repeatable release decision. It does not create performance evidence by itself: a dry run validates the benchmark contract, while a real run must capture raw samples against an authorized environment.
 
+The checked-in [`payment-intent-create.json`](../../benchmarks/reports/payment-intent-create.json) is marked `captured` but is **non-qualifying**: it is one local normal-profile run with 975 successes and 25 errors (2.5%), above the gate's 0.5% maximum. It is not an authorized baseline or a release claim.
+
 ## Evidence workflow
 
 1. Pin the commit, Node/pnpm versions, region, network, dependency versions, payload, and concurrency in the benchmark environment.
@@ -40,9 +42,13 @@ This runbook turns the speed plan's final sprint into a repeatable release decis
 
 The gate requires three captured runs, p95/p99 distributions, an error rate below 0.5%, and an explicitly explained growth-load p99 result. It rejects fixture output and missing distributions. A baseline comparison rejects p95 regressions above 5%.
 
+`captured` means that a live adapter wrote output; it does not mean that the run qualifies. Dry-run outputs are `suite_validated`, `validated`, or `fixture_contract_validated`, while live non-HTTP scenarios without supplied fixtures are `fixture_capture_required`. None of these statuses can support a performance claim.
+
 ## Required report shape
 
 Each captured scenario must include `status: "captured"`, `runId`, `profile`, `successfulSamples`, `errors`, `timeouts`, and `latencyMs.p50`, `latencyMs.p95`, and `latencyMs.p99`. Lifecycle scenarios must additionally retain stage timings for Velo-controlled time, wallet time, Stellar finality, confirmation observation, queue delay, and merchant endpoint time.
+
+For a payment-intent-create 503, preserve the sample's correlation ID and count it as an error. The V2 route classifies the response as `anchor_unavailable`; the action currently maps PDAX lookup timeout, invalid response, and lookup failure to that code. The benchmark sample does not contain the response body, so downstream attribution requires correlated authorized logs. An HTTP 503 alone is not proof of a PDAX outage.
 
 Competitor results are separate adapters. Do not merge incomparable semantics such as “request accepted” with “payment confirmed,” and do not publish a competitor result unless automated testing is authorized by its terms.
 

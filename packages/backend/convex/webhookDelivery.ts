@@ -112,7 +112,7 @@ function buildPayload(
         id: pi._id as string,
         amount: (pi.amount as string) ?? "0",
         asset: (pi.asset as string) ?? "native",
-        receiverAddress: (pi.receiverAddress as string) ?? "",
+        ...(typeof pi.receiverAddress === "string" ? { receiverAddress: pi.receiverAddress } : {}),
         merchantName: (pi.merchantName as string) ?? "",
         description: pi.description as string | undefined,
         status: pi.status as Doc<"paymentIntents">["status"],

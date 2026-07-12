@@ -28,15 +28,15 @@ Initialize the client with an optional base URL (defaults to UAT):
 ```typescript
 import { PdaxClient } from "@repo/pdax";
 
-const client = new PdaxClient(process.env.PDAX_UAT_BASE_URL);
+const client = new PdaxClient(process.env.PDAX_UAT_BASE_URL, { timeoutMs: 2_500 });
 ```
 
 #### Methods
 
-- **`login(username, password)`**: Perform initial login. Returns accessToken, idToken, and refreshToken.
-- **`refresh(username, refreshToken)`**: Refresh tokens before the 10-minute expiry.
+- **`login(username, password, signal?)`**: Perform bounded initial login. Returns accessToken, idToken, and refreshToken.
+- **`refresh(username, refreshToken, signal?)`**: Perform bounded token refresh before expiry.
 - **`balances(accessToken, idToken, currency?)`**: Retrieve assets available/hold/total balances.
-- **`cryptoDepositAddress(accessToken, idToken, currency)`**: Get the Stellar UAT deposit address and tag.
+- **`cryptoDepositAddress(accessToken, idToken, currency, signal?)`**: Get the Stellar UAT deposit address and tag with caller cancellation.
 - **`indicativeQuote(accessToken, idToken, params)`**: Fetch estimated conversion rate for trading pairs (e.g. `USDCXLM` -> `PHP`).
 - **`firmQuote(accessToken, idToken, params)`**: Get a firm, executable quote valid for 15 seconds.
 - **`executeTrade(accessToken, idToken, params)`**: Execute the trade order using a valid `quote_id` and unique `idempotency_id`.
@@ -50,6 +50,8 @@ const client = new PdaxClient(process.env.PDAX_UAT_BASE_URL);
 ## Runtime Flow
 
 Velo Settlement uses this package from Convex actions only:
+
+Every client request has a 2.5-second default total deadline. A caller signal is composed with that deadline, so route workers can cancel login, refresh, and destination lookup when their owning budget expires. The client stores only its base URL and timeout; credentials and tokens remain request arguments, making base-URL-scoped client reuse safe.
 
 1. `connect` logs in or refreshes cached provider tokens per project.
 2. `getBalances` retrieves searchable sandbox balances for the Settlement page.

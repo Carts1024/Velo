@@ -82,6 +82,8 @@ console.log(intent.anchorDepositCurrency); // Mapped deposit currency (e.g. 'USD
 console.log(intent.payerAddress); // Wallet address of the payer, populated after checkout flow
 ```
 
+For PDAX, creation can return `status: "awaiting_route"` with `receiverAddress: null`. The hosted `checkoutUrl` waits automatically. Integrations that need destination fields directly should retrieve the intent until it becomes `created`; they must not construct a payment while it is `awaiting_route`.
+
 ---
 
 ## Webhook Verification

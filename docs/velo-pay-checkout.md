@@ -172,12 +172,12 @@ For `pdax` routing:
 * **Asset Mapping**: Assets are mapped automatically for the PDAX deposit lookup:
   - `native` and `XLM` -> `XLM`
   - `USDC` (and its trustlines `USDC:*`) -> `USDCXLM`
-* **Deposit Destination Lookup**: Velo performs a secure, server-side lookup against PDAX's `/pdax-institution/v1/crypto/deposit` endpoint.
+* **Asynchronous Deposit Destination Lookup**: Creation atomically returns an `awaiting_route` intent, then durable scheduled work performs the bounded PDAX lookup outside the HTTP critical path.
 * **Storage & Routing**:
   - The resolved deposit address is stored as `receiverAddress`.
   - The returned destination tag is stored as `receiverMemo` (a Stellar memo ID or text), ensuring proper merchant mapping and preventing lost funds.
   - The mapped currency code is stored as `anchorDepositCurrency`.
-* **Outage Resiliency**: If the PDAX API lookup fails or returns an invalid address, Velo returns `503 anchor_unavailable` and guarantees that **no** partial checkout intent or database session record is created.
+* **Outage Resiliency**: The checkout cannot become payable without a complete route. Bounded retries, a project-scoped single-flight lease, a five-minute route cache, and a circuit breaker transition the intent to `created` or terminal `failed`; the initial request never waits on PDAX.
 
 ---
 
@@ -217,6 +217,7 @@ Buyer flow:
 
 | Status | Meaning |
 | --- | --- |
+| `awaiting_route` | PDAX intent is accepted, but its destination is still being resolved. Checkout payment controls remain disabled. |
 | `created` | Intent exists, checkout available. |
 | `pending` | Buyer signed, a transaction hash was recorded, and Velo is verifying settlement. |
 | `paid` | Backend scanner confirmed the Stellar transaction succeeded. |

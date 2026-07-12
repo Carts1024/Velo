@@ -7,6 +7,7 @@ import { ActionCtx } from "../_generated/server";
 export async function getOrRefreshPdaxConnection(
   ctx: ActionCtx,
   projectId: Id<"projects">,
+  options: { signal?: AbortSignal } = {},
 ): Promise<{ accessToken: string; idToken: string; client: PdaxClient }> {
   const username = process.env.PDAX_UAT_USERNAME;
   const password = process.env.PDAX_UAT_PASSWORD;
@@ -28,7 +29,7 @@ export async function getOrRefreshPdaxConnection(
 
   // If connection doesn't exist, log in
   if (!connection || connection.status === "disconnected") {
-    const loginData = await client.login(username, password);
+    const loginData = await client.login(username, password, options.signal);
     await ctx.runMutation(internal.provider_connections.mutation.upsertInternal, {
       projectId,
       provider: "pdax",
@@ -47,7 +48,7 @@ export async function getOrRefreshPdaxConnection(
   if (expiresAt < now + 60000) {
     if (connection.refreshToken) {
       try {
-        const refreshData = await client.refresh(username, connection.refreshToken);
+        const refreshData = await client.refresh(username, connection.refreshToken, options.signal);
         await ctx.runMutation(internal.provider_connections.mutation.upsertInternal, {
           projectId,
           provider: "pdax",
@@ -65,7 +66,7 @@ export async function getOrRefreshPdaxConnection(
     }
 
     // Fallback to full login
-    const loginData = await client.login(username, password);
+    const loginData = await client.login(username, password, options.signal);
     await ctx.runMutation(internal.provider_connections.mutation.upsertInternal, {
       projectId,
       provider: "pdax",

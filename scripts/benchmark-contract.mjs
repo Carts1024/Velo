@@ -10,7 +10,9 @@ export async function loadBenchmarkContract({ manifestPath = MANIFEST_PATH, prof
     readJson(scenariosPath),
   ]);
   const errors = [];
-  if (manifest.version !== 2) errors.push("manifest.version must be 2");
+  if (manifest.version !== 3) errors.push("manifest.version must be 3");
+  if (profiles.version !== manifest.version) errors.push("profiles.version must match manifest.version");
+  if (scenarios.version !== manifest.version) errors.push("scenarios.version must match manifest.version");
   for (const profile of profiles.profiles ?? []) {
     if (!manifest.profiles.includes(profile.id)) errors.push(`profile ${profile.id} is not in manifest`);
   }
@@ -36,7 +38,7 @@ export function validateCapturedReport(report, contract) {
   if (!runs.length) errors.push("report must contain at least one run");
   for (const [index, run] of runs.entries()) {
     const prefix = `run ${run.runId ?? index + 1}`;
-    const required = ["status", "manifestVersion", "scenario", "scenarioVersion", "profile", "window", "mode", "runId", "revision", "capturedAt", "region", "runtime", "network", "dependencyVersions", "dependencyEndpoints", "payloadIdentity", "datasetIdentity", "workload", "attemptedSamples", "successfulSamples", "errorSamples", "throughput", "errorTaxonomy", "http503", "latencyMs"];
+    const required = ["status", "manifestVersion", "scenario", "scenarioVersion", "profile", "window", "mode", "temperature", "runId", "revision", "capturedAt", "region", "runtime", "network", "dependencyVersions", "dependencyEndpoints", "payloadIdentity", "datasetIdentity", "workload", "pacing", "saturation", "attemptedSamples", "successfulSamples", "errorSamples", "throughput", "errorTaxonomy", "http503", "latencyMs"];
     for (const key of required) if (run[key] === undefined && !(key === "manifestVersion" && report.manifestVersion !== undefined)) errors.push(`${prefix}: missing ${key}`);
     if (run.status !== "captured") errors.push(`${prefix}: status must be captured`);
     const manifestVersion = run.manifestVersion ?? report.manifestVersion;
@@ -45,10 +47,14 @@ export function validateCapturedReport(report, contract) {
     if (!profileIds.has(run.profile)) errors.push(`${prefix}: unknown profile ${run.profile}`);
     if (!manifest.windows.includes(run.window)) errors.push(`${prefix}: invalid window ${run.window}`);
     if (!manifest.modes.filter((mode) => mode !== "dry-run").includes(run.mode)) errors.push(`${prefix}: invalid capture mode ${run.mode}`);
+    if (!manifest.temperatures.includes(run.temperature)) errors.push(`${prefix}: invalid temperature ${run.temperature}`);
     if (!Number.isInteger(run.attemptedSamples) || run.attemptedSamples < 1) errors.push(`${prefix}: attemptedSamples must be a positive integer`);
     if (!Number.isInteger(run.successfulSamples) || run.successfulSamples < 0 || run.successfulSamples > run.attemptedSamples) errors.push(`${prefix}: invalid successfulSamples`);
     if (run.errorSamples !== run.attemptedSamples - run.successfulSamples) errors.push(`${prefix}: errorSamples must equal attemptedSamples - successfulSamples`);
     if (run.workload?.attemptedSamples !== run.attemptedSamples || run.workload?.successfulSamples !== run.successfulSamples) errors.push(`${prefix}: workload counters do not match report counters`);
+    if (run.pacing?.targetRequestsPerSecond !== run.workload?.targetRequestsPerSecond) errors.push(`${prefix}: pacing target does not match workload target`);
+    if (!Number.isFinite(run.pacing?.achievedRequestsPerSecond)) errors.push(`${prefix}: achieved arrival rate must be finite`);
+    if (!Number.isInteger(run.saturation?.saturatedArrivals) || run.saturation.saturatedArrivals < 0) errors.push(`${prefix}: invalid saturation count`);
     if (run.http503?.count !== ((run.errorTaxonomy?.http_5xx_503 ?? 0))) errors.push(`${prefix}: http503.count must match errorTaxonomy.http_5xx_503`);
     for (const field of ["p50", "p95", "p99"]) if (!Number.isFinite(run.latencyMs?.[field])) errors.push(`${prefix}: latencyMs.${field} must be finite`);
     const taxonomyTotal = Object.values(run.errorTaxonomy ?? {}).reduce((sum, value) => sum + (Number.isFinite(value) ? value : 0), 0);

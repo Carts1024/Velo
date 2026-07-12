@@ -54,11 +54,18 @@ export function createPaymentIntentFingerprint(args: {
 /** Default payment intent expiry: 30 minutes in milliseconds. */
 export const PAYMENT_INTENT_EXPIRY_MS = 30 * 60 * 1000;
 
+export function mapAssetToPdax(asset: string): string {
+  if (asset === "native" || asset === "XLM") return "XLM";
+  if (asset === "USDC" || asset.startsWith("USDC:")) return "USDCXLM";
+  return asset;
+}
+
 /**
  * Valid status transitions for payment intents.
  * Key = current status, Value = set of allowed next statuses.
  */
 export const STATUS_TRANSITIONS: Record<string, ReadonlySet<string>> = {
+  awaiting_route: new Set(["created", "failed", "expired", "cancelled"]),
   created: new Set(["pending", "expired", "cancelled", "failed"]),
   pending: new Set(["paid", "failed", "expired", "cancelled"]),
   failed: new Set(["pending", "paid", "expired", "cancelled"]),

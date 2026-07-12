@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 
 const API_KEY_PATTERN = /^tk_live_[a-f0-9]{32}$/;
 export const PAYMENT_INTENT_STATUSES = [
+  "awaiting_route",
   "created",
   "pending",
   "paid",
@@ -112,12 +113,14 @@ export function publicPaymentIntentFromDoc(intent: PublicPaymentIntentDoc, appUr
 
 export type PublicPaymentIntentDocV2 = PublicPaymentIntentDoc & {
   anchor?: "inhouse" | "pdax";
-  receiverAddress: string;
+  receiverAddress?: string;
   receiverMemo?: string;
   anchorDepositCurrency?: string;
   payerAddress?: string;
   stageTimestamps?: {
     created: number;
+    routeReady?: number;
+    routeFailed?: number;
     awaiting_signature?: number;
     signed?: number;
     submitted?: number;
@@ -142,7 +145,7 @@ export function publicPaymentIntentFromDocV2(intent: PublicPaymentIntentDocV2, a
     successUrl: intent.successUrl ?? null,
     cancelUrl: intent.cancelUrl ?? null,
     anchor: intent.anchor ?? "inhouse",
-    receiverAddress: intent.receiverAddress,
+    receiverAddress: intent.receiverAddress ?? null,
     receiverMemo: intent.receiverMemo ?? null,
     anchorDepositCurrency: intent.anchorDepositCurrency ?? null,
     payerAddress: intent.payerAddress ?? null,
@@ -152,6 +155,12 @@ export function publicPaymentIntentFromDocV2(intent: PublicPaymentIntentDocV2, a
     stageTimestamps: intent.stageTimestamps
       ? {
           created: new Date(intent.stageTimestamps.created).toISOString(),
+          routeReady: intent.stageTimestamps.routeReady
+            ? new Date(intent.stageTimestamps.routeReady).toISOString()
+            : null,
+          routeFailed: intent.stageTimestamps.routeFailed
+            ? new Date(intent.stageTimestamps.routeFailed).toISOString()
+            : null,
           awaiting_signature: intent.stageTimestamps.awaiting_signature
             ? new Date(intent.stageTimestamps.awaiting_signature).toISOString()
             : null,

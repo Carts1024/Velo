@@ -356,4 +356,25 @@ describe("PdaxClient", () => {
 
     assert.ok(client.verifyWebhook(parsed, {}));
   });
+
+  test("applies a total deadline to login", async () => {
+    globalThis.fetch = async (_input, init) =>
+      await new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener("abort", () => reject(init.signal?.reason), { once: true });
+      });
+    const client = new PdaxClient(BASE_URL, { timeoutMs: 10 });
+    await assert.rejects(client.login("user", "password"), /timed out after 10ms/);
+  });
+
+  test("propagates caller cancellation to refresh", async () => {
+    globalThis.fetch = async (_input, init) =>
+      await new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener("abort", () => reject(init.signal?.reason), { once: true });
+      });
+    const controller = new AbortController();
+    const client = new PdaxClient(BASE_URL, { timeoutMs: 1_000 });
+    const request = client.refresh("user", "refresh", controller.signal);
+    controller.abort(new Error("caller cancelled"));
+    await assert.rejects(request, /caller cancelled/);
+  });
 });

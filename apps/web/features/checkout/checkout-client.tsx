@@ -140,6 +140,9 @@ export function CheckoutClient({ paymentIntentId }: CheckoutClientProps) {
     let submittedAt = 0;
 
     try {
+      if (!intent.receiverAddress || intent.status !== "created") {
+        throw new Error("Payment route is not ready yet.");
+      }
       startedSigningAt = Date.now();
 
       // 1. Build the payment transaction and fail early before changing intent state.
@@ -304,6 +307,25 @@ export function CheckoutClient({ paymentIntentId }: CheckoutClientProps) {
   }
 
   // ─── Pending / Processing ───
+  if (intent.status === "awaiting_route") {
+    return (
+      <CheckoutShell>
+        <Card className="w-full max-w-md bg-card/85 border border-white/10 shadow-2xl backdrop-blur-lg">
+          <CardHeader className="text-center">
+            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 border border-primary/20">
+              <Spinner className="h-6 w-6 text-primary" />
+            </div>
+            <CardTitle className="text-xl font-bold">Preparing Payment Route</CardTitle>
+            <CardDescription>
+              Velo is securely resolving the PDAX deposit destination. This page updates
+              automatically when payment is ready.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </CheckoutShell>
+    );
+  }
+
   if (intent.status === "pending") {
     return (
       <CheckoutShell>
@@ -366,7 +388,11 @@ export function CheckoutClient({ paymentIntentId }: CheckoutClientProps) {
 
   const isSubmitting = step === "submitting";
   const canPay =
-    step === "review" && wallet.status === "connected" && !isSubmitting && !timer?.expired;
+    step === "review" &&
+    wallet.status === "connected" &&
+    !isSubmitting &&
+    !timer?.expired &&
+    Boolean(intent.receiverAddress);
   const assetLabel = formatAsset(intent.asset);
 
   return (
@@ -432,7 +458,9 @@ export function CheckoutClient({ paymentIntentId }: CheckoutClientProps) {
                 {intent.anchor === "pdax" ? "PDAX Deposit Address" : "Recipient Address"}
               </span>
               <span className="font-mono text-xs text-foreground bg-muted/40 px-1.5 py-0.5 rounded">
-                {intent.receiverAddress.slice(0, 6)}...{intent.receiverAddress.slice(-6)}
+                {intent.receiverAddress
+                  ? `${intent.receiverAddress.slice(0, 6)}...${intent.receiverAddress.slice(-6)}`
+                  : "Route unavailable"}
               </span>
             </div>
             {intent.anchor === "pdax" && intent.receiverMemo && (

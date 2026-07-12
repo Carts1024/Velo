@@ -5,6 +5,7 @@ import { dirname, resolve } from "node:path";
 import { existsSync, readFileSync } from "node:fs";
 import { execSync } from "node:child_process";
 import { loadBenchmarkContract } from "./benchmark-contract.mjs";
+import { runOpenLoop } from "./benchmark-runner-lib.mjs";
 
 // Load environment variables using process.loadEnvFile
 const envFiles = [".env", ".env.local", ".env.benchmark", "apps/web/.env.local"];
@@ -90,9 +91,15 @@ function selectScenarios(scenarios, parsedArgs) {
 }
 
 async function runScenario(scenario, parsedArgs) {
-  const samples = asPositiveInt(parsedArgs.samples ?? "1000", "samples");
   const profile = getProfile(contract.profiles, parsedArgs.profile ?? process.env.VELO_BENCHMARK_PROFILE ?? contract.manifest.defaultProfile);
-  if (profile.sampleTarget && samples < profile.sampleTarget) throw new Error(`${profile.id} requires at least ${profile.sampleTarget} samples; received ${samples}`);
+  const requestedSamples = asPositiveInt(parsedArgs.samples ?? "1000", "samples");
+  if (profile.sampleTarget && requestedSamples < profile.sampleTarget) throw new Error(`${profile.id} requires at least ${profile.sampleTarget} samples; received ${requestedSamples}`);
+  const durationSamples = Math.ceil(
+    (profile.requestsPerSecond ?? 1) * (profile.durationSeconds ?? 0),
+  );
+  const samples = parsedArgs["dry-run"]
+    ? requestedSamples
+    : Math.max(requestedSamples, profile.sampleTarget ?? 0, durationSamples);
   const concurrency = asPositiveInt(parsedArgs.concurrency ?? String(profile.concurrency ?? 1), "concurrency");
   const timeoutMs = asPositiveInt(
     parsedArgs["timeout-ms"] ?? process.env.VELO_BENCHMARK_TIMEOUT_MS ?? "10000",
@@ -101,8 +108,13 @@ async function runScenario(scenario, parsedArgs) {
   if (concurrency !== profile.concurrency) throw new Error(`${profile.id} requires concurrency ${profile.concurrency}; received ${concurrency}`);
   const window = getAllowed(args.window ?? process.env.VELO_BENCHMARK_WINDOW ?? "morning", contract.manifest.windows, "window");
   const mode = args["dry-run"] ? "dry-run" : getAllowed(args.mode ?? process.env.VELO_BENCHMARK_MODE ?? "capture", contract.manifest.modes, "mode");
+  const temperature = getAllowed(
+    args.temperature ?? process.env.VELO_BENCHMARK_TEMPERATURE ?? "warm",
+    contract.manifest.temperatures,
+    "temperature",
+  );
   if (args["dry-run"] && args.mode && args.mode !== "dry-run") throw new Error("--dry-run conflicts with --mode");
-  const metadata = scenarioMetadata(scenario, profile, window, mode, samples, concurrency, timeoutMs);
+  const metadata = scenarioMetadata(scenario, profile, window, mode, temperature, samples, concurrency, timeoutMs);
   const missingEnv = (scenario.requiredEnv ?? []).filter((name) => !process.env[name]);
 
   if (scenario.adapter !== "http") {
@@ -125,9 +137,10 @@ async function runScenario(scenario, parsedArgs) {
   }
 
   const wallStartedAt = performance.now();
-  const samplesOut = await runConcurrent(samples, concurrency, (sample) =>
-    captureHttpSample(scenario, metadata.runId, sample, timeoutMs),
+  const openLoop = await runOpenLoop(samples, concurrency, profile.requestsPerSecond, (sample, scheduledAt) =>
+    captureHttpSample(scenario, metadata.runId, sample, timeoutMs, scheduledAt),
   );
+  const samplesOut = openLoop.results;
   const wallDurationMs = performance.now() - wallStartedAt;
   const successful = samplesOut.filter((sample) => sample.status >= 200 && sample.status < 400);
   const errorTaxonomy = countErrors(samplesOut);
@@ -138,6 +151,19 @@ async function runScenario(scenario, parsedArgs) {
     status: "captured",
     ...metadata,
     adapter: scenario.adapter,
+    workload: {
+      ...metadata.workload,
+      attemptedSamples: samplesOut.length,
+      successfulSamples: successful.length,
+    },
+    pacing: {
+      targetRequestsPerSecond: profile.requestsPerSecond,
+      achievedRequestsPerSecond: round((samplesOut.length / Math.max(wallDurationMs, 1)) * 1000),
+    },
+    saturation: {
+      saturatedArrivals: openLoop.saturatedArrivals,
+      maxInFlight: openLoop.maxInFlight,
+    },
     successfulSamples: successful.length,
     attemptedSamples: samplesOut.length,
     errorSamples: samplesOut.length - successful.length,
@@ -156,7 +182,7 @@ async function runScenario(scenario, parsedArgs) {
   };
 }
 
-function scenarioMetadata(scenario, profile, window, mode, samples, concurrency, timeoutMs) {
+function scenarioMetadata(scenario, profile, window, mode, temperature, samples, concurrency, timeoutMs) {
   return {
     scenario: scenario.id,
     journey: scenario.journey,
@@ -176,7 +202,8 @@ function scenarioMetadata(scenario, profile, window, mode, samples, concurrency,
     profile: profile.id,
     window,
     mode,
-    manifestVersion: 2,
+    temperature,
+    manifestVersion: 3,
     workload: {
       requestedSamples: samples,
       attemptedSamples: 0,
@@ -203,7 +230,7 @@ function fixtureContractOutput(scenario, metadata, missingEnv, dryRun) {
   };
 }
 
-async function captureHttpSample(scenario, runId, sample, timeoutMs) {
+async function captureHttpSample(scenario, runId, sample, timeoutMs, scheduledAt) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   const startedAt = performance.now();
@@ -221,6 +248,8 @@ async function captureHttpSample(scenario, runId, sample, timeoutMs) {
     const error = response.status >= 200 && response.status < 400 ? null : classifyHttpError(response.status, response.headers);
     return {
       sample,
+      scheduledAt,
+      queueDelayMs: round(Math.max(0, startedAt - scheduledAt)),
       durationMs: round(performance.now() - startedAt),
       status: response.status,
       timeout: false,
@@ -230,6 +259,8 @@ async function captureHttpSample(scenario, runId, sample, timeoutMs) {
   } catch (error) {
     return {
       sample,
+      scheduledAt,
+      queueDelayMs: round(Math.max(0, startedAt - scheduledAt)),
       durationMs: round(performance.now() - startedAt),
       status: 0,
       timeout: controller.signal.aborted,
@@ -291,19 +322,6 @@ function asPositiveInt(value, name) {
   const parsed = Number.parseInt(value, 10);
   if (!Number.isSafeInteger(parsed) || parsed < 1) throw new Error(`${name} must be a positive integer`);
   return parsed;
-}
-
-async function runConcurrent(count, limit, operation) {
-  const results = [];
-  let next = 0;
-  await Promise.all(
-    Array.from({ length: Math.min(count, limit) }, async () => {
-      while (next < count) {
-        results.push(await operation(next++));
-      }
-    }),
-  );
-  return results.sort((left, right) => left.sample - right.sample);
 }
 
 function percentiles(sorted) {

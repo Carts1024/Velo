@@ -20,11 +20,11 @@ import { ConvexHttpClient } from "convex/browser";
 import { NextRequest, NextResponse } from "next/server";
 
 type PublicPaymentIntentV2Result =
-  | { authorized: false; reason?: string }
-  | { authorized: true; idempotencyConflict: true; projectId: string }
+  | { status: "unauthorized"; reason?: string }
+  | { status: "anchor_not_connected"; projectId: string }
+  | { status: "idempotency_conflict"; projectId: string }
   | {
-      authorized: true;
-      idempotencyReplay?: boolean;
+      status: "success" | "idempotency_replay";
       projectId: string;
       intent: Parameters<typeof publicPaymentIntentFromDocV2>[0];
     };
@@ -40,6 +40,8 @@ type PublicPaymentIntentListResult =
         continueCursor: string;
       };
     };
+
+const convex = new ConvexHttpClient(env.NEXT_PUBLIC_CONVEX_URL);
 
 export async function POST(request: NextRequest) {
   const telemetry = startRequestTelemetry(request, "payment_intent.create.v1");
@@ -73,30 +75,31 @@ export async function POST(request: NextRequest) {
     const resolvedAsset =
       !requestedAsset || requestedAsset === "USDC" ? stellarConfig.checkoutAsset : requestedAsset;
 
-    const convex = new ConvexHttpClient(env.NEXT_PUBLIC_CONVEX_URL);
-
-    // Always route through V2 action — it resolves anchor from DB (API key scope →
-    // project default → system default) and performs PDAX deposit lookup when needed.
-    // Passing no explicit anchor lets the action apply the full precedence chain.
-    const result = (await measureTelemetryStage(telemetry, "convex.action", () =>
-      convex.action(api.payment_intents.actions.createPublicPaymentIntentV2, {
-        apiKeyHash: auth.apiKeyHash,
-        correlationId: telemetry.correlationId,
-        amount: parsed.body.amount,
-        asset: resolvedAsset,
-        ...(parsed.body.description !== undefined ? { description: parsed.body.description } : {}),
-        ...(parsed.body.successUrl !== undefined ? { successUrl: parsed.body.successUrl } : {}),
-        ...(parsed.body.cancelUrl !== undefined ? { cancelUrl: parsed.body.cancelUrl } : {}),
-        ...(parsed.body.anchor !== undefined
-          ? { anchor: parsed.body.anchor as "inhouse" | "pdax" }
-          : {}),
-        ...(getIdempotencyKey(request) !== undefined
-          ? { idempotencyKey: getIdempotencyKey(request) }
-          : {}),
-      }),
+    const result = (await measureTelemetryStage(telemetry, "convex.mutation", () =>
+      convex.mutation(
+        api.payment_intents.mutations.createPublicPaymentIntentV2,
+        {
+          apiKeyHash: auth.apiKeyHash,
+          correlationId: telemetry.correlationId,
+          amount: parsed.body.amount,
+          asset: resolvedAsset,
+          ...(parsed.body.description !== undefined
+            ? { description: parsed.body.description }
+            : {}),
+          ...(parsed.body.successUrl !== undefined ? { successUrl: parsed.body.successUrl } : {}),
+          ...(parsed.body.cancelUrl !== undefined ? { cancelUrl: parsed.body.cancelUrl } : {}),
+          ...(parsed.body.anchor !== undefined
+            ? { anchor: parsed.body.anchor as "inhouse" | "pdax" }
+            : {}),
+          ...(getIdempotencyKey(request) !== undefined
+            ? { idempotencyKey: getIdempotencyKey(request) }
+            : {}),
+        },
+        { skipQueue: true },
+      ),
     )) as PublicPaymentIntentV2Result;
 
-    if (!result.authorized) {
+    if (result.status === "unauthorized") {
       return complete(
         attachHeaders(
           veloErrorResponse({
@@ -110,11 +113,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (result.projectId) {
-      rateLimiter.cacheKeyProjectMapping(auth.apiKeyHash, result.projectId);
+    rateLimiter.cacheKeyProjectMapping(auth.apiKeyHash, result.projectId);
+
+    if (result.status === "anchor_not_connected") {
+      return complete(
+        attachHeaders(
+          veloErrorResponse({
+            status: 409,
+            type: "validation_error",
+            code: "anchor_not_connected",
+            message: "PDAX provider is not connected for this project.",
+          }),
+          rateLimitResult.headers,
+        ),
+      );
     }
 
-    if ("idempotencyConflict" in result && result.idempotencyConflict) {
+    if (result.status === "idempotency_conflict") {
       return complete(
         attachHeaders(
           veloErrorResponse({
@@ -128,13 +143,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!("intent" in result)) {
-      throw new Error("Payment intent create result missing intent");
-    }
-
     const response = NextResponse.json(
       publicPaymentIntentFromDocV2(result.intent, env.NEXT_PUBLIC_APP_URL),
-      { status: result.idempotencyReplay ? 200 : 201 },
+      { status: result.status === "idempotency_replay" ? 200 : 201 },
     );
     return complete(attachHeaders(response, rateLimitResult.headers));
   } catch (error) {
@@ -153,6 +164,11 @@ export async function POST(request: NextRequest) {
               type: "api_error",
               code: "anchor_unavailable",
               message: "The requested payment anchor is currently unavailable.",
+              headers: {
+                "X-Error-Code": "anchor_unavailable",
+                "X-Error-Dependency": "pdax",
+                "X-Error-Source": "payment_intent_route_enrichment",
+              },
             }),
             rateLimitResult.headers,
           ),
@@ -202,7 +218,6 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const convex = new ConvexHttpClient(env.NEXT_PUBLIC_CONVEX_URL);
     const result = (await measureTelemetryStage(telemetry, "convex.query", () =>
       convex.query(api.payment_intents.queries.listPublicPaymentIntents, {
         apiKeyHash: auth.apiKeyHash,

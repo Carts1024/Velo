@@ -1,17 +1,23 @@
 {
-  "version": 2,
+  "version": 3,
   "windows": ["morning", "afternoon", "evening"],
   "modes": ["dry-run", "capture", "fixture"],
+  "temperatures": ["cold", "warm"],
+  "qualificationProfiles": ["normal", "growth"],
   "defaultProfile": "normal",
   "thresholds": {
     "requiredRuns": 3,
     "requiredSuccessfulSamples": 1000,
-    "maxErrorRate": 0.005,
+    "maxErrorRateExclusive": 0.005,
     "maxP95Regression": 0.05,
     "requireBaseline": true,
     "minSuccessfulThroughput": {
       "normal": 10,
       "growth": 50
+    },
+    "maxSaturatedArrivals": 0,
+    "latencySloMs": {
+      "payment-intent-create": { "p50": 150, "p95": 350, "p99": 750 }
     }
   },
   "profiles": ["idle", "normal", "growth", "burst", "webhook-fan-out", "backlog-recovery", "degraded-dependency"],
