@@ -4,6 +4,7 @@ import { internalMutation } from "../_generated/server";
 
 const LEASE_MS = 8_500;
 const JOB_TTL_MS = 30 * 60 * 1_000;
+const MAX_PAGE_SIZE = 100;
 
 export const ensure = internalMutation({
   args: {
@@ -34,13 +35,16 @@ export const ensure = internalMutation({
 export const claimDue = internalMutation({
   args: { leaseToken: v.string(), limit: v.optional(v.number()) },
   handler: async (ctx, args) => {
+    const limit = Math.max(0, Math.min(Math.floor(args.limit ?? MAX_PAGE_SIZE), MAX_PAGE_SIZE));
+    if (limit === 0) return [];
+
     const now = Date.now();
     const due = await ctx.db
       .query("paymentReconciliationJobs")
       .withIndex("by_state_and_next_attempt_at", (q) =>
         q.eq("state", "pending").lte("nextAttemptAt", now),
       )
-      .take(Math.min(args.limit ?? 100, 100));
+      .take(limit);
     const claimed = [];
     for (const job of due) {
       if (job.expiresAt <= now) {
@@ -63,6 +67,61 @@ export const claimDue = internalMutation({
       claimed.push({ ...job, leaseGeneration: generation });
     }
     return claimed;
+  },
+});
+
+/**
+ * Returns expired leases to the pending queue in a bounded transaction.
+ * A subsequent claim increments leaseGeneration, fencing any stale worker that resumes.
+ */
+export const recoverExpiredLeases = internalMutation({
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    const limit = Math.max(0, Math.min(Math.floor(args.limit ?? MAX_PAGE_SIZE), MAX_PAGE_SIZE));
+    if (limit === 0) {
+      return { inspected: 0, recovered: 0, deadLettered: 0, saturated: false };
+    }
+
+    const now = Date.now();
+    const expiredLeases = await ctx.db
+      .query("paymentReconciliationJobs")
+      .withIndex("by_state_and_lease_expires_at", (q) =>
+        q.eq("state", "leased").lte("leaseExpiresAt", now),
+      )
+      .take(limit);
+
+    let recovered = 0;
+    let deadLettered = 0;
+    for (const job of expiredLeases) {
+      if (job.expiresAt <= now) {
+        await ctx.db.patch(job._id, {
+          state: "dead_letter",
+          leaseToken: undefined,
+          leaseExpiresAt: undefined,
+          lastError: "Payment reconciliation budget exhausted after lease expiry",
+          updatedAt: now,
+        });
+        deadLettered++;
+        continue;
+      }
+
+      await ctx.db.patch(job._id, {
+        state: "pending",
+        nextAttemptAt: now,
+        leaseToken: undefined,
+        leaseExpiresAt: undefined,
+        lastError: "Expired reconciliation lease recovered",
+        updatedAt: now,
+      });
+      recovered++;
+    }
+
+    return {
+      inspected: expiredLeases.length,
+      recovered,
+      deadLettered,
+      saturated: expiredLeases.length === limit,
+    };
   },
 });
 

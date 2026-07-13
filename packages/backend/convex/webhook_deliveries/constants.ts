@@ -1,0 +1,1 @@
+export const WEBHOOK_DELIVERY_LEASE_MS = 12_000;

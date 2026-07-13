@@ -5,7 +5,8 @@ import { v } from "convex/values";
 import type { Doc } from "../_generated/dataModel";
 
 import { api, internal } from "../_generated/api";
-import { internalAction, internalMutation, internalQuery } from "../_generated/server";
+import { internalAction, internalQuery } from "../_generated/server";
+import { findVerifiedPayment } from "./verification";
 
 const ensureReconciliation = makeFunctionReference<"mutation">(
   "payment_reconciliation_jobs/mutations:ensure",
@@ -40,14 +41,26 @@ export const checkPendingPayments = internalAction({
           const result = await lookupTestnetTransaction(url, intent.txHash, { timeoutMs: 2_500 });
 
           if (result.status === "success") {
-            await ctx.runMutation(internal.payment_intents.mutations.markVerifiedPaid, {
-              paymentIntentId: intent._id,
-              txHash: intent.txHash,
-            });
-            await ctx.runMutation(internal.payment_intents.scanner.decrementProjectCredits, {
-              projectId: intent.projectId,
-            });
-            processedCount++;
+            const verifiedPayment = findVerifiedPayment(result.operations, intent);
+            if (!verifiedPayment) {
+              await ctx.runMutation(api.payment_intents.mutations.updateStatus, {
+                paymentIntentId: intent._id,
+                status: "failed",
+              });
+              processedCount++;
+              continue;
+            }
+            const observedAt = Date.now();
+            const confirmation = await ctx.runMutation(
+              internal.payment_intents.mutations.markVerifiedPaid,
+              {
+                paymentIntentId: intent._id,
+                txHash: intent.txHash,
+                verifiedPayment,
+                observedAt,
+              },
+            );
+            if (confirmation.applied) processedCount++;
           } else if (result.status === "failed") {
             await ctx.runMutation(api.payment_intents.mutations.updateStatus, {
               paymentIntentId: intent._id,
@@ -98,33 +111,6 @@ export const getPendingPaymentIntents = internalQuery({
 });
 
 /**
- * Decrements the off-chain project credits count upon a successful payment.
- */
-export const decrementProjectCredits = internalMutation({
-  args: { projectId: v.id("projects") },
-  handler: async (ctx, args) => {
-    const project = await ctx.db.get(args.projectId);
-    if (project && project.checkoutCredits !== undefined && project.checkoutCredits > 0) {
-      await ctx.db.patch(args.projectId, {
-        checkoutCredits: Math.max(0, project.checkoutCredits - 1),
-        updatedAt: Date.now(),
-      });
-    }
-  },
-});
-
-/**
- * Internal query to fetch the projectId of a payment intent.
- */
-export const getIntentProject = internalQuery({
-  args: { paymentIntentId: v.id("paymentIntents") },
-  handler: async (ctx, args) => {
-    const intent = await ctx.db.get(args.paymentIntentId);
-    return intent ? intent.projectId : null;
-  },
-});
-
-/**
  * Background action to poll Stellar RPC with adaptive jittered backoff.
  */
 export const watchTransaction = internalAction({
@@ -155,20 +141,28 @@ export const watchTransaction = internalAction({
         const result = await lookupTestnetTransaction(url, args.txHash, { timeoutMs: 2_500 });
 
         if (result.status === "success") {
-          await ctx.runMutation(internal.payment_intents.mutations.markVerifiedPaid, {
-            paymentIntentId: args.paymentIntentId,
-            txHash: args.txHash,
-          });
-          const projectId = await ctx.runQuery(internal.payment_intents.scanner.getIntentProject, {
-            paymentIntentId: args.paymentIntentId,
-          });
-          if (projectId) {
-            await ctx.runMutation(internal.payment_intents.scanner.decrementProjectCredits, {
-              projectId,
+          const verifiedPayment = findVerifiedPayment(result.operations, currentIntent);
+          if (!verifiedPayment) {
+            await ctx.runMutation(api.payment_intents.mutations.updateStatus, {
+              paymentIntentId: args.paymentIntentId,
+              status: "failed",
             });
+            return { status: "failed" };
+          }
+          const observedAt = Date.now();
+          const confirmation = await ctx.runMutation(
+            internal.payment_intents.mutations.markVerifiedPaid,
+            {
+              paymentIntentId: args.paymentIntentId,
+              txHash: args.txHash,
+              verifiedPayment,
+              observedAt,
+            },
+          );
+          if (confirmation.applied) {
             // Fast-path event polling
             await ctx.scheduler.runAfter(0, internal.contractEventPolling.pollProjectInternal, {
-              projectId,
+              projectId: confirmation.projectId,
             });
           }
           return { status: "success" };

@@ -136,7 +136,16 @@ function formatAsset(asset: string) {
 }
 
 /**
+ * Count rows returned by an indexed range without loading full documents.
+ * Uses a per-query cap to stay well under the 16 MB read limit.
+ */
+const STATUS_CAP = 5_000;
+
+/**
  * Aggregated telemetry and analytics metrics for a project dashboard.
+ *
+ * Uses per-status indexed queries with bounded `.take()` instead of a single
+ * unbounded `.collect()` to avoid hitting the Convex 16 MB read limit.
  */
 export const getProjectStats = query({
   args: {
@@ -147,38 +156,86 @@ export const getProjectStats = query({
       return null;
     }
 
-    // 1. Fetch all payment intents for this project
-    const intents = await ctx.db
+    // 1. Count payment intents per status using the composite index.
+    //    Only "paid" needs full document reads (for volume aggregation);
+    //    the other statuses just need a length count.
+    const paidIntents = await ctx.db
       .query("paymentIntents")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
-      .collect();
+      .withIndex("by_project_status_created_at", (q) =>
+        q.eq("projectId", args.projectId).eq("status", "paid"),
+      )
+      .take(STATUS_CAP);
 
+    const pendingIntents = await ctx.db
+      .query("paymentIntents")
+      .withIndex("by_project_status_created_at", (q) =>
+        q.eq("projectId", args.projectId).eq("status", "pending"),
+      )
+      .take(STATUS_CAP);
+
+    const failedIntents = await ctx.db
+      .query("paymentIntents")
+      .withIndex("by_project_status_created_at", (q) =>
+        q.eq("projectId", args.projectId).eq("status", "failed"),
+      )
+      .take(STATUS_CAP);
+
+    const createdIntents = await ctx.db
+      .query("paymentIntents")
+      .withIndex("by_project_status_created_at", (q) =>
+        q.eq("projectId", args.projectId).eq("status", "created"),
+      )
+      .take(STATUS_CAP);
+
+    const awaitingRouteIntents = await ctx.db
+      .query("paymentIntents")
+      .withIndex("by_project_status_created_at", (q) =>
+        q.eq("projectId", args.projectId).eq("status", "awaiting_route"),
+      )
+      .take(STATUS_CAP);
+
+    const expiredIntents = await ctx.db
+      .query("paymentIntents")
+      .withIndex("by_project_status_created_at", (q) =>
+        q.eq("projectId", args.projectId).eq("status", "expired"),
+      )
+      .take(STATUS_CAP);
+
+    const cancelledIntents = await ctx.db
+      .query("paymentIntents")
+      .withIndex("by_project_status_created_at", (q) =>
+        q.eq("projectId", args.projectId).eq("status", "cancelled"),
+      )
+      .take(STATUS_CAP);
+
+    // Aggregate paid volumes
     const volumes: Record<string, number> = {};
-    let paidCount = 0;
-    let pendingCount = 0;
-    let failedCount = 0;
-    let createdCount = 0;
-
-    for (const intent of intents) {
-      if (intent.status === "paid") {
-        paidCount++;
-        const assetLabel = formatAsset(intent.asset);
-        const amountNum = parseFloat(intent.amount) || 0;
-        volumes[assetLabel] = (volumes[assetLabel] || 0) + amountNum;
-      } else if (intent.status === "pending") {
-        pendingCount++;
-      } else if (intent.status === "failed") {
-        failedCount++;
-      } else if (intent.status === "created") {
-        createdCount++;
-      }
+    for (const intent of paidIntents) {
+      const assetLabel = formatAsset(intent.asset);
+      const amountNum = parseFloat(intent.amount) || 0;
+      volumes[assetLabel] = (volumes[assetLabel] || 0) + amountNum;
     }
 
-    // 2. Fetch all webhook deliveries for this project
+    const paidCount = paidIntents.length;
+    const pendingCount = pendingIntents.length;
+    const failedCount = failedIntents.length;
+    const createdCount = createdIntents.length;
+    const totalCount =
+      paidCount +
+      pendingCount +
+      failedCount +
+      createdCount +
+      awaitingRouteIntents.length +
+      expiredIntents.length +
+      cancelledIntents.length;
+
+    // 2. Webhook health — bounded read of recent deliveries
+    const WEBHOOK_CAP = 1_000;
     const webhookDeliveries = await ctx.db
       .query("webhookDeliveries")
       .withIndex("by_project_created_at", (q) => q.eq("projectId", args.projectId))
-      .collect();
+      .order("desc")
+      .take(WEBHOOK_CAP);
 
     let successCount = 0;
     let totalLatency = 0;
@@ -198,13 +255,10 @@ export const getProjectStats = query({
     const successRate = totalDeliveries > 0 ? (successCount / totalDeliveries) * 100 : 100;
     const averageLatency = latencyCount > 0 ? totalLatency / latencyCount : 0;
 
-    // 3. Take the 10 most recent payment intents for logging
-    const recentPayments = intents.sort((a, b) => b.createdAt - a.createdAt).slice(0, 10);
-
     return {
       volumes: Object.entries(volumes).map(([asset, volume]) => ({ asset, volume })),
       counts: {
-        total: intents.length,
+        total: totalCount,
         paid: paidCount,
         pending: pendingCount,
         failed: failedCount,
@@ -215,7 +269,6 @@ export const getProjectStats = query({
         successRate,
         averageLatency,
       },
-      recentPayments,
     };
   },
 });
@@ -319,6 +372,7 @@ function lifecycleProjection(
     transactionHash: intent.txHash ?? null,
     createdAt: intent.createdAt,
     updatedAt: intent.updatedAt,
+    stageTimestamps: intent.stageTimestamps ?? null,
   }));
   const webhookDeliveries = deliveries.map((delivery) => ({
     id: delivery._id,
@@ -327,6 +381,10 @@ function lifecycleProjection(
     status: delivery.status,
     attemptCount: delivery.attemptCount,
     createdAt: delivery.createdAt,
+    enqueuedAt: delivery.enqueuedAt ?? delivery.createdAt,
+    attemptStartedAt: delivery.attemptStartedAt ?? null,
+    responseReceivedAt: delivery.responseReceivedAt ?? null,
+    acknowledgedAt: delivery.acknowledgedAt ?? null,
     lastAttemptAt: delivery.lastAttemptAt,
     httpStatus: delivery.httpStatus ?? null,
     responseTimeMs: delivery.responseTimeMs ?? null,
@@ -337,17 +395,51 @@ function lifecycleProjection(
     paymentIntents,
     webhookDeliveries,
     stages: [
-      ...paymentIntents.flatMap((intent) => [
-        { name: "payment_intent.created", at: intent.createdAt, paymentIntentId: intent.id },
-        {
-          name: `payment_intent.${intent.status}`,
-          at: intent.updatedAt,
-          paymentIntentId: intent.id,
-        },
-      ]),
+      ...paymentIntents.flatMap((intent) => {
+        const stages = intent.stageTimestamps ?? { created: intent.createdAt };
+        return Object.entries(stages)
+          .filter((entry): entry is [string, number] => typeof entry[1] === "number")
+          .flatMap(([name, at]) => [
+            { name: `payment_intent.${name}`, at, paymentIntentId: intent.id },
+            ...(name === "confirmed"
+              ? [{ name: "payment_intent.paid", at, paymentIntentId: intent.id }]
+              : []),
+          ]);
+      }),
       ...webhookDeliveries.flatMap((delivery) => [
-        { name: "webhook.queued", at: delivery.createdAt, deliveryId: delivery.id },
-        { name: `webhook.${delivery.status}`, at: delivery.lastAttemptAt, deliveryId: delivery.id },
+        { name: "webhook.enqueued", at: delivery.enqueuedAt, deliveryId: delivery.id },
+        ...(delivery.attemptStartedAt === null
+          ? []
+          : [
+              {
+                name: "webhook.attempt_started",
+                at: delivery.attemptStartedAt,
+                deliveryId: delivery.id,
+              },
+            ]),
+        ...(delivery.responseReceivedAt === null
+          ? []
+          : [
+              {
+                name: "webhook.response_received",
+                at: delivery.responseReceivedAt,
+                deliveryId: delivery.id,
+              },
+            ]),
+        ...(delivery.acknowledgedAt === null
+          ? []
+          : [
+              {
+                name: "webhook.acknowledged",
+                at: delivery.acknowledgedAt,
+                deliveryId: delivery.id,
+              },
+              {
+                name: "webhook.success",
+                at: delivery.acknowledgedAt,
+                deliveryId: delivery.id,
+              },
+            ]),
       ]),
     ].sort((left, right) => left.at - right.at),
   };

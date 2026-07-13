@@ -3,10 +3,36 @@
   "windows": ["morning", "afternoon", "evening"],
   "temperatures": ["cold", "warm"],
   "profiles": [
-    { "id": "idle", "requestsPerSecond": 1, "concurrency": 1, "durationSeconds": 60, "sampleTarget": 1000 },
-    { "id": "normal", "requestsPerSecond": 10, "concurrency": 25, "durationSeconds": 300, "sampleTarget": 1000 },
-    { "id": "growth", "requestsPerSecond": 50, "concurrency": 100, "durationSeconds": 300, "sampleTarget": 1000 },
-    { "id": "burst", "requestsPerSecond": 200, "concurrency": 200, "durationSeconds": 30, "sampleTarget": 1000 },
+    {
+      "id": "idle",
+      "requestsPerSecond": 1,
+      "concurrency": 1,
+      "durationSeconds": 60,
+      "sampleTarget": 1000
+    },
+    {
+      "id": "normal",
+      "requestsPerSecond": 10,
+      "concurrency": 25,
+      "durationSeconds": 300,
+      "sampleTarget": 1000,
+      "qualification": true
+    },
+    {
+      "id": "growth",
+      "requestsPerSecond": 50,
+      "concurrency": 100,
+      "durationSeconds": 300,
+      "sampleTarget": 1000,
+      "qualification": true
+    },
+    {
+      "id": "burst",
+      "requestsPerSecond": 200,
+      "concurrency": 200,
+      "durationSeconds": 30,
+      "sampleTarget": 1000
+    },
     { "id": "webhook-fan-out", "events": 1000, "endpoints": 100 },
     { "id": "backlog-recovery", "records": 10000, "interruptionSeconds": 300 },
     {

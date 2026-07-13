@@ -2,6 +2,7 @@ import { v } from "convex/values";
 
 import { internal } from "../_generated/api";
 import { internalMutation, mutation } from "../_generated/server";
+import { WEBHOOK_DELIVERY_LEASE_MS } from "./constants";
 
 export const createPending = internalMutation({
   args: {
@@ -49,6 +50,7 @@ export const createPending = internalMutation({
       attemptCount: 1,
       lastAttemptAt: now,
       createdAt: now,
+      enqueuedAt: now,
       deadLetter: false,
       ...("nextAttemptAt" in args && args.nextAttemptAt !== undefined
         ? { nextAttemptAt: args.nextAttemptAt }
@@ -70,6 +72,7 @@ export const claimAttempt = internalMutation({
       !delivery ||
       delivery.status !== "pending" ||
       delivery.deadLetter ||
+      (delivery.nextAttemptAt !== undefined && delivery.nextAttemptAt > now) ||
       (delivery.leaseExpiresAt !== undefined && delivery.leaseExpiresAt > now)
     ) {
       return { claimed: false as const };
@@ -78,9 +81,10 @@ export const claimAttempt = internalMutation({
     await ctx.db.patch(delivery._id, {
       leaseToken: args.leaseToken,
       leaseGeneration,
-      leaseExpiresAt: now + 8_500,
+      leaseExpiresAt: now + WEBHOOK_DELIVERY_LEASE_MS,
       attemptCount: args.attemptCount,
       lastAttemptAt: now,
+      attemptStartedAt: now,
     });
     return { claimed: true as const, leaseGeneration };
   },
@@ -106,13 +110,16 @@ export const finish = internalMutation({
     ) {
       return false;
     }
+    const completedAt = Date.now();
     await ctx.db.patch(args.deliveryId, {
       status: args.status,
       httpStatus: args.httpStatus,
       errorMessage: args.errorMessage?.slice(0, 500),
       responseTimeMs: args.responseTimeMs,
-      lastAttemptAt: Date.now(),
-      ...(args.deadLetter ? { deadLetter: true, deadLetterAt: Date.now() } : {}),
+      lastAttemptAt: completedAt,
+      responseReceivedAt: completedAt,
+      ...(args.status === "success" ? { acknowledgedAt: completedAt } : {}),
+      ...(args.deadLetter ? { deadLetter: true, deadLetterAt: completedAt } : {}),
       leaseToken: undefined,
       leaseExpiresAt: undefined,
     });
@@ -127,9 +134,11 @@ export const startAttempt = internalMutation({
     nextAttemptAt: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    const startedAt = Date.now();
     await ctx.db.patch(args.deliveryId, {
       attemptCount: args.attemptCount,
-      lastAttemptAt: Date.now(),
+      lastAttemptAt: startedAt,
+      attemptStartedAt: startedAt,
       ...(args.nextAttemptAt !== undefined ? { nextAttemptAt: args.nextAttemptAt } : {}),
     });
   },
@@ -154,11 +163,13 @@ export const logAttemptFailure = internalMutation({
     ) {
       return false;
     }
+    const completedAt = Date.now();
     await ctx.db.patch(args.deliveryId, {
       httpStatus: args.httpStatus,
       errorMessage: args.errorMessage?.slice(0, 500),
       responseTimeMs: args.responseTimeMs,
-      lastAttemptAt: Date.now(),
+      lastAttemptAt: completedAt,
+      responseReceivedAt: completedAt,
       ...(args.nextAttemptAt !== undefined ? { nextAttemptAt: args.nextAttemptAt } : {}),
       leaseToken: undefined,
       leaseExpiresAt: undefined,

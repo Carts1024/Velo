@@ -204,6 +204,54 @@ test("duplicate delivery triggers share one fenced delivery", async () => {
   ).toBe(true);
 });
 
+test("webhook attempts cannot claim before their retry due time", async () => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date("2026-07-13T00:00:00Z"));
+  try {
+    const t = convexTest(schema, modules);
+    const projectId = await projectFixture(t);
+    const endpointId = await t.run(async (ctx) => {
+      const now = Date.now();
+      return await ctx.db.insert("webhookEndpoints", {
+        projectId,
+        url: "https://merchant.example/webhook",
+        destinationHost: "merchant.example",
+        enabled: true,
+        eventTypes: ["payment.succeeded"],
+        createdAt: now,
+        updatedAt: now,
+      });
+    });
+    const deliveryId = await t.mutation(createDelivery, {
+      projectId,
+      endpointId,
+      eventType: "payment.succeeded",
+      destinationHost: "merchant.example",
+      payloadSummary: { id: "event-due", type: "payment.succeeded" },
+      nextAttemptAt: Date.now() + 15_000,
+    });
+
+    expect(
+      await t.mutation(claimDelivery, {
+        deliveryId,
+        leaseToken: "too-early",
+        attemptCount: 2,
+      }),
+    ).toEqual({ claimed: false });
+
+    vi.advanceTimersByTime(15_000);
+    expect(
+      await t.mutation(claimDelivery, {
+        deliveryId,
+        leaseToken: "on-time",
+        attemptCount: 2,
+      }),
+    ).toEqual({ claimed: true, leaseGeneration: 1 });
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
 test("10,000 reconciliation jobs drain in exactly 100 bounded pages", async () => {
   const t = convexTest(schema, modules);
   const projectId = await projectFixture(t);

@@ -119,6 +119,12 @@ test("payment intent lifecycle", async () => {
   await t.mutation(internal.payment_intents.mutations.markVerifiedPaid, {
     paymentIntentId,
     txHash,
+    verifiedPayment: {
+      source: payerAddress,
+      destination: ownerAddress,
+      amount: "150.5000000",
+      asset: "native",
+    },
   });
 
   intent = await t.query(api.payment_intents.queries.getPaymentIntent, {
@@ -325,6 +331,12 @@ test("payment intent stats aggregation and scanner execution", async () => {
   await t.mutation(internal.payment_intents.mutations.markVerifiedPaid, {
     paymentIntentId: pi2,
     txHash: "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+    verifiedPayment: {
+      source: "GDFX...PAYER",
+      destination: ownerAddress,
+      amount: "100.0000000",
+      asset: "USDC:GBX",
+    },
   });
 
   // Verify updated status counts and volume
@@ -336,7 +348,6 @@ test("payment intent stats aggregation and scanner execution", async () => {
 
   // Volume should reflect 100 USDC (since only USDC intent was paid)
   expect(stats?.volumes).toContainEqual({ asset: "USDC", volume: 100.0 });
-  expect(stats?.recentPayments.length).toBe(2);
 });
 
 async function sha256Hex(value: string) {

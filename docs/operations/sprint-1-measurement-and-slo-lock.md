@@ -1,5 +1,14 @@
 # Sprint 1: Measurement, Baseline, and SLO Lock
 
+> **Sprint 9 status update — 2026-07-13:** This Sprint 1 runbook is retained as
+> historical context. The current benchmark contract is documented in the
+> [Sprint 9 architecture](../architecture/sprint-9-real-lifecycle-benchmark-architecture.md),
+> [operator runbook](./sprint-9-real-lifecycle-benchmark-runbook.md), and
+> [evidence and closure record](../references/sprint-9-benchmark-evidence-and-closure.md).
+> Runner and qualification-gate engineering now cover seven executable client adapter contracts,
+> but the five control scenarios still require an operator-supplied, conforming staging controller.
+> Live capture and P0.1 qualification remain pending.
+
 This is the operator guide for the measurement artifacts added for Sprint 1 of the [speed plan](../plans/velo-speed-sprint-plan.md#sprint-1--measurement-baseline-and-slo-lock).
 
 ## Current status

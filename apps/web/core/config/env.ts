@@ -12,6 +12,10 @@ const envSchema = z.object({
   NEXT_PUBLIC_VELO_PAY_ACCESS_CONTRACT_ID: z.string().optional(),
   NEXT_PUBLIC_USDC_ISSUER: z.string().optional(),
   NEXT_PUBLIC_APP_URL: z.string().url().default("http://localhost:3000"),
+  NEXT_PUBLIC_VELO_BENCHMARK_MARKERS: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((value) => value === "true"),
 });
 
 type RawEnv = Record<string, string | undefined>;
@@ -37,6 +41,7 @@ export const parseEnv = (rawEnv: RawEnv, options: ParseEnvOptions = {}) => {
     NEXT_PUBLIC_VELO_PAY_ACCESS_CONTRACT_ID: rawEnv.NEXT_PUBLIC_VELO_PAY_ACCESS_CONTRACT_ID,
     NEXT_PUBLIC_USDC_ISSUER: rawEnv.NEXT_PUBLIC_USDC_ISSUER,
     NEXT_PUBLIC_APP_URL: rawEnv.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
+    NEXT_PUBLIC_VELO_BENCHMARK_MARKERS: rawEnv.NEXT_PUBLIC_VELO_BENCHMARK_MARKERS,
   });
 
   if (!parsed.success) {
@@ -74,6 +79,7 @@ const validateEnv = () =>
     NEXT_PUBLIC_VELO_PAY_ACCESS_CONTRACT_ID: process.env.NEXT_PUBLIC_VELO_PAY_ACCESS_CONTRACT_ID,
     NEXT_PUBLIC_USDC_ISSUER: process.env.NEXT_PUBLIC_USDC_ISSUER,
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
+    NEXT_PUBLIC_VELO_BENCHMARK_MARKERS: process.env.NEXT_PUBLIC_VELO_BENCHMARK_MARKERS,
     VELO_REQUIRE_CONTRACT_IDS: process.env.VELO_REQUIRE_CONTRACT_IDS,
     VERCEL_ENV: process.env.VERCEL_ENV,
   });

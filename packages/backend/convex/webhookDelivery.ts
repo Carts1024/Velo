@@ -11,6 +11,7 @@ import type { WebhookEventType } from "./webhook_endpoints/types";
 import { internal } from "./_generated/api";
 import { action, internalAction } from "./_generated/server";
 import { requireIdentity } from "./projects/helpers";
+import { WEBHOOK_DELIVERY_LEASE_MS } from "./webhook_deliveries/constants";
 
 type DeliveryTarget = {
   endpoint: Doc<"webhookEndpoints">;
@@ -412,6 +413,11 @@ export const sendTest = action({
       },
     );
 
+    await ctx.runMutation(internal.webhook_deliveries.mutation.startAttempt, {
+      deliveryId,
+      attemptCount: 1,
+    });
+
     const startTime = Date.now();
     try {
       const response = await fetchWithDeadlines(target.endpoint.url, {
@@ -522,7 +528,11 @@ export const trigger = internalAction({
       if (existingDelivery?.payloadSummary?.id) {
         overrideEventId = existingDelivery.payloadSummary.id;
       }
-      if (existingDelivery?.deadLetter && args.attemptCount === undefined) {
+      if (
+        !existingDelivery ||
+        existingDelivery.status !== "pending" ||
+        existingDelivery.deadLetter
+      ) {
         return;
       }
     }
@@ -577,7 +587,7 @@ export const trigger = internalAction({
     });
     if (!claim.claimed) return;
     const leaseGeneration = claim.leaseGeneration;
-    await ctx.scheduler.runAfter(8_500, internal.webhookDelivery.trigger, {
+    await ctx.scheduler.runAfter(WEBHOOK_DELIVERY_LEASE_MS, internal.webhookDelivery.trigger, {
       ...args,
       deliveryId,
       attemptCount: attemptCount + 1,

@@ -124,6 +124,8 @@ export type PublicPaymentIntentDocV2 = PublicPaymentIntentDoc & {
     awaiting_signature?: number;
     signed?: number;
     submitted?: number;
+    submissionReported?: number;
+    observed?: number;
     confirmed?: number;
     failed?: number;
     cancelled?: number;
@@ -169,6 +171,12 @@ export function publicPaymentIntentFromDocV2(intent: PublicPaymentIntentDocV2, a
             : null,
           submitted: intent.stageTimestamps.submitted
             ? new Date(intent.stageTimestamps.submitted).toISOString()
+            : null,
+          submissionReported: intent.stageTimestamps.submissionReported
+            ? new Date(intent.stageTimestamps.submissionReported).toISOString()
+            : null,
+          observed: intent.stageTimestamps.observed
+            ? new Date(intent.stageTimestamps.observed).toISOString()
             : null,
           confirmed: intent.stageTimestamps.confirmed
             ? new Date(intent.stageTimestamps.confirmed).toISOString()

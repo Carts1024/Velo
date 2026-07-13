@@ -10,6 +10,7 @@ import {
   resolvePaymentAnchor,
   verifyApiKeyForPayments,
 } from "./helpers";
+import { paymentMatchesIntent } from "./verification";
 
 /**
  * Creates a new payment intent. Requires apiKeyHash for authentication.
@@ -310,11 +311,63 @@ export const markVerifiedPaid = internalMutation({
   args: {
     paymentIntentId: v.id("paymentIntents"),
     txHash: v.string(),
+    verifiedPayment: v.object({
+      source: v.string(),
+      destination: v.string(),
+      amount: v.string(),
+      asset: v.string(),
+    }),
+    observedAt: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const intent = await ctx.db.get(args.paymentIntentId);
     if (!intent) {
       throw new ConvexError("Payment intent not found");
+    }
+
+    if (!paymentMatchesIntent(args.verifiedPayment, intent)) {
+      throw new ConvexError("Verified Stellar payment does not match payment intent");
+    }
+
+    const verifiedTxHash = args.txHash.trim().toLowerCase();
+    const existingClaim = await ctx.db
+      .query("paymentIntents")
+      .withIndex("by_verified_tx_hash", (q) => q.eq("verifiedTxHash", verifiedTxHash))
+      .unique();
+    if (existingClaim && existingClaim._id !== args.paymentIntentId) {
+      throw new ConvexError("Verified Stellar transaction is already assigned to another intent");
+    }
+
+    const legacyHashVariants = new Set([
+      args.txHash,
+      args.txHash.trim(),
+      verifiedTxHash,
+      verifiedTxHash.toUpperCase(),
+    ]);
+    let hasLegacyClaim = false;
+    for (const txHash of legacyHashVariants) {
+      const legacyClaims = await ctx.db
+        .query("paymentIntents")
+        .withIndex("by_tx_hash", (q) => q.eq("txHash", txHash))
+        .collect();
+      if (
+        legacyClaims.some((claim) => claim._id !== args.paymentIntentId && claim.status === "paid")
+      ) {
+        hasLegacyClaim = true;
+      }
+    }
+    if (hasLegacyClaim) {
+      throw new ConvexError("Verified Stellar transaction is already assigned to another intent");
+    }
+
+    if (intent.status === "paid") {
+      if ((intent.verifiedTxHash ?? intent.txHash?.toLowerCase()) === verifiedTxHash) {
+        if (intent.verifiedTxHash === undefined) {
+          await ctx.db.patch(intent._id, { verifiedTxHash });
+        }
+        return { applied: false as const, projectId: intent.projectId };
+      }
+      throw new ConvexError("Paid payment intent has a different verified transaction hash");
     }
 
     const now = Date.now();
@@ -330,16 +383,30 @@ export const markVerifiedPaid = internalMutation({
       throw new ConvexError(`Invalid verified paid transition: ${intent.status} -> paid`);
     }
 
+    const project = await ctx.db.get(intent.projectId);
+    if (!project) {
+      throw new ConvexError("Payment intent project not found");
+    }
+
+    const observedAt = Math.min(now, Math.max(intent.createdAt, args.observedAt ?? now));
     const updatedStageTimestamps = intent.stageTimestamps
-      ? { ...intent.stageTimestamps, confirmed: now }
-      : { created: intent.createdAt, confirmed: now };
+      ? { ...intent.stageTimestamps, observed: observedAt, confirmed: now }
+      : { created: intent.createdAt, observed: observedAt, confirmed: now };
 
     await ctx.db.patch(args.paymentIntentId, {
       status: "paid",
-      txHash: args.txHash,
+      txHash: verifiedTxHash,
+      verifiedTxHash,
       updatedAt: now,
       stageTimestamps: updatedStageTimestamps,
     });
+
+    if (project.checkoutCredits !== undefined && project.checkoutCredits > 0) {
+      await ctx.db.patch(project._id, {
+        checkoutCredits: project.checkoutCredits - 1,
+        updatedAt: now,
+      });
+    }
 
     await ctx.scheduler.runAfter(0, internal.webhookDelivery.trigger, {
       projectId: intent.projectId,
@@ -347,6 +414,8 @@ export const markVerifiedPaid = internalMutation({
       paymentIntentId: args.paymentIntentId,
       ...(intent.correlationId !== undefined ? { correlationId: intent.correlationId } : {}),
     });
+
+    return { applied: true as const, projectId: intent.projectId };
   },
 });
 

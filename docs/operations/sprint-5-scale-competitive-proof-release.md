@@ -1,5 +1,13 @@
 # Sprint 5: Scale, Competitive Proof, and Release
 
+> **Sprint 9 status update — 2026-07-13:** Use the
+> [Sprint 9 architecture](../architecture/sprint-9-real-lifecycle-benchmark-architecture.md),
+> [operator runbook](./sprint-9-real-lifecycle-benchmark-runbook.md), and
+> [evidence and closure record](../references/sprint-9-benchmark-evidence-and-closure.md)
+> for the current seven-scenario, 84-cell qualification workflow. This Sprint 5 procedure and its
+> earlier release-gate description are historical. No authorized Sprint 9 capture or P0.1 pass is
+> recorded.
+
 This runbook turns the speed plan's final sprint into a repeatable release decision. It does not create performance evidence by itself: a dry run validates the benchmark contract, while a real run must capture raw samples against an authorized environment.
 
 The checked-in [`payment-intent-create.json`](../../benchmarks/reports/payment-intent-create.json) is marked `captured` but is **non-qualifying**: it is one local normal-profile run with 975 successes and 25 errors (2.5%), above the gate's 0.5% maximum. It is not an authorized baseline or a release claim.

@@ -1,5 +1,6 @@
 "use client";
 
+import { env } from "@/core/config/env";
 import { stellarConfig, STELLAR_TESTNET_NETWORK_PASSPHRASE } from "@/core/config/stellar";
 import { useWallet } from "@/core/wallet/wallet-provider";
 import { api } from "@repo/backend/convex/_generated/api";
@@ -36,6 +37,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import type { Id } from "@repo/backend/convex/_generated/dataModel";
 
+import { emitCheckoutBenchmarkMarker } from "./benchmark-markers";
 import { formatAmount, formatAsset } from "./format";
 
 type CheckoutClientProps = {
@@ -88,6 +90,58 @@ export function CheckoutClient({ paymentIntentId }: CheckoutClientProps) {
   const updateStatus = useMutation(api.payment_intents.mutations.updateStatus);
   const reportSubmitted = useMutation(api.transactions.mutation.reportSubmitted);
   const timer = useTimeRemaining(intent?.expiresAt);
+
+  useEffect(() => {
+    emitCheckoutBenchmarkMarker(
+      env.NEXT_PUBLIC_VELO_BENCHMARK_MARKERS,
+      "velo:checkout-start",
+      {
+        entityId: paymentIntentId,
+        state: "loading",
+        version: 0,
+      },
+      {
+        now: () => performance.timeOrigin,
+        monotonicNow: () => 0,
+      },
+    );
+  }, [paymentIntentId]);
+
+  useEffect(() => {
+    if (!intent) return;
+    const common = {
+      entityId: paymentIntentId,
+      state: intent.status,
+      version: intent.updatedAt,
+    };
+    if (intent.status === "created" && intent.receiverAddress) {
+      emitCheckoutBenchmarkMarker(env.NEXT_PUBLIC_VELO_BENCHMARK_MARKERS, "velo:checkout-ready", {
+        ...common,
+        serverEventAt: intent.stageTimestamps?.routeReady ?? intent.updatedAt,
+      });
+    } else if (intent.status === "pending") {
+      emitCheckoutBenchmarkMarker(
+        env.NEXT_PUBLIC_VELO_BENCHMARK_MARKERS,
+        "velo:payment-submitted-rendered",
+        {
+          ...common,
+          serverEventAt:
+            intent.stageTimestamps?.submissionReported ??
+            intent.stageTimestamps?.submitted ??
+            intent.updatedAt,
+        },
+      );
+    } else if (intent.status === "paid") {
+      emitCheckoutBenchmarkMarker(
+        env.NEXT_PUBLIC_VELO_BENCHMARK_MARKERS,
+        "velo:payment-verified-rendered",
+        {
+          ...common,
+          serverEventAt: intent.stageTimestamps?.confirmed ?? intent.updatedAt,
+        },
+      );
+    }
+  }, [intent, paymentIntentId]);
 
   useEffect(() => {
     const update = () => setIsOffline(!window.navigator.onLine);
@@ -310,9 +364,9 @@ export function CheckoutClient({ paymentIntentId }: CheckoutClientProps) {
   if (intent.status === "awaiting_route") {
     return (
       <CheckoutShell>
-        <Card className="w-full max-w-md bg-card/85 border border-white/10 shadow-2xl backdrop-blur-lg">
+        <Card className="w-full max-w-md border border-white/10 bg-card/85 shadow-2xl backdrop-blur-lg">
           <CardHeader className="text-center">
-            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 border border-primary/20">
+            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full border border-primary/20 bg-primary/10">
               <Spinner className="h-6 w-6 text-primary" />
             </div>
             <CardTitle className="text-xl font-bold">Preparing Payment Route</CardTitle>
@@ -329,28 +383,28 @@ export function CheckoutClient({ paymentIntentId }: CheckoutClientProps) {
   if (intent.status === "pending") {
     return (
       <CheckoutShell>
-        <Card className="w-full max-w-md bg-card/85 border border-white/10 shadow-2xl backdrop-blur-lg animate-in fade-in zoom-in-95 duration-300">
-          <CardHeader className="text-center border-b border-border/50 pb-4">
-            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 border border-primary/20">
+        <Card className="w-full max-w-md animate-in border border-white/10 bg-card/85 shadow-2xl backdrop-blur-lg duration-300 zoom-in-95 fade-in">
+          <CardHeader className="border-b border-border/50 pb-4 text-center">
+            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full border border-primary/20 bg-primary/10">
               <Spinner className="h-6 w-6 text-primary" />
             </div>
-            <CardTitle className="text-xl font-bold bg-clip-text bg-gradient-to-r from-foreground to-foreground/80">
+            <CardTitle className="bg-gradient-to-r from-foreground to-foreground/80 bg-clip-text text-xl font-bold">
               Payment Processing
             </CardTitle>
-            <CardDescription className="text-muted-foreground text-sm mt-1">
+            <CardDescription className="mt-1 text-sm text-muted-foreground">
               We are verifying your transaction on the Stellar network.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6 pt-6">
-            <div className="rounded-xl border border-border/50 bg-muted/20 p-4 space-y-3">
+            <div className="space-y-3 rounded-xl border border-border/50 bg-muted/20 p-4">
               <div className="flex items-center justify-between text-xs sm:text-sm">
-                <span className="text-muted-foreground font-medium">Merchant</span>
+                <span className="font-medium text-muted-foreground">Merchant</span>
                 <span className="font-semibold text-zinc-950 dark:text-zinc-100">
                   {intent.merchantName}
                 </span>
               </div>
               <div className="flex items-center justify-between text-xs sm:text-sm">
-                <span className="text-muted-foreground font-medium">Amount</span>
+                <span className="font-medium text-muted-foreground">Amount</span>
                 <span className="font-semibold text-zinc-950 dark:text-zinc-100">
                   {Number.parseFloat(intent.amount).toLocaleString(undefined, {
                     minimumFractionDigits: 2,
@@ -361,23 +415,23 @@ export function CheckoutClient({ paymentIntentId }: CheckoutClientProps) {
               </div>
               {intent.txHash && (
                 <div className="flex flex-col gap-1 text-xs">
-                  <span className="text-muted-foreground font-medium text-left">
+                  <span className="text-left font-medium text-muted-foreground">
                     Transaction Hash
                   </span>
-                  <span className="font-mono text-[10px] break-all bg-muted/40 p-2 rounded select-all text-zinc-700 dark:text-zinc-300 border border-border/30">
+                  <span className="rounded border border-border/30 bg-muted/40 p-2 font-mono text-[10px] break-all text-zinc-700 select-all dark:text-zinc-300">
                     {intent.txHash}
                   </span>
                 </div>
               )}
             </div>
-            <p className="text-xs text-muted-foreground text-center leading-relaxed">
+            <p className="text-center text-xs leading-relaxed text-muted-foreground">
               Please do not close this window or navigate away. This page will update automatically
               once confirmed.
             </p>
           </CardContent>
           <CardFooter className="justify-center border-t border-border/50 pt-4">
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium">
-              <ShieldCheckIcon className="h-3.5 w-3.5 text-green-500 animate-pulse" />
+            <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+              <ShieldCheckIcon className="h-3.5 w-3.5 animate-pulse text-green-500" />
               <span>Verifying transaction status...</span>
             </div>
           </CardFooter>
@@ -397,17 +451,17 @@ export function CheckoutClient({ paymentIntentId }: CheckoutClientProps) {
 
   return (
     <CheckoutShell>
-      <Card className="w-full max-w-md bg-card/80 border border-white/10 shadow-2xl backdrop-blur-lg">
+      <Card className="w-full max-w-md border border-white/10 bg-card/80 shadow-2xl backdrop-blur-lg">
         {/* Merchant header */}
-        <CardHeader className="text-center border-b border-border/50 pb-4">
-          <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 border border-primary/20">
+        <CardHeader className="border-b border-border/50 pb-4 text-center">
+          <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full border border-primary/20 bg-primary/10">
             <CreditCardIcon className="h-6 w-6 text-primary" />
           </div>
-          <CardTitle className="text-xl font-bold bg-clip-text bg-gradient-to-r from-foreground to-foreground/80">
+          <CardTitle className="bg-gradient-to-r from-foreground to-foreground/80 bg-clip-text text-xl font-bold">
             {intent.merchantName}
           </CardTitle>
           {intent.description && (
-            <CardDescription className="text-muted-foreground text-sm mt-1">
+            <CardDescription className="mt-1 text-sm text-muted-foreground">
               {intent.description}
             </CardDescription>
           )}
@@ -416,10 +470,10 @@ export function CheckoutClient({ paymentIntentId }: CheckoutClientProps) {
         <CardContent className="space-y-6 pt-6">
           {/* Amount display */}
           <div className="text-center">
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">
+            <p className="mb-1 text-xs font-semibold tracking-wider text-muted-foreground uppercase">
               Amount due
             </p>
-            <p className="text-4xl font-extrabold tracking-tight bg-clip-text bg-gradient-to-b from-foreground to-foreground/90">
+            <p className="bg-gradient-to-b from-foreground to-foreground/90 bg-clip-text text-4xl font-extrabold tracking-tight">
               {Number.parseFloat(intent.amount).toLocaleString(undefined, {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 7,
@@ -427,7 +481,7 @@ export function CheckoutClient({ paymentIntentId }: CheckoutClientProps) {
             </p>
             <Badge
               variant="secondary"
-              className="mt-2 text-xs px-2.5 py-0.5 rounded-full font-bold"
+              className="mt-2 rounded-full px-2.5 py-0.5 text-xs font-bold"
             >
               {assetLabel}
             </Badge>
@@ -435,7 +489,7 @@ export function CheckoutClient({ paymentIntentId }: CheckoutClientProps) {
 
           {/* Expiry Timer */}
           {timer && !timer.expired && (
-            <div className="flex items-center justify-center gap-1.5 text-xs font-medium text-amber-500 bg-amber-500/10 rounded-lg py-1.5 px-3 w-fit mx-auto border border-amber-500/20">
+            <div className="mx-auto flex w-fit items-center justify-center gap-1.5 rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-1.5 text-xs font-medium text-amber-500">
               <ClockIcon className="h-3.5 w-3.5 animate-pulse" />
               <span>
                 Expires in {timer.minutes}:{timer.seconds.toString().padStart(2, "0")}
@@ -444,20 +498,20 @@ export function CheckoutClient({ paymentIntentId }: CheckoutClientProps) {
           )}
 
           {/* Payment details */}
-          <div className="rounded-xl border border-border/50 bg-muted/20 p-4 space-y-3">
+          <div className="space-y-3 rounded-xl border border-border/50 bg-muted/20 p-4">
             <div className="flex items-center justify-between text-xs sm:text-sm">
-              <span className="text-muted-foreground font-medium">Network</span>
+              <span className="font-medium text-muted-foreground">Network</span>
               <span className="font-semibold text-foreground">{stellarConfig.networkLabel}</span>
             </div>
             <div className="flex items-center justify-between text-xs sm:text-sm">
-              <span className="text-muted-foreground font-medium">Asset</span>
+              <span className="font-medium text-muted-foreground">Asset</span>
               <span className="font-semibold text-foreground">{assetLabel}</span>
             </div>
             <div className="flex items-center justify-between text-xs sm:text-sm">
-              <span className="text-muted-foreground font-medium">
+              <span className="font-medium text-muted-foreground">
                 {intent.anchor === "pdax" ? "PDAX Deposit Address" : "Recipient Address"}
               </span>
-              <span className="font-mono text-xs text-foreground bg-muted/40 px-1.5 py-0.5 rounded">
+              <span className="rounded bg-muted/40 px-1.5 py-0.5 font-mono text-xs text-foreground">
                 {intent.receiverAddress
                   ? `${intent.receiverAddress.slice(0, 6)}...${intent.receiverAddress.slice(-6)}`
                   : "Route unavailable"}
@@ -468,16 +522,16 @@ export function CheckoutClient({ paymentIntentId }: CheckoutClientProps) {
                 className="flex items-center justify-between text-xs sm:text-sm"
                 id="checkout-receiver-memo"
               >
-                <span className="text-muted-foreground font-medium">Memo / Destination Tag</span>
-                <span className="font-mono text-xs text-foreground bg-muted/40 px-1.5 py-0.5 rounded">
+                <span className="font-medium text-muted-foreground">Memo / Destination Tag</span>
+                <span className="rounded bg-muted/40 px-1.5 py-0.5 font-mono text-xs text-foreground">
                   {intent.receiverMemo}
                 </span>
               </div>
             )}
             {wallet.address && (
               <div className="flex items-center justify-between text-xs sm:text-sm">
-                <span className="text-muted-foreground font-medium">Your Wallet</span>
-                <span className="font-mono text-xs text-foreground bg-muted/40 px-1.5 py-0.5 rounded">
+                <span className="font-medium text-muted-foreground">Your Wallet</span>
+                <span className="rounded bg-muted/40 px-1.5 py-0.5 font-mono text-xs text-foreground">
                   {wallet.address.slice(0, 6)}...{wallet.address.slice(-6)}
                 </span>
               </div>
@@ -508,7 +562,7 @@ export function CheckoutClient({ paymentIntentId }: CheckoutClientProps) {
           {wallet.status !== "connected" ? (
             <Button
               id="checkout-connect-wallet"
-              className="w-full h-12 text-base font-bold bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg hover:shadow-xl transition-all duration-200 cursor-pointer rounded-xl"
+              className="h-12 w-full cursor-pointer rounded-xl bg-primary text-base font-bold text-primary-foreground shadow-lg transition-all duration-200 hover:bg-primary/90 hover:shadow-xl"
               onClick={wallet.connect}
               disabled={
                 wallet.status === "connecting" ||
@@ -531,7 +585,7 @@ export function CheckoutClient({ paymentIntentId }: CheckoutClientProps) {
           ) : (
             <Button
               id="checkout-pay-now"
-              className="w-full h-12 text-base font-bold bg-primary hover:bg-primary/95 text-primary-foreground shadow-lg hover:shadow-xl transition-all duration-200 cursor-pointer rounded-xl"
+              className="h-12 w-full cursor-pointer rounded-xl bg-primary text-base font-bold text-primary-foreground shadow-lg transition-all duration-200 hover:bg-primary/95 hover:shadow-xl"
               onClick={handlePay}
               disabled={!canPay}
             >
@@ -552,13 +606,13 @@ export function CheckoutClient({ paymentIntentId }: CheckoutClientProps) {
 
         {/* Footer with immediate cancel option */}
         <CardFooter className="flex-col gap-3 border-t border-border/50 pt-4">
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium">
+          <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
             <ShieldCheckIcon className="h-3.5 w-3.5 text-green-500" />
             <span>Secured by Velo Pay</span>
           </div>
           <button
             onClick={handleCancelClick}
-            className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors cursor-pointer"
+            className="cursor-pointer text-xs text-muted-foreground underline underline-offset-2 transition-colors hover:text-foreground"
           >
             Cancel and return to merchant
           </button>
@@ -570,8 +624,12 @@ export function CheckoutClient({ paymentIntentId }: CheckoutClientProps) {
 
 function CheckoutShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-background via-background/95 to-slate-900/50 p-4">
-      <div className="w-full max-w-md animate-in fade-in slide-in-from-bottom-6 duration-500">
+    <div
+      id="velo-checkout-root"
+      data-velo-checkout-root="true"
+      className="flex min-h-screen items-center justify-center bg-gradient-to-br from-background via-background/95 to-slate-900/50 p-4"
+    >
+      <div className="w-full max-w-md animate-in duration-500 fade-in slide-in-from-bottom-6">
         {children}
       </div>
     </div>
@@ -581,14 +639,14 @@ function CheckoutShell({ children }: { children: React.ReactNode }) {
 function CheckoutSkeleton() {
   return (
     <CheckoutShell>
-      <Card className="w-full max-w-md bg-card/85 border border-border/50">
+      <Card className="w-full max-w-md border border-border/50 bg-card/85">
         <CardHeader className="text-center">
           <Skeleton className="mx-auto h-12 w-12 rounded-full" />
           <Skeleton className="mx-auto mt-3 h-6 w-36" />
           <Skeleton className="mx-auto mt-2 h-4 w-48" />
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="text-center space-y-2">
+          <div className="space-y-2 text-center">
             <Skeleton className="mx-auto h-10 w-36" />
             <Skeleton className="mx-auto h-5 w-16 rounded-full" />
           </div>

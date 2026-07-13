@@ -19,6 +19,7 @@ export default defineTable({
   ),
   payerAddress: v.optional(v.string()),
   txHash: v.optional(v.string()),
+  verifiedTxHash: v.optional(v.string()),
   successUrl: v.optional(v.string()),
   cancelUrl: v.optional(v.string()),
   anchor: v.optional(v.union(v.literal("inhouse"), v.literal("pdax"))),
@@ -34,6 +35,8 @@ export default defineTable({
       awaiting_signature: v.optional(v.number()),
       signed: v.optional(v.number()),
       submitted: v.optional(v.number()),
+      submissionReported: v.optional(v.number()),
+      observed: v.optional(v.number()),
       confirmed: v.optional(v.number()),
       failed: v.optional(v.number()),
       cancelled: v.optional(v.number()),
@@ -49,4 +52,6 @@ export default defineTable({
   .index("by_project_status_created_at", ["projectId", "status", "createdAt"])
   .index("by_correlation_id", ["correlationId"])
   .index("by_project_and_correlation_id", ["projectId", "correlationId"])
+  .index("by_tx_hash", ["txHash"])
+  .index("by_verified_tx_hash", ["verifiedTxHash"])
   .index("by_status", ["status"]);

@@ -188,7 +188,16 @@ test("watchTransaction handles fast confirmation successfully", async () => {
     status: "success",
     hash: "tx-hash-ok",
     network: "testnet",
-    operations: [],
+    operations: [
+      {
+        index: 0,
+        type: "payment",
+        source: "GDFX...PAYER",
+        destination: ownerAddress,
+        amount: "20.0000000",
+        asset: "native",
+      },
+    ],
     contractCalls: [],
     events: [],
     rawResponse: "{}",

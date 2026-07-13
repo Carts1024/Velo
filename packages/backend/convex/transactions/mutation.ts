@@ -67,6 +67,16 @@ export const reportSubmitted = mutation({
       .query("transactions")
       .withIndex("by_hash", (q) => q.eq("hash", args.hash))
       .unique();
+    const intent = args.paymentIntentId ? await ctx.db.get(args.paymentIntentId) : null;
+    const isPendingReplay = intent?.status === "pending" && intent.txHash === args.hash;
+
+    // A submitted transaction, intent transition, reconciliation job, and watcher are written
+    // atomically. Once the intent already points at this hash, repeating the report must not
+    // rewrite lifecycle clocks or enqueue another watcher.
+    if (existing && isPendingReplay) {
+      return existing._id;
+    }
+
     const now = Date.now();
     const value = {
       hash: args.hash,
@@ -91,7 +101,13 @@ export const reportSubmitted = mutation({
     }
 
     if (args.paymentIntentId) {
-      const intent = await ctx.db.get(args.paymentIntentId);
+      // The only consistent way to reach this branch without a transaction is a legacy or
+      // manually repaired row. Store the missing transaction, but retain replay semantics for
+      // the already-pending intent.
+      if (isPendingReplay) {
+        return txId;
+      }
+
       if (intent && (intent.status === "created" || intent.status === "pending")) {
         const patch: Record<string, unknown> = {
           status: "pending",
@@ -110,10 +126,12 @@ export const reportSubmitted = mutation({
               awaiting_signature: args.stageTimestamps.startedSigning,
               signed: args.stageTimestamps.signed,
               submitted: args.stageTimestamps.submitted,
+              submissionReported: now,
             }
           : {
               ...currentStageTimestamps,
               submitted: now,
+              submissionReported: now,
             };
 
         patch.stageTimestamps = newStageTimestamps;

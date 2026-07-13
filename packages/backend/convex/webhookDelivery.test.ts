@@ -82,7 +82,9 @@ test("webhook delivery retry and backoff lifecycle", async () => {
 
   // Set up mock fetch that fails
   const originalFetch = globalThis.fetch;
+  let fetchCount = 0;
   globalThis.fetch = async () => {
+    fetchCount++;
     throw new Error("Connection failed");
   };
 
@@ -106,6 +108,9 @@ test("webhook delivery retry and backoff lifecycle", async () => {
     const deliveryId = deliveries[0]._id;
 
     // 2. Run a retry (e.g. attempt 2)
+    await t.run(async (ctx) => {
+      await ctx.db.patch(deliveryId, { nextAttemptAt: Date.now() });
+    });
     await t.action(internal.webhookDelivery.trigger, {
       projectId,
       eventType: "payment.succeeded",
@@ -121,6 +126,9 @@ test("webhook delivery retry and backoff lifecycle", async () => {
     expect(deliveries[0].status).toBe("pending");
 
     // 3. Run final attempt 5 that fails, transitions to failed
+    await t.run(async (ctx) => {
+      await ctx.db.patch(deliveryId, { nextAttemptAt: Date.now() });
+    });
     await t.action(internal.webhookDelivery.trigger, {
       projectId,
       eventType: "payment.succeeded",
@@ -135,6 +143,15 @@ test("webhook delivery retry and backoff lifecycle", async () => {
     expect(deliveries[0].attemptCount).toBe(5);
     expect(deliveries[0].status).toBe("failed");
     expect(deliveries[0].deadLetter).toBe(true);
+
+    const fetchCountAtTerminal = fetchCount;
+    await t.action(internal.webhookDelivery.trigger, {
+      projectId,
+      eventType: "payment.succeeded",
+      deliveryId,
+      attemptCount: 6,
+    });
+    expect(fetchCount).toBe(fetchCountAtTerminal);
 
     // 4. Test a successful delivery
     // Reset mock fetch to succeed
