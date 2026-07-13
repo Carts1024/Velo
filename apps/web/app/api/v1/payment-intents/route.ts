@@ -1,4 +1,8 @@
 import {
+  consumeDistributedRateLimit,
+  distributedRateLimitHeaders,
+} from "@/core/api/distributed-rate-limit";
+import {
   attachHeaders,
   getApiKeyHashOrError,
   getIdempotencyKey,
@@ -7,7 +11,6 @@ import {
   publicPaymentIntentFromDocV2,
   veloErrorResponse,
 } from "@/core/api/payment-intents";
-import { rateLimiter } from "@/core/api/rate-limit";
 import { env } from "@/core/config/env";
 import { stellarConfig } from "@/core/config/stellar";
 import {
@@ -52,7 +55,18 @@ export async function POST(request: NextRequest) {
     return complete(auth.response);
   }
 
-  const rateLimitResult = rateLimiter.checkLimit(auth.apiKeyHash);
+  const rateLimitResult = await consumeDistributedRateLimit(convex, auth.apiKeyHash);
+  if (!rateLimitResult.authorized) {
+    return complete(
+      veloErrorResponse({
+        status: 401,
+        type: "auth_error",
+        code: "invalid_api_key",
+        message: "Invalid API key.",
+      }),
+    );
+  }
+  const rateLimitHeaders = distributedRateLimitHeaders(rateLimitResult);
   if (!rateLimitResult.allowed) {
     return complete(
       veloErrorResponse({
@@ -60,14 +74,14 @@ export async function POST(request: NextRequest) {
         type: "rate_limit_error",
         code: "rate_limit_exceeded",
         message: "Rate limit exceeded.",
-        headers: rateLimitResult.headers,
+        headers: rateLimitHeaders,
       }),
     );
   }
 
   const parsed = await parseCreatePaymentIntentBody(request);
   if (!parsed.ok) {
-    return complete(attachHeaders(parsed.response, rateLimitResult.headers));
+    return complete(attachHeaders(parsed.response, rateLimitHeaders));
   }
 
   try {
@@ -108,12 +122,10 @@ export async function POST(request: NextRequest) {
             code: "invalid_api_key",
             message: result.reason || "Invalid API key.",
           }),
-          rateLimitResult.headers,
+          rateLimitHeaders,
         ),
       );
     }
-
-    rateLimiter.cacheKeyProjectMapping(auth.apiKeyHash, result.projectId);
 
     if (result.status === "anchor_not_connected") {
       return complete(
@@ -124,7 +136,7 @@ export async function POST(request: NextRequest) {
             code: "anchor_not_connected",
             message: "PDAX provider is not connected for this project.",
           }),
-          rateLimitResult.headers,
+          rateLimitHeaders,
         ),
       );
     }
@@ -138,7 +150,7 @@ export async function POST(request: NextRequest) {
             code: "idempotency_key_conflict",
             message: "Idempotency-Key was already used with a different request body.",
           }),
-          rateLimitResult.headers,
+          rateLimitHeaders,
         ),
       );
     }
@@ -147,7 +159,7 @@ export async function POST(request: NextRequest) {
       publicPaymentIntentFromDocV2(result.intent, env.NEXT_PUBLIC_APP_URL),
       { status: result.status === "idempotency_replay" ? 200 : 201 },
     );
-    return complete(attachHeaders(response, rateLimitResult.headers));
+    return complete(attachHeaders(response, rateLimitHeaders));
   } catch (error) {
     console.error("Payment intent creation failed:", error);
 
@@ -170,7 +182,7 @@ export async function POST(request: NextRequest) {
                 "X-Error-Source": "payment_intent_route_enrichment",
               },
             }),
-            rateLimitResult.headers,
+            rateLimitHeaders,
           ),
         );
       }
@@ -184,7 +196,7 @@ export async function POST(request: NextRequest) {
           code: "internal_error",
           message: "Internal server error.",
         }),
-        rateLimitResult.headers,
+        rateLimitHeaders,
       ),
     );
   }
@@ -199,7 +211,18 @@ export async function GET(request: NextRequest) {
     return complete(auth.response);
   }
 
-  const rateLimitResult = rateLimiter.checkLimit(auth.apiKeyHash);
+  const rateLimitResult = await consumeDistributedRateLimit(convex, auth.apiKeyHash);
+  if (!rateLimitResult.authorized) {
+    return complete(
+      veloErrorResponse({
+        status: 401,
+        type: "auth_error",
+        code: "invalid_api_key",
+        message: "Invalid API key.",
+      }),
+    );
+  }
+  const rateLimitHeaders = distributedRateLimitHeaders(rateLimitResult);
   if (!rateLimitResult.allowed) {
     return complete(
       veloErrorResponse({
@@ -207,14 +230,14 @@ export async function GET(request: NextRequest) {
         type: "rate_limit_error",
         code: "rate_limit_exceeded",
         message: "Rate limit exceeded.",
-        headers: rateLimitResult.headers,
+        headers: rateLimitHeaders,
       }),
     );
   }
 
   const parsed = parseListPaymentIntentQuery(request.nextUrl.searchParams);
   if (!parsed.ok) {
-    return complete(attachHeaders(parsed.response, rateLimitResult.headers));
+    return complete(attachHeaders(parsed.response, rateLimitHeaders));
   }
 
   try {
@@ -235,12 +258,10 @@ export async function GET(request: NextRequest) {
             code: "invalid_api_key",
             message: result.reason || "Invalid API key.",
           }),
-          rateLimitResult.headers,
+          rateLimitHeaders,
         ),
       );
     }
-
-    rateLimiter.cacheKeyProjectMapping(auth.apiKeyHash, result.projectId);
 
     const response = NextResponse.json({
       object: "list",
@@ -250,7 +271,7 @@ export async function GET(request: NextRequest) {
       hasMore: !result.page.isDone,
       nextCursor: result.page.isDone ? null : result.page.continueCursor,
     });
-    return complete(attachHeaders(response, rateLimitResult.headers));
+    return complete(attachHeaders(response, rateLimitHeaders));
   } catch (error) {
     console.error("Payment intent list failed:", error);
     return complete(
@@ -261,7 +282,7 @@ export async function GET(request: NextRequest) {
           code: "internal_error",
           message: "Internal server error.",
         }),
-        rateLimitResult.headers,
+        rateLimitHeaders,
       ),
     );
   }

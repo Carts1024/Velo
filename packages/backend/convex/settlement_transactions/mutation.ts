@@ -23,7 +23,9 @@ export const create = internalMutation({
   handler: async (ctx, args) => {
     const existing = await ctx.db
       .query("settlementTransactions")
-      .withIndex("by_idempotency", (q) => q.eq("idempotencyId", args.idempotencyId))
+      .withIndex("by_project_and_idempotency", (q) =>
+        q.eq("projectId", args.projectId).eq("idempotencyId", args.idempotencyId),
+      )
       .unique();
 
     if (existing) {
@@ -48,6 +50,7 @@ export const create = internalMutation({
 
 export const updateStatus = internalMutation({
   args: {
+    projectId: v.optional(v.id("projects")),
     idempotencyId: v.string(),
     status: v.union(
       v.literal("QUOTE_PENDING"),
@@ -81,13 +84,33 @@ export const updateStatus = internalMutation({
     ),
   },
   handler: async (ctx, args) => {
-    const existing = await ctx.db
-      .query("settlementTransactions")
-      .withIndex("by_idempotency", (q) => q.eq("idempotencyId", args.idempotencyId))
-      .unique();
+    const existing = args.projectId
+      ? await ctx.db
+          .query("settlementTransactions")
+          .withIndex("by_project_and_idempotency", (q) =>
+            q.eq("projectId", args.projectId!).eq("idempotencyId", args.idempotencyId),
+          )
+          .unique()
+      : await ctx.db
+          .query("settlementTransactions")
+          .withIndex("by_idempotency", (q) => q.eq("idempotencyId", args.idempotencyId))
+          .unique();
 
     if (!existing) {
       throw new Error(`Settlement transaction not found: ${args.idempotencyId}`);
+    }
+
+    const terminal = new Set(["PAYOUT_SUCCEEDED", "PAYOUT_FAILED"]);
+    if (terminal.has(existing.status) && args.status !== existing.status) {
+      throw new Error(
+        `Invalid terminal settlement transition: ${existing.status} -> ${args.status}`,
+      );
+    }
+    if (
+      (existing.status === "PAYOUT_SUCCEEDED" || existing.status === "PAYOUT_FAILED") &&
+      args.status === "PAYOUT_PENDING"
+    ) {
+      throw new Error(`Stale settlement transition rejected: ${existing.status} -> ${args.status}`);
     }
 
     const patchPayload: Record<string, unknown> = {

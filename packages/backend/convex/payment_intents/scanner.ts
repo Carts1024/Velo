@@ -1,10 +1,15 @@
 import { lookupTestnetTransaction } from "@repo/stellar";
+import { makeFunctionReference } from "convex/server";
 import { v } from "convex/values";
 
 import type { Doc } from "../_generated/dataModel";
 
 import { api, internal } from "../_generated/api";
 import { internalAction, internalMutation, internalQuery } from "../_generated/server";
+
+const ensureReconciliation = makeFunctionReference<"mutation">(
+  "payment_reconciliation_jobs/mutations:ensure",
+);
 
 const DEFAULT_TESTNET_RPC_URL = "https://soroban-testnet.stellar.org";
 
@@ -30,11 +35,9 @@ export const checkPendingPayments = internalAction({
     const url = rpcUrl();
 
     for (const intent of pendingIntents) {
-      const now = Date.now();
-
       if (intent.txHash) {
         try {
-          const result = await lookupTestnetTransaction(url, intent.txHash);
+          const result = await lookupTestnetTransaction(url, intent.txHash, { timeoutMs: 2_500 });
 
           if (result.status === "success") {
             await ctx.runMutation(internal.payment_intents.mutations.markVerifiedPaid, {
@@ -52,27 +55,25 @@ export const checkPendingPayments = internalAction({
             });
             processedCount++;
           } else if (result.status === "not_found") {
-            // Fail if pending for more than 6 minutes without on-chain confirmation
-            if (now - intent.updatedAt > 6 * 60 * 1000) {
-              await ctx.runMutation(api.payment_intents.mutations.updateStatus, {
-                paymentIntentId: intent._id,
-                status: "failed",
-              });
-              processedCount++;
-            }
+            await ctx.runMutation(ensureReconciliation, {
+              paymentIntentId: intent._id,
+              projectId: intent.projectId,
+              txHash: intent.txHash,
+            });
           }
         } catch (error) {
+          await ctx.runMutation(ensureReconciliation, {
+            paymentIntentId: intent._id,
+            projectId: intent.projectId,
+            txHash: intent.txHash,
+          });
           console.error(`Error looking up transaction ${intent.txHash}:`, error);
         }
       } else {
-        // No hash and pending for more than 6 minutes
-        if (now - intent.updatedAt > 6 * 60 * 1000) {
-          await ctx.runMutation(api.payment_intents.mutations.updateStatus, {
-            paymentIntentId: intent._id,
-            status: "failed",
-          });
-          processedCount++;
-        }
+        await ctx.runMutation(ensureReconciliation, {
+          paymentIntentId: intent._id,
+          projectId: intent.projectId,
+        });
       }
     }
 
@@ -151,7 +152,7 @@ export const watchTransaction = internalAction({
       }
 
       try {
-        const result = await lookupTestnetTransaction(url, args.txHash);
+        const result = await lookupTestnetTransaction(url, args.txHash, { timeoutMs: 2_500 });
 
         if (result.status === "success") {
           await ctx.runMutation(internal.payment_intents.mutations.markVerifiedPaid, {

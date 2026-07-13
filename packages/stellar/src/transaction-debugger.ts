@@ -226,8 +226,14 @@ export function parseTransactionResponse(
   }
 }
 
-export async function lookupTestnetTransaction(rpcUrl: string, hash: string) {
+export async function lookupTestnetTransaction(
+  rpcUrl: string,
+  hash: string,
+  options: { timeoutMs?: number } = {},
+) {
   const normalizedHash = assertValidTransactionHash(hash);
-  const response = await new rpc.Server(rpcUrl).getTransaction(normalizedHash);
+  const response = await new rpc.Server(rpcUrl, {
+    timeout: options.timeoutMs ?? 5_000,
+  }).getTransaction(normalizedHash);
   return parseTransactionResponse(normalizedHash, response);
 }

@@ -606,7 +606,7 @@ test("settlement webhook processing and helper queries", async () => {
   })) as Record<string, unknown>;
   expect(dupRes.status).toBe("duplicate");
 
-  // 7. Test fallback to first project for raw deposit webhook
+  // 7. Unmatched callbacks fail closed; there is no "first project" fallback.
   const depositPayload = {
     identifier: "dep-identifier-456",
     user_id: "merchant-username",
@@ -624,16 +624,12 @@ test("settlement webhook processing and helper queries", async () => {
     status: "completed",
   };
 
-  const processResDeposit = (await t.action(api.settlement.actions.handlePdaxWebhook, {
-    payload: depositPayload,
-  })) as Record<string, unknown>;
-
-  expect(processResDeposit.status).toBe("processed");
-  expect(processResDeposit.eventId).toBe("req-uuid-456");
+  await expect(
+    t.action(api.settlement.actions.handlePdaxWebhook, { payload: depositPayload }),
+  ).rejects.toThrow(/No settlement or provider operation matches/);
 
   const depositEvent = await t.query(internal.provider_events.mutation.getByEventId, {
     eventId: "req-uuid-456",
   });
-  expect(depositEvent?.projectId).toBe(projectId); // Associated with first project!
-  expect(depositEvent?.processed).toBe(true);
+  expect(depositEvent).toBeNull();
 });

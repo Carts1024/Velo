@@ -1,5 +1,8 @@
 import { getApiKeyFromRequest, hashApiKey } from "@/core/api/auth";
-import { rateLimiter } from "@/core/api/rate-limit";
+import {
+  consumeDistributedRateLimit,
+  distributedRateLimitHeaders,
+} from "@/core/api/distributed-rate-limit";
 import { env } from "@/core/config/env";
 import { api } from "@repo/backend/convex/_generated/api";
 import { ConvexHttpClient } from "convex/browser";
@@ -16,13 +19,18 @@ export async function GET(request: NextRequest) {
   }
 
   const apiKeyHash = hashApiKey(apiKey);
-  const rateLimitResult = rateLimiter.checkLimit(apiKeyHash);
+  const convex = new ConvexHttpClient(env.NEXT_PUBLIC_CONVEX_URL);
+  const rateLimitResult = await consumeDistributedRateLimit(convex, apiKeyHash);
+  if (!rateLimitResult.authorized) {
+    return NextResponse.json({ error: "Unauthorized: Invalid API key." }, { status: 401 });
+  }
+  const rateLimitHeaders = distributedRateLimitHeaders(rateLimitResult);
   if (!rateLimitResult.allowed) {
     return NextResponse.json(
       { error: "Too Many Requests: Rate limit exceeded." },
       {
         status: 429,
-        headers: rateLimitResult.headers,
+        headers: rateLimitHeaders,
       },
     );
   }
@@ -32,7 +40,6 @@ export async function GET(request: NextRequest) {
   const limit = limitParam ? parseInt(limitParam, 10) : undefined;
 
   try {
-    const convex = new ConvexHttpClient(env.NEXT_PUBLIC_CONVEX_URL);
     const result = await convex.query(api.projects.query.verifyApiKeyAndGetWebhookDeliveries, {
       apiKeyHash,
       limit,
@@ -42,15 +49,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized: Invalid API key." }, { status: 401 });
     }
 
-    if (result.projectId) {
-      rateLimiter.cacheKeyProjectMapping(apiKeyHash, result.projectId);
-    }
-
     const response = NextResponse.json({
       deliveries: result.deliveries,
     });
 
-    Object.entries(rateLimitResult.headers).forEach(([key, val]) => {
+    Object.entries(rateLimitHeaders).forEach(([key, val]) => {
       response.headers.set(key, val);
     });
 

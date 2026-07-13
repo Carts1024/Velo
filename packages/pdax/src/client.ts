@@ -170,16 +170,16 @@ export interface PdaxCryptoWebhookPayload {
   user_id: string;
   reference_id: string;
   request_id: string;
-  transaction_type: "DEPOSIT" | "WITHDRAWAL" | string;
+  transaction_type: "DEPOSIT" | "WITHDRAWAL";
   transaction_hash: string;
   amount: number;
   fee_amount: number;
-  asset_type: "crypto" | string;
+  asset_type: "crypto";
   asset: string;
   network: string;
   source_address: string;
   destination_address: string;
-  status: "completed" | "pending" | "failed" | string;
+  status: "completed" | "pending" | "failed";
 }
 
 export interface PdaxFiatWebhookPayload {
@@ -189,9 +189,9 @@ export interface PdaxFiatWebhookPayload {
   reference_number: string;
   amount: number;
   asset: "PHP";
-  asset_type: "FIAT" | string;
-  transaction_type: "WITHDRAWAL" | "DEPOSIT" | string;
-  status: "COMPLETED" | "PENDING" | "FAILED" | string;
+  asset_type: "FIAT";
+  transaction_type: "WITHDRAWAL" | "DEPOSIT";
+  status: "COMPLETED" | "PENDING" | "FAILED";
   method: string;
   fee: number;
 }
@@ -234,6 +234,91 @@ export interface PdaxFiatTransactionsParams {
 }
 
 export type PdaxWebhookPayload = PdaxCryptoWebhookPayload | PdaxFiatWebhookPayload;
+
+const WEBHOOK_STRING_MAX = 512;
+
+function webhookRecord(payload: unknown): Record<string, unknown> {
+  let decoded = payload;
+  if (typeof payload === "string") {
+    try {
+      decoded = JSON.parse(payload) as unknown;
+    } catch {
+      throw new TypeError("Invalid PDAX webhook: payload must be valid JSON");
+    }
+  }
+  if (decoded === null || typeof decoded !== "object" || Array.isArray(decoded)) {
+    throw new TypeError("Invalid PDAX webhook: payload must be an object");
+  }
+  return decoded as Record<string, unknown>;
+}
+
+function webhookString(
+  record: Record<string, unknown>,
+  key: string,
+  allowed?: readonly string[],
+): string {
+  const value = record[key];
+  if (typeof value !== "string" || value.length === 0 || value.length > WEBHOOK_STRING_MAX) {
+    throw new TypeError(`Invalid PDAX webhook: ${key} must be a non-empty bounded string`);
+  }
+  if (allowed && !allowed.includes(value)) {
+    throw new TypeError(`Invalid PDAX webhook: unsupported ${key}`);
+  }
+  return value;
+}
+
+function webhookAmount(record: Record<string, unknown>, key: string): number {
+  const value = record[key];
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+    throw new TypeError(`Invalid PDAX webhook: ${key} must be a nonnegative finite number`);
+  }
+  return value;
+}
+
+function parseCryptoWebhook(record: Record<string, unknown>): PdaxCryptoWebhookPayload {
+  return {
+    identifier: webhookString(record, "identifier"),
+    user_id: webhookString(record, "user_id"),
+    reference_id: webhookString(record, "reference_id"),
+    request_id: webhookString(record, "request_id"),
+    transaction_type: webhookString(record, "transaction_type", ["DEPOSIT", "WITHDRAWAL"]) as
+      | "DEPOSIT"
+      | "WITHDRAWAL",
+    transaction_hash: webhookString(record, "transaction_hash"),
+    amount: webhookAmount(record, "amount"),
+    fee_amount: webhookAmount(record, "fee_amount"),
+    asset_type: "crypto",
+    asset: webhookString(record, "asset"),
+    network: webhookString(record, "network"),
+    source_address: webhookString(record, "source_address"),
+    destination_address: webhookString(record, "destination_address"),
+    status: webhookString(record, "status", ["completed", "pending", "failed"]) as
+      | "completed"
+      | "pending"
+      | "failed",
+  };
+}
+
+function parseFiatWebhook(record: Record<string, unknown>): PdaxFiatWebhookPayload {
+  return {
+    identifier: webhookString(record, "identifier"),
+    user_id: webhookString(record, "user_id"),
+    request_id: webhookString(record, "request_id"),
+    reference_number: webhookString(record, "reference_number"),
+    amount: webhookAmount(record, "amount"),
+    asset: webhookString(record, "asset", ["PHP"]) as "PHP",
+    asset_type: "FIAT",
+    transaction_type: webhookString(record, "transaction_type", ["WITHDRAWAL", "DEPOSIT"]) as
+      | "WITHDRAWAL"
+      | "DEPOSIT",
+    status: webhookString(record, "status", ["COMPLETED", "PENDING", "FAILED"]) as
+      | "COMPLETED"
+      | "PENDING"
+      | "FAILED",
+    method: webhookString(record, "method"),
+    fee: webhookAmount(record, "fee"),
+  };
+}
 
 export class PdaxClient {
   private baseUrl: string;
@@ -525,14 +610,15 @@ export class PdaxClient {
   }
 
   parseWebhook(payload: unknown): PdaxWebhookPayload {
-    if (typeof payload === "string") {
-      return JSON.parse(payload) as PdaxWebhookPayload;
-    }
-    return payload as PdaxWebhookPayload;
+    const record = webhookRecord(payload);
+    if (record.asset_type === "crypto") return parseCryptoWebhook(record);
+    if (record.asset_type === "FIAT") return parseFiatWebhook(record);
+    throw new TypeError("Invalid PDAX webhook: unsupported asset_type");
   }
 
   verifyWebhook(_payload: unknown, _headers: Record<string, string>): boolean {
-    // PDAX webhooks do not have signature headers, verification is done by checking details in DB.
-    return true;
+    // PDAX provides no native callback signature. Authentication must be enforced by ingress,
+    // and callback facts must be corroborated against durable provider records.
+    return false;
   }
 }

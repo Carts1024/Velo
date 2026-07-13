@@ -41,6 +41,8 @@ export default defineTable({
   updatedAt: v.number(),
 })
   .index("by_project", ["projectId"])
+  .index("by_project_and_idempotency", ["projectId", "idempotencyId"])
+  .index("by_status_and_updated_at", ["status", "updatedAt"])
   .index("by_idempotency", ["idempotencyId"])
   .index("by_payment_intent", ["paymentIntentId"])
   .index("by_order_id", ["orderId"])

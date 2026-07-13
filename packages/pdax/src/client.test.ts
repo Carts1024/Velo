@@ -345,16 +345,113 @@ describe("PdaxClient", () => {
     assert.strictEqual(mockFetchCall?.options!.body, JSON.stringify(params));
   });
 
-  test("webhooks parsing and verification", () => {
+  test("normalizes an allowlisted crypto webhook", () => {
     const client = new PdaxClient(BASE_URL);
     const rawPayload = {
       identifier: "tx_crypto_dep_001",
+      user_id: "provider-user-1",
+      reference_id: "reference-1",
+      request_id: "request-1",
+      transaction_type: "DEPOSIT",
+      transaction_hash: "stellar-transaction-hash",
+      amount: 25.5,
+      fee_amount: 0,
+      asset_type: "crypto",
+      asset: "USDCXLM",
+      network: "stellar",
+      source_address: "G_SOURCE",
+      destination_address: "G_DESTINATION",
       status: "completed",
+      attacker_controlled: "discard me",
     };
     const parsed = client.parseWebhook(JSON.stringify(rawPayload));
-    assert.deepStrictEqual(parsed, rawPayload);
+    assert.deepStrictEqual(parsed, {
+      identifier: "tx_crypto_dep_001",
+      user_id: "provider-user-1",
+      reference_id: "reference-1",
+      request_id: "request-1",
+      transaction_type: "DEPOSIT",
+      transaction_hash: "stellar-transaction-hash",
+      amount: 25.5,
+      fee_amount: 0,
+      asset_type: "crypto",
+      asset: "USDCXLM",
+      network: "stellar",
+      source_address: "G_SOURCE",
+      destination_address: "G_DESTINATION",
+      status: "completed",
+    });
+  });
 
-    assert.ok(client.verifyWebhook(parsed, {}));
+  test("normalizes an allowlisted fiat webhook", () => {
+    const client = new PdaxClient(BASE_URL);
+    const parsed = client.parseWebhook({
+      identifier: "payout-1",
+      user_id: "provider-user-1",
+      request_id: "request-1",
+      reference_number: "reference-1",
+      amount: 1_000,
+      asset: "PHP",
+      asset_type: "FIAT",
+      transaction_type: "WITHDRAWAL",
+      status: "PENDING",
+      method: "PAY-TO-ACCOUNT-REAL-TIME",
+      fee: 15,
+      ignored: { nested: "data" },
+    });
+    assert.deepStrictEqual(parsed, {
+      identifier: "payout-1",
+      user_id: "provider-user-1",
+      request_id: "request-1",
+      reference_number: "reference-1",
+      amount: 1_000,
+      asset: "PHP",
+      asset_type: "FIAT",
+      transaction_type: "WITHDRAWAL",
+      status: "PENDING",
+      method: "PAY-TO-ACCOUNT-REAL-TIME",
+      fee: 15,
+    });
+  });
+
+  test("rejects malformed and stale webhook shapes", () => {
+    const client = new PdaxClient(BASE_URL);
+    const validFiat = {
+      identifier: "payout-1",
+      user_id: "provider-user-1",
+      request_id: "request-1",
+      reference_number: "reference-1",
+      amount: 1_000,
+      asset: "PHP",
+      asset_type: "FIAT",
+      transaction_type: "WITHDRAWAL",
+      status: "COMPLETED",
+      method: "INSTAPAY",
+      fee: 15,
+    };
+
+    for (const payload of [null, [], "not-json", 12]) {
+      assert.throws(() => client.parseWebhook(payload), /Invalid PDAX webhook/);
+    }
+    assert.throws(() => client.parseWebhook({ ...validFiat, identifier: "" }), /identifier/);
+    assert.throws(() => client.parseWebhook({ ...validFiat, request_id: undefined }), /request_id/);
+    assert.throws(() => client.parseWebhook({ ...validFiat, asset_type: "fiat" }), /asset_type/);
+    assert.throws(
+      () => client.parseWebhook({ ...validFiat, transaction_type: "TRADE" }),
+      /transaction_type/,
+    );
+    assert.throws(() => client.parseWebhook({ ...validFiat, status: "SUCCESS" }), /status/);
+    assert.throws(() => client.parseWebhook({ ...validFiat, amount: "1000" }), /amount/);
+    assert.throws(() => client.parseWebhook({ ...validFiat, fee: -1 }), /fee/);
+    assert.throws(
+      () => client.parseWebhook({ ...validFiat, reference_number: "x".repeat(513) }),
+      /reference_number/,
+    );
+  });
+
+  test("does not claim native signature verification", () => {
+    const client = new PdaxClient(BASE_URL);
+    assert.strictEqual(client.verifyWebhook({}, {}), false);
   });
 
   test("applies a total deadline to login", async () => {

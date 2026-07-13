@@ -48,3 +48,11 @@ benchmarks/reports/*.md
 docs/operations/sprint-1-measurement-and-slo-lock.md
 docs/operations/sprint-5-scale-competitive-proof-release.md
 docs/
+!docs/
+docs/*
+!docs/architecture/
+docs/architecture/*
+!docs/architecture/sprint-8-durable-financial-reliability.md
+!docs/operations/
+docs/operations/*
+!docs/operations/sprint-8-durable-financial-reliability-runbook.md

@@ -90,6 +90,22 @@ For PDAX, creation can return `status: "awaiting_route"` with `receiverAddress: 
 
 Velo signs webhook events sent to your endpoints using HMAC-SHA256. Webhook verification is required to verify that incoming payloads are authentic and untampered.
 
+### Envelope version and event types
+
+Current events use `version: "1"`. After HMAC verification, the SDK normalizes a legacy event with
+no `version` to v1 and rejects an explicit unsupported version. Signature validation happens before
+the unsupported-version error, preventing unauthenticated payloads from becoming a version oracle.
+Evidence: [`verifyWebhookSignature normalizes a signed legacy event to version 1`](src/webhooks.test.ts)
+and [`verifyWebhookSignature verifies HMAC before rejecting unsupported versions`](src/webhooks.test.ts).
+
+The typed union includes payment, project, contract, transaction, settlement quote/trade/withdrawal,
+and `provider.pdax.event.received` events. Settlement/provider shape validation is covered by
+[`verifyWebhookSignature accepts settlement and provider event payloads`](src/webhooks.test.ts).
+
+Delivery IDs represent durable, fenced deliveries. Consumers must still deduplicate by
+`x-velo-delivery`: Velo provides **exactly-once observable transitions**, not exactly-once
+transport. Invalid signatures fail closed, as covered by [`verifyWebhookSignature rejects signature mismatch`](src/webhooks.test.ts).
+
 > [!IMPORTANT]
 > Webhook signature verification requires the **raw, unparsed request body**. Do not parse the request body as JSON prior to calling verify.
 >
@@ -269,6 +285,9 @@ Idempotency keys are scoped to your project. Repeating a request with the same p
 - Set `timeoutMs` below your serverless or API-route deadline; the SDK budget includes retries and retry waits.
 - Treat `VeloSubmissionUnknownError` as "check by transaction hash / intent state" rather than "submit again."
 - For webhook consumers, continue deduplicating deliveries by `x-velo-delivery` and verifying `x-velo-signature` with the raw request body.
+
+Sprint 8 webhook evidence is deterministic and automated. It is not live SLO qualification or
+production availability evidence.
 
 ---
 

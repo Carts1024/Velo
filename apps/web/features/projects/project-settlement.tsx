@@ -99,6 +99,11 @@ interface PdaxFiatWithdrawData {
   fee: number;
 }
 
+type SettlementOperationResult<T> =
+  | { state: "succeeded"; operationId: Id<"providerOperations">; replay: boolean; data: T }
+  | { state: "in_progress"; operationId: Id<"providerOperations">; retryAfterMs: number }
+  | { state: "recovery_required"; operationId: Id<"providerOperations"> };
+
 const BANK_TEST_ACCOUNTS = {
   BASECPH: {
     name: "Security Bank",
@@ -169,7 +174,6 @@ function SearchableSelect({
               placeholder="Search..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              autoFocus
               aria-label="Search options"
             />
           </div>
@@ -295,6 +299,12 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
   const [tradeLoading, setTradeLoading] = useState(false);
   const [tradeError, setTradeError] = useState<string | null>(null);
   const [tradeSuccess, setTradeSuccess] = useState<PdaxOrderDetails | null>(null);
+  const [tradeOperationId, setTradeOperationId] = useState<Id<"providerOperations"> | null>(null);
+  const tradeIdempotencyKey = useRef<string | null>(null);
+  const tradeOperation = useQuery(
+    api.provider_operations.queries.get,
+    tradeOperationId ? { operationId: tradeOperationId } : "skip",
+  );
 
   // Withdrawal flow state
   const [withdrawBank, setWithdrawBank] = useState("BASECPH");
@@ -308,6 +318,14 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
   const [withdrawLoading, setWithdrawLoading] = useState(false);
   const [withdrawError, setWithdrawError] = useState<string | null>(null);
   const [withdrawSuccess, setWithdrawSuccess] = useState<PdaxFiatWithdrawData | null>(null);
+  const [withdrawOperationId, setWithdrawOperationId] = useState<Id<"providerOperations"> | null>(
+    null,
+  );
+  const withdrawIdempotencyKey = useRef<string | null>(null);
+  const withdrawOperation = useQuery(
+    api.provider_operations.queries.get,
+    withdrawOperationId ? { operationId: withdrawOperationId } : "skip",
+  );
 
   // Webhook Simulator state
   const [simIdentifier, setSimIdentifier] = useState("");
@@ -362,6 +380,45 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
     refreshBalances();
   }, [refreshBalances]);
 
+  useEffect(() => {
+    if (!tradeOperation) return;
+    if (tradeOperation.state === "succeeded" && tradeOperation.resultJson) {
+      const trade = JSON.parse(tradeOperation.resultJson) as PdaxOrderDetails;
+      setTradeSuccess(trade);
+      setTradeError(null);
+      setTradeOperationId(null);
+      tradeIdempotencyKey.current = null;
+      if (trade.total_amount) {
+        setWithdrawAmount(trade.total_amount.toString());
+        setSimAmount(trade.total_amount.toString());
+      }
+      void refreshBalances();
+    } else if (tradeOperation.state === "failed" || tradeOperation.state === "dead_letter") {
+      setTradeError(
+        `Trade outcome requires recovery (operation ${tradeOperation._id}). Do not retry with a new idempotency key.`,
+      );
+    }
+  }, [tradeOperation, refreshBalances]);
+
+  useEffect(() => {
+    if (!withdrawOperation) return;
+    if (withdrawOperation.resultJson) {
+      const withdrawal = JSON.parse(withdrawOperation.resultJson) as PdaxFiatWithdrawData;
+      setWithdrawSuccess(withdrawal);
+      setSimIdentifier(withdrawal.identifier);
+    }
+    if (withdrawOperation.state === "succeeded") {
+      setWithdrawError(null);
+      setWithdrawOperationId(null);
+      withdrawIdempotencyKey.current = null;
+      void refreshBalances();
+    } else if (withdrawOperation.state === "failed" || withdrawOperation.state === "dead_letter") {
+      setWithdrawError(
+        `Payout outcome requires recovery (operation ${withdrawOperation._id}). Do not retry with a new idempotency key.`,
+      );
+    }
+  }, [withdrawOperation, refreshBalances]);
+
   // Quote Expiry Timer
   useEffect(() => {
     if (!activeQuote || !quoteExpiresAt) return;
@@ -387,15 +444,11 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
     toast.loading("Connecting to PDAX Provider UAT...", { id: "pdax-connect" });
     try {
       await connectAction({ projectId: typedProjectId });
-      // Automatically register the PDAX webhook callback URL
+      // Register the server-owned, versioned PDAX callback URL.
       try {
         const isLocalhost = ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
         if (!isLocalhost) {
-          const pdaxCallbackUrl = `${window.location.origin}/api/webhooks/pdax`;
-          await registerWebhookAction({
-            projectId: typedProjectId,
-            webhookUrl: pdaxCallbackUrl,
-          });
+          await registerWebhookAction({ projectId: typedProjectId });
         } else {
           console.log("Localhost detected. Skipping PDAX webhook registration.");
         }
@@ -470,25 +523,37 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
     toast.loading("Executing conversion trade...", { id: "pdax-trade" });
 
     try {
-      const res = (await executeTradeAction({
+      tradeIdempotencyKey.current ??= `trade-${crypto.randomUUID()}`;
+      const result = (await executeTradeAction({
         projectId: typedProjectId,
         quoteId: activeQuote.quote_id,
-        idempotencyId: `t-idemp-${Date.now()}`,
-      })) as PdaxOrderDetails;
+        idempotencyId: tradeIdempotencyKey.current,
+      })) as SettlementOperationResult<PdaxOrderDetails>;
 
-      setTradeSuccess(res);
-      // Auto-fill withdrawal amount based on execution payout
-      if (res.total_amount) {
-        setWithdrawAmount(res.total_amount.toString());
-        setSimAmount(res.total_amount.toString());
+      if (result.state === "succeeded") {
+        setTradeSuccess(result.data);
+        tradeIdempotencyKey.current = null;
+        if (result.data.total_amount) {
+          setWithdrawAmount(result.data.total_amount.toString());
+          setSimAmount(result.data.total_amount.toString());
+        }
+        setActiveQuote(null);
+        setQuoteExpiresAt(null);
+        toast.success("Trade executed successfully!", { id: "pdax-trade" });
+        await refreshBalances();
+      } else {
+        setTradeOperationId(result.operationId);
+        const message =
+          result.state === "recovery_required"
+            ? `Trade outcome requires recovery (operation ${result.operationId}). Do not submit a new trade.`
+            : `Trade submitted safely and is awaiting provider confirmation (operation ${result.operationId}).`;
+        setTradeError(message);
+        toast.warning(message, { id: "pdax-trade" });
       }
-      setActiveQuote(null);
-      setQuoteExpiresAt(null);
-      toast.success("Trade executed successfully!", { id: "pdax-trade" });
-      await refreshBalances();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to execute trade";
       setTradeError(msg);
+      tradeIdempotencyKey.current = null;
       toast.error(`Trade failed: ${msg}`, { id: "pdax-trade" });
     } finally {
       setTradeLoading(false);
@@ -507,11 +572,12 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
       return;
     }
 
-    const idempotencyId = `w-idemp-${Date.now()}`;
+    withdrawIdempotencyKey.current ??= `withdrawal-${crypto.randomUUID()}`;
+    const idempotencyId = withdrawIdempotencyKey.current;
     toast.loading("Initiating bank payout via InstaPay...", { id: "pdax-withdraw" });
 
     try {
-      const res = (await fiatWithdrawAction({
+      const result = (await fiatWithdrawAction({
         projectId: typedProjectId,
         idempotencyId,
         amount: amt,
@@ -520,15 +586,27 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
         accountNumber: withdrawAccountNumber,
         beneficiaryFirstName: withdrawFirstName,
         beneficiaryLastName: withdrawLastName,
-      })) as PdaxFiatWithdrawData;
+      })) as SettlementOperationResult<PdaxFiatWithdrawData>;
 
-      setWithdrawSuccess(res);
-      setSimIdentifier(res.identifier || idempotencyId);
-      toast.success("InstaPay payout initiated successfully!", { id: "pdax-withdraw" });
-      await refreshBalances();
+      if (result.state === "succeeded") {
+        setWithdrawSuccess(result.data);
+        setSimIdentifier(result.data.identifier || idempotencyId);
+        withdrawIdempotencyKey.current = null;
+        toast.success("InstaPay payout initiated successfully!", { id: "pdax-withdraw" });
+        await refreshBalances();
+      } else {
+        setWithdrawOperationId(result.operationId);
+        const message =
+          result.state === "recovery_required"
+            ? `Payout outcome requires recovery (operation ${result.operationId}). Do not create a new payout.`
+            : `Payout accepted and awaiting provider confirmation (operation ${result.operationId}).`;
+        setWithdrawError(message);
+        toast.warning(message, { id: "pdax-withdraw" });
+      }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to initiate withdrawal";
       setWithdrawError(msg);
+      withdrawIdempotencyKey.current = null;
       toast.error(`Payout failed: ${msg}`, { id: "pdax-withdraw" });
     } finally {
       setWithdrawLoading(false);

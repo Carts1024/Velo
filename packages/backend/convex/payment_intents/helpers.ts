@@ -68,7 +68,6 @@ export const STATUS_TRANSITIONS: Record<string, ReadonlySet<string>> = {
   awaiting_route: new Set(["created", "failed", "expired", "cancelled"]),
   created: new Set(["pending", "expired", "cancelled", "failed"]),
   pending: new Set(["paid", "failed", "expired", "cancelled"]),
-  failed: new Set(["pending", "paid", "expired", "cancelled"]),
 };
 
 /**

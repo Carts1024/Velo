@@ -74,18 +74,30 @@ export type ListResponse<T> = {
 };
 
 export type WebhookEventType =
+  | "project.registered"
+  | "project.updated"
+  | "transaction.succeeded"
+  | "transaction.failed"
   | "payment.created"
   | "payment.succeeded"
   | "payment.failed"
   | "payment_access.activated"
   | "payment.access_activated"
-  | "contract.event";
+  | "contract.event"
+  | "settlement.quote.created"
+  | "settlement.trade.executed"
+  | "settlement.withdrawal.pending"
+  | "settlement.withdrawal.succeeded"
+  | "settlement.withdrawal.failed"
+  | "provider.pdax.event.received";
 
 export type WebhookEventBase = {
+  version: "1";
   id: string;
   type: WebhookEventType;
   test: boolean;
   sentAt: string;
+  correlationId?: string;
   project: {
     id: string;
     registryProjectId: string;
@@ -132,7 +144,81 @@ export type WebhookContractEvent = WebhookEventBase & {
   };
 };
 
-export type WebhookEvent = WebhookPaymentEvent | WebhookContractEvent;
+export type WebhookProjectEvent = WebhookEventBase & {
+  type: "project.registered" | "project.updated";
+  ledger: number;
+  metadataHash: string;
+  status: string;
+};
+
+export type WebhookTransactionEvent = WebhookEventBase & {
+  type: "transaction.succeeded" | "transaction.failed";
+  transactionHash: string;
+  ledger: number;
+  status: "success" | "failed";
+};
+
+export type WebhookSettlementQuoteEvent = WebhookEventBase & {
+  type: "settlement.quote.created";
+  quote: {
+    id: string;
+    side: string;
+    quoteCurrency: string;
+    baseCurrency: string;
+    quantity: string;
+    price: number;
+    totalAmount: number;
+    expiresAt: string;
+    status: string;
+  };
+};
+
+export type WebhookSettlementTradeEvent = WebhookEventBase & {
+  type: "settlement.trade.executed";
+  trade: {
+    orderId: number;
+    quoteId: string;
+    price?: number;
+    amount?: number;
+    quantity?: number;
+    status?: string;
+  };
+};
+
+export type WebhookSettlementWithdrawalEvent = WebhookEventBase & {
+  type:
+    | "settlement.withdrawal.pending"
+    | "settlement.withdrawal.succeeded"
+    | "settlement.withdrawal.failed";
+  withdrawal: {
+    withdrawalId: string;
+    referenceNumber?: string;
+    amount?: number;
+    fee?: number;
+    status?: string;
+    bankCode?: string;
+    accountName?: string;
+    accountNumber?: string;
+  };
+};
+
+export type WebhookProviderPdaxEvent = WebhookEventBase & {
+  type: "provider.pdax.event.received";
+  provider: "pdax";
+  eventId: string;
+  eventType: string;
+  rawEvent: unknown;
+};
+
+export type WebhookEvent =
+  | WebhookPaymentEvent
+  | WebhookContractEvent
+  | WebhookProjectEvent
+  | WebhookTransactionEvent
+  | WebhookSettlementQuoteEvent
+  | WebhookSettlementTradeEvent
+  | WebhookSettlementWithdrawalEvent
+  | WebhookProviderPdaxEvent;
 
 export type VerifyWebhookParams = {
   payload: string;

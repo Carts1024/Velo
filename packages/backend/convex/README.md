@@ -1,104 +1,48 @@
-# Welcome to your Convex functions directory!
+# Velo Convex Backend Operating Notes
 
-Write your Convex functions here.
+## Sprint 8 reliability services
 
-## Webhook delivery operating notes
+Financial provider calls are owned by `providerOperations`; payment RPC uncertainty is owned by
+`paymentReconciliationJobs`; inbound PDAX callbacks are persisted in `providerEvents`; outbound
+merchant notifications use immutable `webhookDomainEvents` plus fenced `webhookDeliveries`.
+Together these provide **exactly-once observable transitions**, not exactly-once transport.
+
+Provider and payment workers use indexed pages of at most 100 and continuation scheduling. The
+capacity contract is covered by [`10,000 reconciliation jobs drain in exactly 100 bounded pages`](durableReliability.test.ts). Provider lease fencing is covered by [`lease fencing rejects stale completion and ambiguous trades cannot resubmit`](durableReliability.test.ts).
+
+Public payment REST routes call `rate_limits.mutations.consume` once before create/get/list and use
+its result for rate-limit headers. Shared enforcement is covered by [`distributed rate limits are shared by concurrent callers`](durableReliability.test.ts).
+
+## Configuration and rollout
+
+Required Convex environment variables:
+
+- `PDAX_UAT_BASE_URL`, `PDAX_UAT_USERNAME`, and `PDAX_UAT_PASSWORD`
+- `PDAX_CALLBACK_URL` and `PDAX_WEBHOOK_TOKEN`
+- `STELLAR_RPC_URL`
+
+The direct provider ingress is `POST /api/webhooks/pdax/v1?token=…`; the retired Next.js route
+returns 410. After additive schema deployment, run `internal.sprint8_migrations.backfill` and
+re-register active PDAX projects with `settlement.actions.registerWebhook({ projectId })`.
+
+Use authenticated provider-operation queries and `provider_operations.mutations.redrive` for
+operator recovery. Redrive preserves the original request fingerprint/provider UUID; an ambiguous
+trade must not become a new submission. This invariant is covered by [`lease fencing rejects stale completion and ambiguous trades cannot resubmit`](durableReliability.test.ts).
+
+## Webhook delivery
 
 Canonical payment and settlement mutations enqueue `internal.webhookDelivery.trigger` after the
-transaction commits. Delivery records are durable and keep one delivery ID/event ID across
-attempts (at-least-once delivery); consumers must deduplicate by delivery ID. Network failures,
-HTTP 408/429, and 5xx responses retry at most five times with bounded jitter and `Retry-After`
-support. A terminal retryable failure is marked `deadLetter: true` while retaining the existing
-`failed` status for compatibility. Owners can replay a delivery through
-`webhook_deliveries.mutation.replay`; replay is a new attempt on the same durable record.
+transaction commits. Immutable domain events deduplicate deliveries per endpoint/schema version,
+and lease token/generation fencing rejects stale workers. This is covered by [`duplicate delivery triggers share one fenced delivery`](durableReliability.test.ts).
 
-The worker uses an 8-second total outbound deadline and a 2-second connection/setup deadline.
-Convex/Fetch does not expose a portable phase-specific connect timer, so the setup deadline is a
-conservative bounded abort rather than a wire-level TCP-connect measurement. Queue delay is stored
-as `nextAttemptAt`/`lastAttemptAt`; endpoint response latency is stored separately in
+Network failures, HTTP 408/429, and 5xx responses retry at most five times with bounded jitter and
+`Retry-After` support. Terminal retryable failure sets `deadLetter: true`; authenticated replay
+reuses the durable record. Evidence: [`webhook delivery retry and backoff lifecycle`](webhookDelivery.test.ts) and [`webhook retry scheduling honors Retry-After for retryable endpoint failures`](webhookDelivery.test.ts).
+
+The dispatcher uses an 8-second total deadline and a conservative 2-second setup abort. Queue
+timing is stored in `nextAttemptAt`/`lastAttemptAt`; endpoint latency is stored in
 `responseTimeMs`.
-See https://docs.convex.dev/functions for more.
 
-A query function that takes two arguments looks like:
+See the [Sprint 8 runbook](../../../docs/operations/sprint-8-durable-financial-reliability-runbook.md).
 
-```ts
-// convex/myFunctions.ts
-import { query } from "./_generated/server";
-import { v } from "convex/values";
-
-export const myQueryFunction = query({
-  // Validators for arguments.
-  args: {
-    first: v.number(),
-    second: v.string(),
-  },
-
-  // Function implementation.
-  handler: async (ctx, args) => {
-    // Read the database as many times as you need here.
-    // See https://docs.convex.dev/database/reading-data.
-    const documents = await ctx.db.query("tablename").collect();
-
-    // Arguments passed from the client are properties of the args object.
-    console.log(args.first, args.second);
-
-    // Write arbitrary JavaScript here: filter, aggregate, build derived data,
-    // remove non-public properties, or create new objects.
-    return documents;
-  },
-});
-```
-
-Using this query function in a React component looks like:
-
-```ts
-const data = useQuery(api.myFunctions.myQueryFunction, {
-  first: 10,
-  second: "hello",
-});
-```
-
-A mutation function looks like:
-
-```ts
-// convex/myFunctions.ts
-import { mutation } from "./_generated/server";
-import { v } from "convex/values";
-
-export const myMutationFunction = mutation({
-  // Validators for arguments.
-  args: {
-    first: v.string(),
-    second: v.string(),
-  },
-
-  // Function implementation.
-  handler: async (ctx, args) => {
-    // Insert or modify documents in the database here.
-    // Mutations can also read from the database like queries.
-    // See https://docs.convex.dev/database/writing-data.
-    const message = { body: args.first, author: args.second };
-    const id = await ctx.db.insert("messages", message);
-
-    // Optionally, return a value from your mutation.
-    return await ctx.db.get("messages", id);
-  },
-});
-```
-
-Using this mutation function in a React component looks like:
-
-```ts
-const mutation = useMutation(api.myFunctions.myMutationFunction);
-function handleButtonPress() {
-  // fire and forget, the most common way to use mutations
-  mutation({ first: "Hello!", second: "me" });
-  // OR
-  // use the result once the mutation has completed
-  mutation({ first: "Hello!", second: "me" }).then((result) => console.log(result));
-}
-```
-
-Use the Convex CLI to push your functions to a deployment. See everything
-the Convex CLI can do by running `npx convex -h` in your project root
-directory. To learn more, launch the docs with `npx convex docs`.
+Sprint 8 has no live SLO qualification and no production availability evidence.

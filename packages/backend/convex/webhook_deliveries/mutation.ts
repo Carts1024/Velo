@@ -13,11 +13,38 @@ export const createPending = internalMutation({
     paymentIntentId: v.optional(v.id("paymentIntents")),
     correlationId: v.optional(v.string()),
     nextAttemptAt: v.optional(v.number()),
+    deliveryKey: v.optional(v.string()),
+    schemaVersion: v.optional(v.string()),
+    eventKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const { eventKey, ...deliveryArgs } = args;
+    if (args.deliveryKey) {
+      const existing = await ctx.db
+        .query("webhookDeliveries")
+        .withIndex("by_delivery_key", (q) => q.eq("deliveryKey", args.deliveryKey))
+        .unique();
+      if (existing) return existing._id;
+    }
     const now = Date.now();
+    if (eventKey) {
+      const domainEvent = await ctx.db
+        .query("webhookDomainEvents")
+        .withIndex("by_event_key", (q) => q.eq("eventKey", eventKey))
+        .unique();
+      if (!domainEvent) {
+        await ctx.db.insert("webhookDomainEvents", {
+          projectId: args.projectId,
+          eventKey,
+          eventType: args.eventType,
+          schemaVersion: args.schemaVersion ?? "1",
+          payloadJson: JSON.stringify(args.payloadSummary),
+          createdAt: now,
+        });
+      }
+    }
     return await ctx.db.insert("webhookDeliveries", {
-      ...args,
+      ...deliveryArgs,
       status: "pending",
       attemptCount: 1,
       lastAttemptAt: now,
@@ -30,6 +57,35 @@ export const createPending = internalMutation({
   },
 });
 
+export const claimAttempt = internalMutation({
+  args: {
+    deliveryId: v.id("webhookDeliveries"),
+    leaseToken: v.string(),
+    attemptCount: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const delivery = await ctx.db.get(args.deliveryId);
+    const now = Date.now();
+    if (
+      !delivery ||
+      delivery.status !== "pending" ||
+      delivery.deadLetter ||
+      (delivery.leaseExpiresAt !== undefined && delivery.leaseExpiresAt > now)
+    ) {
+      return { claimed: false as const };
+    }
+    const leaseGeneration = (delivery.leaseGeneration ?? 0) + 1;
+    await ctx.db.patch(delivery._id, {
+      leaseToken: args.leaseToken,
+      leaseGeneration,
+      leaseExpiresAt: now + 8_500,
+      attemptCount: args.attemptCount,
+      lastAttemptAt: now,
+    });
+    return { claimed: true as const, leaseGeneration };
+  },
+});
+
 export const finish = internalMutation({
   args: {
     deliveryId: v.id("webhookDeliveries"),
@@ -38,8 +94,18 @@ export const finish = internalMutation({
     errorMessage: v.optional(v.string()),
     responseTimeMs: v.optional(v.number()),
     deadLetter: v.optional(v.boolean()),
+    leaseToken: v.optional(v.string()),
+    leaseGeneration: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    const delivery = await ctx.db.get(args.deliveryId);
+    if (!delivery) return false;
+    if (
+      args.leaseToken !== undefined &&
+      (delivery.leaseToken !== args.leaseToken || delivery.leaseGeneration !== args.leaseGeneration)
+    ) {
+      return false;
+    }
     await ctx.db.patch(args.deliveryId, {
       status: args.status,
       httpStatus: args.httpStatus,
@@ -47,7 +113,10 @@ export const finish = internalMutation({
       responseTimeMs: args.responseTimeMs,
       lastAttemptAt: Date.now(),
       ...(args.deadLetter ? { deadLetter: true, deadLetterAt: Date.now() } : {}),
+      leaseToken: undefined,
+      leaseExpiresAt: undefined,
     });
+    return true;
   },
 });
 
@@ -73,15 +142,28 @@ export const logAttemptFailure = internalMutation({
     errorMessage: v.optional(v.string()),
     responseTimeMs: v.optional(v.number()),
     nextAttemptAt: v.optional(v.number()),
+    leaseToken: v.optional(v.string()),
+    leaseGeneration: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    const delivery = await ctx.db.get(args.deliveryId);
+    if (!delivery) return false;
+    if (
+      args.leaseToken !== undefined &&
+      (delivery.leaseToken !== args.leaseToken || delivery.leaseGeneration !== args.leaseGeneration)
+    ) {
+      return false;
+    }
     await ctx.db.patch(args.deliveryId, {
       httpStatus: args.httpStatus,
       errorMessage: args.errorMessage?.slice(0, 500),
       responseTimeMs: args.responseTimeMs,
       lastAttemptAt: Date.now(),
       ...(args.nextAttemptAt !== undefined ? { nextAttemptAt: args.nextAttemptAt } : {}),
+      leaseToken: undefined,
+      leaseExpiresAt: undefined,
     });
+    return true;
   },
 });
 

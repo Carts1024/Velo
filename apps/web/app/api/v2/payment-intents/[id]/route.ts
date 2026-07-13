@@ -1,10 +1,13 @@
 import {
+  consumeDistributedRateLimit,
+  distributedRateLimitHeaders,
+} from "@/core/api/distributed-rate-limit";
+import {
   attachHeaders,
   getApiKeyHashOrError,
   publicPaymentIntentFromDocV2,
   veloErrorResponse,
 } from "@/core/api/payment-intents";
-import { rateLimiter } from "@/core/api/rate-limit";
 import { env } from "@/core/config/env";
 import { api } from "@repo/backend/convex/_generated/api";
 import { ConvexHttpClient } from "convex/browser";
@@ -27,14 +30,23 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     return auth.response;
   }
 
-  const rateLimitResult = rateLimiter.checkLimit(auth.apiKeyHash);
+  const rateLimitResult = await consumeDistributedRateLimit(convex, auth.apiKeyHash);
+  if (!rateLimitResult.authorized) {
+    return veloErrorResponse({
+      status: 401,
+      type: "auth_error",
+      code: "invalid_api_key",
+      message: "Invalid API key.",
+    });
+  }
+  const rateLimitHeaders = distributedRateLimitHeaders(rateLimitResult);
   if (!rateLimitResult.allowed) {
     return veloErrorResponse({
       status: 429,
       type: "rate_limit_error",
       code: "rate_limit_exceeded",
       message: "Rate limit exceeded.",
-      headers: rateLimitResult.headers,
+      headers: rateLimitHeaders,
     });
   }
 
@@ -52,11 +64,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
           code: "invalid_api_key",
           message: result.reason || "Invalid API key.",
         }),
-        rateLimitResult.headers,
+        rateLimitHeaders,
       );
     }
-
-    rateLimiter.cacheKeyProjectMapping(auth.apiKeyHash, result.projectId);
 
     if (!result.intent) {
       return attachHeaders(
@@ -66,14 +76,14 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
           code: "payment_intent_not_found",
           message: "Payment intent not found.",
         }),
-        rateLimitResult.headers,
+        rateLimitHeaders,
       );
     }
 
     const response = NextResponse.json(
       publicPaymentIntentFromDocV2(result.intent, env.NEXT_PUBLIC_APP_URL),
     );
-    return attachHeaders(response, rateLimitResult.headers);
+    return attachHeaders(response, rateLimitHeaders);
   } catch (error) {
     console.error("Payment intent retrieve failed:", error);
     return attachHeaders(
@@ -83,7 +93,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         code: "internal_error",
         message: "Internal server error.",
       }),
-      rateLimitResult.headers,
+      rateLimitHeaders,
     );
   }
 }

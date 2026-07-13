@@ -264,11 +264,31 @@ export const updateStatus = mutation({
 
     await ctx.db.patch(args.paymentIntentId, patch);
 
-    if (args.status === "pending" && args.txHash) {
-      await ctx.scheduler.runAfter(0, internal.payment_intents.scanner.watchTransaction, {
-        paymentIntentId: args.paymentIntentId,
-        txHash: args.txHash,
-      });
+    if (args.status === "pending") {
+      const existingJob = await ctx.db
+        .query("paymentReconciliationJobs")
+        .withIndex("by_payment_intent", (q) => q.eq("paymentIntentId", args.paymentIntentId))
+        .unique();
+      if (!existingJob) {
+        await ctx.db.insert("paymentReconciliationJobs", {
+          paymentIntentId: args.paymentIntentId,
+          projectId: intent.projectId,
+          ...(args.txHash ? { txHash: args.txHash } : {}),
+          state: "pending",
+          attemptCount: 0,
+          nextAttemptAt: now,
+          leaseGeneration: 0,
+          expiresAt: now + 30 * 60_000,
+          createdAt: now,
+          updatedAt: now,
+        });
+      }
+      if (args.txHash) {
+        await ctx.scheduler.runAfter(0, internal.payment_intents.scanner.watchTransaction, {
+          paymentIntentId: args.paymentIntentId,
+          txHash: args.txHash,
+        });
+      }
     }
 
     if (args.status === "failed") {

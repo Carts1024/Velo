@@ -119,6 +119,25 @@ export const reportSubmitted = mutation({
         patch.stageTimestamps = newStageTimestamps;
         await ctx.db.patch(args.paymentIntentId, patch);
 
+        const existingJob = await ctx.db
+          .query("paymentReconciliationJobs")
+          .withIndex("by_payment_intent", (q) => q.eq("paymentIntentId", args.paymentIntentId!))
+          .unique();
+        if (!existingJob) {
+          await ctx.db.insert("paymentReconciliationJobs", {
+            paymentIntentId: args.paymentIntentId,
+            projectId: intent.projectId,
+            txHash: args.hash,
+            state: "pending",
+            attemptCount: 0,
+            nextAttemptAt: now,
+            leaseGeneration: 0,
+            expiresAt: now + 30 * 60_000,
+            createdAt: now,
+            updatedAt: now,
+          });
+        }
+
         // Schedule watcher (if transition is to pending and txHash exists, which matches our args)
         await ctx.scheduler.runAfter(0, internal.payment_intents.scanner.watchTransaction, {
           paymentIntentId: args.paymentIntentId,

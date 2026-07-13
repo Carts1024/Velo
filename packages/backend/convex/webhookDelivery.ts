@@ -50,6 +50,7 @@ function buildPayload(
   const paymentIntent = target.paymentIntent;
   const sentAt = new Date().toISOString();
   const base = {
+    version: "1" as const,
     id: overrideEventId ?? crypto.randomUUID(),
     type: eventType,
     test,
@@ -493,16 +494,28 @@ export const trigger = internalAction({
     }
 
     let deliveryId = args.deliveryId;
-    let attemptCount = args.attemptCount ?? 1;
+    const attemptCount = args.attemptCount ?? 1;
     let overrideEventId: string | undefined = undefined;
     const correlationId = args.correlationId ?? target.paymentIntent?.correlationId;
 
+    const sourceIdentity = [
+      args.contractEventId,
+      args.paymentIntentId,
+      args.settlementQuoteId,
+      args.settlementTransactionId,
+      args.providerEventId,
+    ]
+      .filter(Boolean)
+      .join(":");
+    const immutableEventKey = [
+      args.projectId,
+      args.eventType,
+      sourceIdentity || crypto.randomUUID(),
+    ]
+      .filter(Boolean)
+      .join(":");
+
     if (deliveryId) {
-      // This is a retry attempt
-      await ctx.runMutation(internal.webhook_deliveries.mutation.startAttempt, {
-        deliveryId,
-        attemptCount,
-      });
       const existingDelivery = await ctx.runQuery(internal.webhook_deliveries.query.getDelivery, {
         deliveryId,
       });
@@ -535,7 +548,7 @@ export const trigger = internalAction({
       },
       args.eventType,
       false,
-      overrideEventId,
+      overrideEventId ?? crypto.createHash("sha256").update(immutableEventKey).digest("hex"),
       correlationId,
     );
     const signatureHeader = computeSignatureHeader(payload, target.endpoint.signingSecret);
@@ -550,8 +563,25 @@ export const trigger = internalAction({
         payloadSummary: payloadSummary(payload),
         paymentIntentId: args.paymentIntentId,
         correlationId,
+        deliveryKey: `${immutableEventKey}:${target.endpoint._id}:1`,
+        schemaVersion: "1",
+        eventKey: immutableEventKey,
       });
     }
+
+    const leaseToken = crypto.randomUUID();
+    const claim = await ctx.runMutation(internal.webhook_deliveries.mutation.claimAttempt, {
+      deliveryId,
+      leaseToken,
+      attemptCount,
+    });
+    if (!claim.claimed) return;
+    const leaseGeneration = claim.leaseGeneration;
+    await ctx.scheduler.runAfter(8_500, internal.webhookDelivery.trigger, {
+      ...args,
+      deliveryId,
+      attemptCount: attemptCount + 1,
+    });
 
     const startTime = Date.now();
     try {
@@ -575,6 +605,8 @@ export const trigger = internalAction({
           status: "success",
           httpStatus: response.status,
           responseTimeMs,
+          leaseToken,
+          leaseGeneration,
         });
       } else {
         const errorMessage = `Endpoint returned HTTP ${response.status}`;
@@ -591,6 +623,8 @@ export const trigger = internalAction({
             errorMessage,
             responseTimeMs,
             nextAttemptAt,
+            leaseToken,
+            leaseGeneration,
           });
           await ctx.runMutation(internal.webhook_deliveries.mutation.scheduleRetry, {
             delaySeconds,
@@ -614,6 +648,8 @@ export const trigger = internalAction({
             errorMessage,
             responseTimeMs,
             deadLetter: retryableStatus,
+            leaseToken,
+            leaseGeneration,
           });
         }
       }
@@ -629,6 +665,8 @@ export const trigger = internalAction({
           errorMessage,
           responseTimeMs,
           nextAttemptAt,
+          leaseToken,
+          leaseGeneration,
         });
         await ctx.runMutation(internal.webhook_deliveries.mutation.scheduleRetry, {
           delaySeconds,
@@ -651,6 +689,8 @@ export const trigger = internalAction({
           errorMessage,
           responseTimeMs,
           deadLetter: true,
+          leaseToken,
+          leaseGeneration,
         });
       }
     }

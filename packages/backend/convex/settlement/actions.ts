@@ -1,14 +1,38 @@
 "use node";
 
-import { randomUUID } from "crypto";
+import { createHash, randomUUID } from "crypto";
 
 import { PdaxClient, PdaxError } from "@repo/pdax";
+import { makeFunctionReference } from "convex/server";
 import { v } from "convex/values";
 
 import { api, internal } from "../_generated/api";
 import { Doc, Id } from "../_generated/dataModel";
 import { action, internalAction } from "../_generated/server";
 import { getOrRefreshPdaxConnection, mapPdaxError } from "./helpers";
+
+const reserveOperation = makeFunctionReference<"mutation">("provider_operations/mutations:reserve");
+const claimOperation = makeFunctionReference<"mutation">("provider_operations/mutations:claim");
+const completeOperation = makeFunctionReference<"mutation">(
+  "provider_operations/mutations:complete",
+);
+
+function fingerprint(value: Record<string, unknown>) {
+  const canonical = JSON.stringify(
+    Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b))),
+  );
+  return createHash("sha256").update(canonical).digest("hex");
+}
+
+function ambiguousProviderError(error: unknown) {
+  return (
+    !(error instanceof PdaxError) ||
+    error.status === 408 ||
+    error.status === 409 ||
+    error.status === 429 ||
+    error.status >= 500
+  );
+}
 
 function cleanReferenceNumber(newRef?: string, existingRef?: string): string | undefined {
   const isBase64 = (s?: string) => typeof s === "string" && s.startsWith("eyJ");
@@ -144,7 +168,7 @@ export const getQuote = action({
       // Check existing transaction for idempotency
       const existingTx: Doc<"settlementTransactions"> | null = await ctx.runQuery(
         internal.settlement_transactions.query.getByIdempotencyId,
-        { idempotencyId: args.idempotencyId },
+        { idempotencyId: args.idempotencyId, projectId: args.projectId },
       );
 
       if (existingTx && existingTx.quoteId) {
@@ -246,16 +270,38 @@ export const executeTrade = action({
       throw new Error("Unauthorized or project not found");
     }
 
-    // 2. Check existing transaction for idempotency
-    const existingTx: Doc<"settlementTransactions"> | null = await ctx.runQuery(
-      internal.settlement_transactions.query.getByIdempotencyId,
-      { idempotencyId: args.idempotencyId },
-    );
-    if (existingTx && existingTx.status === "TRADE_EXECUTED" && existingTx.tradeDetails) {
-      return existingTx.tradeDetails;
+    const reserved = (await ctx.runMutation(reserveOperation, {
+      projectId: args.projectId,
+      provider: "pdax",
+      operation: "trade",
+      clientKey: args.idempotencyId,
+      requestFingerprint: fingerprint({ quoteId: args.quoteId }),
+      requestJson: JSON.stringify({ quoteId: args.quoteId }),
+    })) as {
+      operationId: Id<"providerOperations">;
+      state: string;
+      replay: boolean;
+      providerKey: string;
+      resultJson?: string;
+    };
+    if (reserved.state === "succeeded" && reserved.resultJson) {
+      const replayData = JSON.parse(reserved.resultJson);
+      return {
+        ...replayData,
+        state: "succeeded",
+        operationId: reserved.operationId,
+        replay: true,
+        data: replayData,
+      };
+    }
+    if (["submitting", "provider_pending", "reconciling"].includes(reserved.state)) {
+      return { state: "in_progress", operationId: reserved.operationId, retryAfterMs: 2_000 };
+    }
+    if (["failed", "dead_letter"].includes(reserved.state)) {
+      return { state: "recovery_required", operationId: reserved.operationId };
     }
 
-    // 3. Fetch stored firm quote and validate
+    // 2. Fetch and validate the quote only for the first provider dispatch.
     const quote = await ctx.runQuery(internal.settlement_quotes.query.getByQuoteId, {
       quoteId: args.quoteId,
     });
@@ -274,7 +320,16 @@ export const executeTrade = action({
       throw new Error("Quote has expired (or too close to expiry to safely execute)");
     }
 
-    // 4. Retrieve tokens and execute trade
+    const leaseToken = randomUUID();
+    const claimed = (await ctx.runMutation(claimOperation, {
+      operationId: reserved.operationId,
+      leaseToken,
+    })) as { claimed: boolean; leaseGeneration?: number };
+    if (!claimed.claimed || claimed.leaseGeneration === undefined) {
+      return { state: "in_progress", operationId: reserved.operationId, retryAfterMs: 2_000 };
+    }
+
+    // 3. Retrieve tokens and execute trade with the persisted provider key.
     let connectionInfo;
     try {
       connectionInfo = await getOrRefreshPdaxConnection(ctx, args.projectId);
@@ -282,13 +337,12 @@ export const executeTrade = action({
       throw mapPdaxError(err);
     }
     const { accessToken, idToken, client } = connectionInfo;
-    const pdaxIdempotencyId = randomUUID();
     let response;
     try {
       response = await client.executeTrade(accessToken, idToken, {
         quote_id: args.quoteId,
         side: quote.side as "buy" | "sell",
-        idempotency_id: pdaxIdempotencyId,
+        idempotency_id: reserved.providerKey,
       });
     } catch (err) {
       // If quote expired on PDAX side, mark it expired locally too
@@ -298,6 +352,26 @@ export const executeTrade = action({
           status: "expired",
         });
       }
+      if (ambiguousProviderError(err)) {
+        await ctx.runMutation(completeOperation, {
+          operationId: reserved.operationId,
+          expectedState: "submitting",
+          leaseToken,
+          leaseGeneration: claimed.leaseGeneration,
+          nextState: "reconciling",
+          nextAttemptAt: Date.now() + 2_000,
+          errorMessage: mapPdaxError(err).message,
+        });
+        return { state: "in_progress", operationId: reserved.operationId, retryAfterMs: 2_000 };
+      }
+      await ctx.runMutation(completeOperation, {
+        operationId: reserved.operationId,
+        expectedState: "submitting",
+        leaseToken,
+        leaseGeneration: claimed.leaseGeneration,
+        nextState: "failed",
+        errorMessage: mapPdaxError(err).message,
+      });
       throw mapPdaxError(err);
     }
 
@@ -322,6 +396,7 @@ export const executeTrade = action({
     );
 
     await ctx.runMutation(internal.settlement_transactions.mutation.updateStatus, {
+      projectId: args.projectId,
       idempotencyId: args.idempotencyId,
       status: "TRADE_EXECUTED",
       orderId: trade.order_id,
@@ -334,6 +409,16 @@ export const executeTrade = action({
       },
     });
 
+    await ctx.runMutation(completeOperation, {
+      operationId: reserved.operationId,
+      expectedState: "submitting",
+      leaseToken,
+      leaseGeneration: claimed.leaseGeneration,
+      nextState: "succeeded",
+      providerReference: String(trade.order_id),
+      resultJson: JSON.stringify(trade),
+    });
+
     // Trigger Webhook
     await ctx.scheduler.runAfter(0, internal.webhookDelivery.trigger, {
       projectId: args.projectId,
@@ -342,7 +427,13 @@ export const executeTrade = action({
       settlementTransactionId: txDocId,
     });
 
-    return trade;
+    return {
+      ...trade,
+      state: "succeeded",
+      operationId: reserved.operationId,
+      replay: false,
+      data: trade,
+    };
   },
 });
 
@@ -365,16 +456,62 @@ export const fiatWithdraw = action({
       throw new Error("Unauthorized or project not found");
     }
 
-    // 2. Check existing transaction for idempotency
-    const existingTx: Doc<"settlementTransactions"> | null = await ctx.runQuery(
-      internal.settlement_transactions.query.getByIdempotencyId,
-      { idempotencyId: args.idempotencyId },
-    );
-    if (existingTx && existingTx.status === "PAYOUT_PENDING" && existingTx.withdrawalDetails) {
-      return existingTx.withdrawalDetails;
+    const reserved = (await ctx.runMutation(reserveOperation, {
+      projectId: args.projectId,
+      provider: "pdax",
+      operation: "fiat_withdrawal",
+      clientKey: args.idempotencyId,
+      requestFingerprint: fingerprint({
+        amount: args.amount,
+        bankCode: args.bankCode,
+        accountName: args.accountName,
+        accountNumber: args.accountNumber,
+        beneficiaryFirstName: args.beneficiaryFirstName,
+        beneficiaryLastName: args.beneficiaryLastName,
+        paymentIntentId: args.paymentIntentId,
+      }),
+      requestJson: JSON.stringify({
+        amount: args.amount,
+        bankCode: args.bankCode,
+        accountName: args.accountName,
+        accountNumber: args.accountNumber,
+        beneficiaryFirstName: args.beneficiaryFirstName,
+        beneficiaryLastName: args.beneficiaryLastName,
+        paymentIntentId: args.paymentIntentId,
+      }),
+    })) as {
+      operationId: Id<"providerOperations">;
+      state: string;
+      replay: boolean;
+      providerKey: string;
+      resultJson?: string;
+    };
+    if (reserved.state === "succeeded" && reserved.resultJson) {
+      const replayData = JSON.parse(reserved.resultJson);
+      return {
+        ...replayData,
+        state: "succeeded",
+        operationId: reserved.operationId,
+        replay: true,
+        data: replayData,
+      };
+    }
+    if (["submitting", "provider_pending", "reconciling"].includes(reserved.state)) {
+      return { state: "in_progress", operationId: reserved.operationId, retryAfterMs: 2_000 };
+    }
+    if (["failed", "dead_letter"].includes(reserved.state)) {
+      return { state: "recovery_required", operationId: reserved.operationId };
+    }
+    const leaseToken = randomUUID();
+    const claimed = (await ctx.runMutation(claimOperation, {
+      operationId: reserved.operationId,
+      leaseToken,
+    })) as { claimed: boolean; leaseGeneration?: number };
+    if (!claimed.claimed || claimed.leaseGeneration === undefined) {
+      return { state: "in_progress", operationId: reserved.operationId, retryAfterMs: 2_000 };
     }
 
-    // 3. Retrieve tokens and call PDAX fiat withdrawal
+    // 2. Retrieve tokens and call PDAX fiat withdrawal.
     let connectionInfo;
     try {
       connectionInfo = await getOrRefreshPdaxConnection(ctx, args.projectId);
@@ -385,7 +522,7 @@ export const fiatWithdraw = action({
     let response;
     try {
       response = await client.fiatWithdraw(accessToken, idToken, {
-        identifier: args.idempotencyId,
+        identifier: reserved.providerKey,
         sender_first_name: "Velo",
         sender_middle_name: "n.a.",
         sender_last_name: "Merchant",
@@ -405,6 +542,19 @@ export const fiatWithdraw = action({
         method: "PAY-TO-ACCOUNT-REAL-TIME",
       });
     } catch (err) {
+      const nextState = ambiguousProviderError(err) ? "reconciling" : "failed";
+      await ctx.runMutation(completeOperation, {
+        operationId: reserved.operationId,
+        expectedState: "submitting",
+        leaseToken,
+        leaseGeneration: claimed.leaseGeneration,
+        nextState,
+        ...(nextState === "reconciling" ? { nextAttemptAt: Date.now() + 2_000 } : {}),
+        errorMessage: mapPdaxError(err).message,
+      });
+      if (nextState === "reconciling") {
+        return { state: "in_progress", operationId: reserved.operationId, retryAfterMs: 2_000 };
+      }
       throw mapPdaxError(err);
     }
 
@@ -426,6 +576,7 @@ export const fiatWithdraw = action({
     const finalRef = cleanReferenceNumber(resolvedRef, undefined);
 
     await ctx.runMutation(internal.settlement_transactions.mutation.updateStatus, {
+      projectId: args.projectId,
       idempotencyId: args.idempotencyId,
       status: "PAYOUT_PENDING",
       withdrawalId: withdrawal.identifier,
@@ -440,6 +591,24 @@ export const fiatWithdraw = action({
       },
     });
 
+    const result = {
+      ...withdrawal,
+      // Legacy top-level identifier remains the caller key; providerOperations
+      // retains the persisted PDAX UUID used at the provider boundary.
+      identifier: args.idempotencyId,
+      reference_number: finalRef || withdrawal.reference_number,
+    };
+    await ctx.runMutation(completeOperation, {
+      operationId: reserved.operationId,
+      expectedState: "submitting",
+      leaseToken,
+      leaseGeneration: claimed.leaseGeneration,
+      nextState: "provider_pending",
+      providerReference: withdrawal.identifier,
+      resultJson: JSON.stringify(result),
+      nextAttemptAt: Date.now() + 2 * 60 * 1_000,
+    });
+
     // Trigger Webhook
     await ctx.scheduler.runAfter(0, internal.webhookDelivery.trigger, {
       projectId: args.projectId,
@@ -449,8 +618,10 @@ export const fiatWithdraw = action({
     });
 
     return {
-      ...withdrawal,
-      reference_number: finalRef || withdrawal.reference_number,
+      ...result,
+      state: "in_progress",
+      operationId: reserved.operationId,
+      retryAfterMs: 2_000,
     };
   },
 });
@@ -512,15 +683,7 @@ export const handlePdaxWebhook = action({
       projectId = tx.projectId;
       paymentIntentId = tx.paymentIntentId;
     } else {
-      // Fallback: If it's a DEPOSIT (e.g. crypto deposit), there might not be a matching transaction.
-      // Look up first project in the system to make it robust for hackathon UAT demo.
-      const projects = await ctx.runQuery(internal.projects.query.listAll);
-      const firstProject = projects?.[0];
-      if (firstProject) {
-        projectId = firstProject._id;
-      } else {
-        throw new Error("No projects found to associate webhook event with");
-      }
+      throw new Error("No settlement or provider operation matches this PDAX identifier");
     }
 
     const eventId =
@@ -598,6 +761,7 @@ export const handlePdaxWebhook = action({
       const finalRef = cleanReferenceNumber(pRefRaw, existingDetails.referenceNumber);
 
       await ctx.runMutation(internal.settlement_transactions.mutation.updateStatus, {
+        projectId: tx.projectId,
         idempotencyId: tx.idempotencyId,
         status: newStatus,
         withdrawalId: identifier,
@@ -704,7 +868,6 @@ export const mockPdaxWebhook = action({
 export const registerWebhook = action({
   args: {
     projectId: v.id("projects"),
-    webhookUrl: v.string(),
   },
   handler: async (ctx, args) => {
     // 1. Authenticate project owner
@@ -722,10 +885,17 @@ export const registerWebhook = action({
     }
     const { accessToken, idToken, client } = connectionInfo;
 
+    const callbackBase = process.env.PDAX_CALLBACK_URL?.replace(/\/$/, "");
+    const callbackToken = process.env.PDAX_WEBHOOK_TOKEN;
+    if (!callbackBase || !callbackToken) {
+      throw new Error("PDAX callback URL and webhook token are not configured");
+    }
+    const webhookUrl = `${callbackBase}/api/webhooks/pdax/v1?token=${encodeURIComponent(callbackToken)}`;
+
     // 3. Call PDAX to register the webhook URL for both 'crypto' and 'fiat'
     try {
-      await client.registerWebhook(accessToken, idToken, args.webhookUrl, "crypto");
-      await client.registerWebhook(accessToken, idToken, args.webhookUrl, "fiat");
+      await client.registerWebhook(accessToken, idToken, webhookUrl, "crypto");
+      await client.registerWebhook(accessToken, idToken, webhookUrl, "fiat");
       return { status: "success" };
     } catch (err) {
       throw mapPdaxError(err);
@@ -766,6 +936,7 @@ export const checkPayoutStatus = action({
     if (args.idempotencyId) {
       const tx = await ctx.runQuery(internal.settlement_transactions.query.getByIdempotencyId, {
         idempotencyId: args.idempotencyId,
+        projectId: args.projectId,
       });
       if (tx && tx.status === "PAYOUT_PENDING") {
         pendingTxs = [tx];
@@ -845,6 +1016,7 @@ export const checkPayoutStatus = action({
         const finalRef = cleanReferenceNumber(resolvedRef, existingDetails.referenceNumber);
 
         await ctx.runMutation(internal.settlement_transactions.mutation.updateStatus, {
+          projectId: tx.projectId,
           idempotencyId: tx.idempotencyId,
           status: newStatus,
           withdrawalId: identifier,
@@ -960,6 +1132,7 @@ export const pollPendingPayouts = internalAction({
             const finalRef = cleanReferenceNumber(resolvedRef, existingDetails.referenceNumber);
 
             await ctx.runMutation(internal.settlement_transactions.mutation.updateStatus, {
+              projectId: tx.projectId,
               idempotencyId: tx.idempotencyId,
               status: newStatus,
               withdrawalId: identifier,

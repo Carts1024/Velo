@@ -316,11 +316,7 @@ export function ProjectWebhooks({ projectId }: { projectId: string }) {
         try {
           const isLocalhost = ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
           if (!isLocalhost) {
-            const pdaxCallbackUrl = `${window.location.origin}/api/webhooks/pdax`;
-            await registerWebhookAction({
-              projectId: typedProjectId,
-              webhookUrl: pdaxCallbackUrl,
-            });
+            await registerWebhookAction({ projectId: typedProjectId });
           } else {
             console.log("Localhost detected. Skipping PDAX webhook registration.");
           }

@@ -1,144 +1,66 @@
-# PDAX UAT Settlement Workflow Documentation
+# PDAX Settlement Workflow
 
-This document explains the technical implementation of **Velo Settlement**'s PDAX UAT integration, covering connection management (Sprint 2) and webhook routing/dashboard features (Sprint 3).
+## Overview
 
-## Core Architecture
+Velo uses `@repo/pdax` from Convex actions for quotes, trade execution, and fiat payouts. Sprint 8
+places provider side effects behind durable `providerOperations` and targets **exactly-once
+observable transitions**, not exactly-once transport. See the
+[Sprint 8 architecture](../../architecture/sprint-8-durable-financial-reliability.md).
 
-Velo Settlement coordinates regional fiat-stablecoin conversions and payouts. The architecture comprises:
-1. **`@repo/pdax` Client**: A server-only client wrapping programmatic endpoints for connection, pricing, execution, and InstaPay withdrawals.
-2. **Convex Database Tables**:
-   - `providerConnections`: Caches programmatic session tokens (`accessToken`, `idToken`, `refreshToken`) per project.
-   - `settlementQuotes`: Stores executable firm quotes.
-   - `settlementTransactions`: Tracks the lifecycle of the conversion and payout workflow.
-   - `providerEvents`: Records incoming raw webhook payloads for idempotency checks.
-   - `webhookDeliveries`: Logs outbound Velo merchant notifications.
-3. **Convex Actions**: Expose public/internal methods to perform network requests, manage credentials, and transition records.
-4. **Next.js Webhook Router**: Exposes `/api/webhooks/pdax` endpoint to ingest provider callbacks.
-5. **Settlement Dashboard UI**: Interactive portal for managing balances, locked quotes, trade execution, withdrawals, simulation tests, and webhook delivery logs.
-
----
-
-## Connection and Session Management
-
-Tokens last 10 minutes (600 seconds) in UAT. To prevent programmatic login overhead and avoid provider rate limits, session tokens are cached in the `providerConnections` table:
+## Trade and withdrawal flow
 
 ```mermaid
 sequenceDiagram
-    participant Merchant Dashboard
-    participant Convex Action
-    participant Convex Database
-    participant PDAX API
-
-    Merchant Dashboard->>Convex Action: Trigger Action (projectId)
-    Convex Action->>Convex Database: Query Connection (projectId)
-    alt No Connection OR Disconnected
-        Convex Action->>PDAX API: login(username, password)
-        PDAX API-->>Convex Action: access_token, id_token, refresh_token, expiry
-        Convex Action->>Convex Database: upsertInternal(status: "connected", tokens)
-    else Connection exists but expires in < 60s
-        alt Has refresh token
-            Convex Action->>PDAX API: refresh(username, refresh_token)
-            PDAX API-->>Convex Action: new tokens
-            Convex Action->>Convex Database: upsertInternal(status: "connected", tokens)
-        else Refresh fails / No refresh token
-            Convex Action->>PDAX API: login(username, password)
-            PDAX API-->>Convex Action: access_token, id_token, refresh_token, expiry
-            Convex Action->>Convex Database: upsertInternal(status: "connected", tokens)
-        end
-    else Connection valid (> 60s left)
-        Convex Database-->>Convex Action: return cached active tokens
+    participant UI as Settlement UI
+    participant Action as Convex action
+    participant DB as providerOperations
+    participant PDAX
+    participant Worker as Reconciliation worker
+    UI->>Action: request + stable idempotency key
+    Action->>DB: reserve fingerprint + provider UUID
+    Action->>DB: claim fenced lease
+    Action->>PDAX: bounded request with persisted UUID
+    alt acknowledged trade
+        Action->>DB: succeeded + result
+    else accepted withdrawal
+        Action->>DB: provider_pending
+        Worker->>PDAX: lookup withdrawal by UUID
+        Worker->>DB: pending / succeeded / failed
+    else uncertain outcome
+        Action->>DB: reconciling
     end
-    Convex Action->>PDAX API: Execute API Request (tokens)
 ```
 
----
+Exact replays observe the existing row; changed payloads conflict. Reservation convergence is
+covered by [`100 concurrent reservations produce one durable provider operation`](../../../packages/backend/convex/durableReliability.test.ts). Lease fencing and the rule that ambiguous trades are never automatically resubmitted are covered by [`lease fencing rejects stale completion and ambiguous trades cannot resubmit`](../../../packages/backend/convex/durableReliability.test.ts).
 
-## Action Workflow and Status Lifecycle
+Action results are `succeeded` with data, `in_progress` with `retryAfterMs`, or
+`recovery_required`, always with `operationId`. The UI must retain its idempotency key until the
+operation reaches a terminal state; a new key is a new financial operation.
 
-The settlement lifecycle transitions through state changes stored in the `settlementTransactions` table:
+## Callback workflow
 
-```txt
-[Indicative Quote] (No DB record)
-  ↓
-[Firm Quote] (QUOTE_FIRM)
-  ↓
-[Execute Trade] (TRADE_EXECUTED)
-  ↓
-[Fiat Payout] (PAYOUT_PENDING)
-  ↓ [Incoming Webhook]
-[Payout Complete] (PAYOUT_SUCCEEDED / PAYOUT_FAILED)
+The registered callback is:
+
+```text
+POST ${PDAX_CALLBACK_URL}/api/webhooks/pdax/v1?token=${PDAX_WEBHOOK_TOKEN}
+Content-Type: application/json
 ```
 
-### 1. Quotes (`getQuote`)
-- **Indicative Quote**: Returns estimated prices and rates. Not stored.
-- **Firm Quote**: Executable for 15 seconds. Saves the quote to `settlementQuotes` with status `"active"` and creates a settlement transaction with status `"QUOTE_FIRM"`. Includes optional paid `paymentIntentId` verification.
+`registerWebhook({ projectId })` constructs the URL server-side. The ingress checks the token,
+limits the body to 64 KiB, and normalizes it with `PdaxClient.parseWebhook`. Duplicate provider
+IDs/payload digests converge; unmatched events are quarantined. Because PDAX callbacks are
+unsigned, they are hints and cannot independently authorize terminal financial transitions.
+Strict normalization is covered by [`normalizes an allowlisted crypto webhook`](../../../packages/pdax/src/client.test.ts), [`normalizes an allowlisted fiat webhook`](../../../packages/pdax/src/client.test.ts), and [`rejects malformed and stale webhook shapes`](../../../packages/pdax/src/client.test.ts).
 
-### 2. Trade Execution (`executeTrade`)
-- Checks quote expiry and status.
-- Executes conversion on-chain/programmatically on PDAX.
-- Marks the quote as `"executed"`.
-- Updates the transaction status to `"TRADE_EXECUTED"` and stores `orderId` and `tradeDetails`.
+The legacy Next.js `POST /api/webhooks/pdax` route returns `410 Gone`. Re-register active projects
+after deploying the Convex endpoint.
 
-### 3. InstaPay Withdrawal (`fiatWithdraw`)
-- Triggers a fiat withdrawal via InstaPay rails using global merchant mock credentials.
-- Creates or updates the transaction record to `"PAYOUT_PENDING"`, saving `withdrawalId` and `withdrawalDetails`.
+## Merchant events
 
----
+Velo emits v1 signed settlement/provider events. Immutable domain-event identity plus a unique
+`(event, endpoint, schemaVersion)` delivery key gives exactly-once observable delivery transitions
+while transport remains at-least-once. Evidence: [`duplicate delivery triggers share one fenced delivery`](../../../packages/backend/convex/durableReliability.test.ts) and [`webhook delivery retry and backoff lifecycle`](../../../packages/backend/convex/webhookDelivery.test.ts).
 
-## Webhook Processing & Delivery Architecture
-
-When a payout withdrawal reaches a terminal state (succeeded or failed), PDAX fires an asynchronous webhook callback. Velo handles the payload, updates transaction states, and notifies the merchant's endpoint:
-
-```mermaid
-sequenceDiagram
-    participant PDAX Rails
-    participant Next.js API Route
-    participant Convex Action (handlePdaxWebhook)
-    participant Convex Database
-    participant Outbound Dispatcher
-    participant Merchant Server
-
-    PDAX Rails->>Next.js API Route: POST /api/webhooks/pdax [raw payload]
-    Next.js API Route->>Convex Action (handlePdaxWebhook): Invoke Action
-    Convex Action (handlePdaxWebhook)->>Convex Database: Check providerEvents (eventId)
-    alt Event already recorded
-        Convex Action (handlePdaxWebhook)-->>Next.js API Route: return status: "duplicate"
-    else New Event
-        Convex Action (handlePdaxWebhook)->>Convex Database: Record Event (processed: false)
-        Convex Action (handlePdaxWebhook)->>Convex Database: Find transaction (withdrawalId)
-        Convex Action (handlePdaxWebhook)->>Convex Database: Update transaction status (PAYOUT_SUCCEEDED / PAYOUT_FAILED)
-        Convex Action (handlePdaxWebhook)->>Convex Database: Mark Event (processed: true)
-        Convex Action (handlePdaxWebhook)->>Outbound Dispatcher: Schedule Velo Webhook Trigger
-        Outbound Dispatcher->>Merchant Server: Send POST [signed merchant webhook]
-        Merchant Server-->>Outbound Dispatcher: 200 OK
-        Outbound Dispatcher->>Convex Database: Record webhookDeliveries (status: "success")
-        Convex Action (handlePdaxWebhook)-->>Next.js API Route: return status: "processed"
-    end
-    Next.js API Route-->>PDAX Rails: 200 OK
-```
-
-### Outbound Webhook Event Types
-Velo publishes the following events upon receiving settlement updates:
-- `settlement.quote.created`: Dispatched when a new firm quote is secured.
-- `settlement.trade.executed`: Dispatched when conversion trade is executed.
-- `settlement.withdrawal.pending`: Dispatched when InstaPay withdrawal is initiated.
-- `settlement.withdrawal.succeeded`: Dispatched when bank payout succeeds.
-- `settlement.withdrawal.failed`: Dispatched when bank payout fails.
-
----
-
-## Supported Rails & Constants
-
-- **Payout rails**: InstaPay UAT
-- **UAT Test Banks**:
-  - Security Bank: `BASECPH` (Test account: `0000042001461`)
-  - CTBC Bank: `BACTBPH` (Test account: `001700062270`)
-- **Supported pair**: `USDCXLM` -> `PHP` (Selling USDC on Stellar Testnet for Philippine Pesos).
-
----
-
-## Idempotency and Webhook Protection
-
-1. **Outbound Idempotency**: Each state mutation action requires an `idempotencyId`. If a request is retried, the backend returns the cached transaction details from the database without invoking the external PDAX API again.
-2. **Inbound Webhook Deduplication**: Webhooks from PDAX are mapped via `request_id`, `reference_number`, and `reference_id` keys. Convex records incoming IDs to prevent double-processing payouts.
-3. **Webhook Fallback**: If an incoming webhook does not match any transaction identifier, the handler falls back to associating the record with the first active project in the sandbox system, logging the event safely.
+Sprint 8 contains deterministic automated evidence only. It has no live SLO qualification and no
+production availability evidence.

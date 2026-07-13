@@ -21,8 +21,14 @@ export default defineTable({
   correlationId: v.optional(v.string()),
   responseTimeMs: v.optional(v.number()),
   nextAttemptAt: v.optional(v.number()),
+  deliveryKey: v.optional(v.string()),
+  schemaVersion: v.optional(v.string()),
+  leaseToken: v.optional(v.string()),
+  leaseGeneration: v.optional(v.number()),
+  leaseExpiresAt: v.optional(v.number()),
 })
   .index("by_project_created_at", ["projectId", "createdAt"])
   .index("by_endpoint_created_at", ["endpointId", "createdAt"])
   .index("by_correlation_id_created_at", ["correlationId", "createdAt"])
-  .index("by_project_and_correlation_id_created_at", ["projectId", "correlationId", "createdAt"]);
+  .index("by_project_and_correlation_id_created_at", ["projectId", "correlationId", "createdAt"])
+  .index("by_delivery_key", ["deliveryKey"]);

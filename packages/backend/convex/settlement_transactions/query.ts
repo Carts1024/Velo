@@ -18,8 +18,16 @@ export const listByProject = query({
 });
 
 export const getByIdempotencyId = internalQuery({
-  args: { idempotencyId: v.string() },
+  args: { idempotencyId: v.string(), projectId: v.optional(v.id("projects")) },
   handler: async (ctx, args) => {
+    if (args.projectId) {
+      return await ctx.db
+        .query("settlementTransactions")
+        .withIndex("by_project_and_idempotency", (q) =>
+          q.eq("projectId", args.projectId!).eq("idempotencyId", args.idempotencyId),
+        )
+        .unique();
+    }
     return await ctx.db
       .query("settlementTransactions")
       .withIndex("by_idempotency", (q) => q.eq("idempotencyId", args.idempotencyId))
@@ -88,9 +96,9 @@ export const getByAnyIdentifier = internalQuery({
 export const listAllPending = internalQuery({
   args: {},
   handler: async (ctx) => {
-    // Scan all settlement transactions and filter for PAYOUT_PENDING.
-    // No status index exists, but volume is low enough for a full scan.
-    const all = await ctx.db.query("settlementTransactions").order("desc").take(200);
-    return all.filter((tx) => tx.status === "PAYOUT_PENDING").slice(0, 50);
+    return await ctx.db
+      .query("settlementTransactions")
+      .withIndex("by_status_and_updated_at", (q) => q.eq("status", "PAYOUT_PENDING"))
+      .take(100);
   },
 });
