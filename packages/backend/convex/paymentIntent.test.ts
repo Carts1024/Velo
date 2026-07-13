@@ -710,10 +710,25 @@ test("public payment intent v2 creates one awaiting route and completes it safel
   expect(completed?.status).toBe("created");
   expect(completed?.receiverAddress).toBe("G-MOCK-PDAX-DEPOSIT-ADDRESS");
 
+  const cachedCreate = await t.mutation(api.payment_intents.mutations.createPublicPaymentIntentV2, {
+    apiKeyHash,
+    amount: "16.00",
+    asset: "USDC",
+    anchor: "pdax",
+  });
+  if (cachedCreate.status !== "success") throw new Error("Expected cached-route creation");
+  expect(cachedCreate.intent.status).toBe("created");
+  expect(cachedCreate.intent.receiverAddress).toBe("G-MOCK-PDAX-DEPOSIT-ADDRESS");
+  expect(cachedCreate.intent.receiverMemo).toBe("123456");
+  expect(cachedCreate.intent.anchorDepositCurrency).toBe("USDCXLM");
+  expect(
+    await t.run(async (ctx) => (await ctx.db.query("paymentIntentRouteJobs").collect()).length),
+  ).toBe(1);
+
   const failing = await t.mutation(api.payment_intents.mutations.createPublicPaymentIntentV2, {
     apiKeyHash,
     amount: "20.00",
-    asset: "USDC",
+    asset: "native",
     anchor: "pdax",
     idempotencyKey: "pdax-failing-key",
   });
@@ -748,4 +763,120 @@ test("public payment intent v2 creates one awaiting route and completes it safel
       })
     )?.status,
   ).toBe("failed");
+});
+
+test("cached PDAX route completion does not rewrite shared cache", async () => {
+  const t = convexTest(schema, modules);
+  const fixture = await t.run(async (ctx) => {
+    const now = Date.now();
+    const projectId = await ctx.db.insert("projects", {
+      name: "Cache Test",
+      slug: `cache-test-${now}`,
+      description: "test",
+      metadataJson: "{}",
+      metadataHash: "0".repeat(64),
+      ownerAddress: "GTEST",
+      status: "draft",
+      createdAt: now,
+      updatedAt: now,
+    });
+    const paymentIntentId = await ctx.db.insert("paymentIntents", {
+      projectId,
+      amount: "1.00",
+      asset: "USDC",
+      merchantName: "Cache Test",
+      status: "awaiting_route",
+      anchor: "pdax",
+      expiresAt: now + 60_000,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await ctx.db.insert("paymentIntentRouteJobs", {
+      paymentIntentId,
+      projectId,
+      mappedAsset: "USDCXLM",
+      state: "leased",
+      attempts: 0,
+      nextAttemptAt: now,
+      leaseToken: "cache-hit-lease",
+      leaseExpiresAt: now + 30_000,
+      createdAt: now,
+      updatedAt: now,
+    });
+    const cacheId = await ctx.db.insert("pdaxRouteCache", {
+      projectId,
+      mappedAsset: "USDCXLM",
+      address: "G-CACHED-PDAX-ADDRESS",
+      memo: "123456",
+      expiresAt: now + 60_000,
+      updatedAt: now - 1_000,
+    });
+    return { cacheId, paymentIntentId };
+  });
+
+  const cachedBefore = await t.run(async (ctx) => await ctx.db.get(fixture.cacheId));
+  const result = await t.mutation(internal.payment_intents.mutations.completePdaxRoute, {
+    paymentIntentId: fixture.paymentIntentId,
+    leaseToken: "cache-hit-lease",
+    mappedAsset: "USDCXLM",
+    address: "G-CACHED-PDAX-ADDRESS",
+    memo: "123456",
+    fromCache: true,
+  });
+  const cachedAfter = await t.run(async (ctx) => await ctx.db.get(fixture.cacheId));
+
+  expect(result.applied).toBe(true);
+  expect(cachedAfter).toEqual(cachedBefore);
+});
+
+test("stale PDAX route jobs are recovered after a worker lease is lost", async () => {
+  const t = convexTest(schema, modules);
+  const fixture = await t.run(async (ctx) => {
+    const now = Date.now();
+    const projectId = await ctx.db.insert("projects", {
+      name: "Route Recovery Test",
+      slug: `route-recovery-test-${now}`,
+      description: "test",
+      metadataJson: "{}",
+      metadataHash: "0".repeat(64),
+      ownerAddress: "GTEST",
+      status: "draft",
+      createdAt: now,
+      updatedAt: now,
+    });
+    const paymentIntentId = await ctx.db.insert("paymentIntents", {
+      projectId,
+      amount: "1.00",
+      asset: "USDC",
+      merchantName: "Route Recovery Test",
+      status: "awaiting_route",
+      anchor: "pdax",
+      expiresAt: now + 60_000,
+      createdAt: now,
+      updatedAt: now,
+    });
+    const jobId = await ctx.db.insert("paymentIntentRouteJobs", {
+      paymentIntentId,
+      projectId,
+      mappedAsset: "USDCXLM",
+      state: "leased",
+      attempts: 0,
+      nextAttemptAt: now - 10_000,
+      leaseToken: "lost-worker-lease",
+      leaseExpiresAt: now - 1_000,
+      createdAt: now,
+      updatedAt: now,
+    });
+    return { jobId };
+  });
+
+  const result = await t.mutation(internal.payment_intents.mutations.recoverPdaxRouteJobs, {
+    limit: 10,
+  });
+  const recovered = await t.run(async (ctx) => await ctx.db.get(fixture.jobId));
+
+  expect(result).toEqual({ recovered: 1, expired: 0 });
+  expect(recovered?.state).toBe("scheduled");
+  expect(recovered?.leaseToken).toBeUndefined();
+  expect(recovered?.leaseExpiresAt).toBeUndefined();
 });

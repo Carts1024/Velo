@@ -10,6 +10,9 @@ const reconcileProviderOperations = makeFunctionReference<"action">(
   "provider_operations/actions:reconcileDue",
 );
 const drainProviderEvents = makeFunctionReference<"action">("provider_events/processing:drain");
+const recoverPdaxRouteJobs = makeFunctionReference<"mutation">(
+  "payment_intents/mutations:recoverPdaxRouteJobs",
+);
 
 crons.interval(
   "poll recent contract events",
@@ -30,6 +33,10 @@ crons.interval(
 );
 
 crons.interval("recover and drain provider events", { minutes: 1 }, drainProviderEvents, {
+  limit: 100,
+});
+
+crons.interval("recover PDAX payment routes", { minutes: 1 }, recoverPdaxRouteJobs, {
   limit: 100,
 });
 

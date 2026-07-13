@@ -50,9 +50,9 @@ docs/operations/sprint-5-scale-competitive-proof-release.md
 docs/
 !docs/
 docs/*
-!docs/architecture/
+docs/architecture/
 docs/architecture/*
 !docs/architecture/sprint-8-durable-financial-reliability.md
 !docs/operations/
 docs/operations/*
-!docs/operations/sprint-8-durable-financial-reliability-runbook.md
+docs/operations/sprint-8-durable-financial-reliability-runbook.md

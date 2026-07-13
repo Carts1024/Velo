@@ -635,6 +635,8 @@ export const createPublicPaymentIntentV2 = mutation({
     });
     const fingerprint = createPaymentIntentFingerprint({ ...args, anchor: resolvedAnchor });
     const now = Date.now();
+    const mappedAsset = resolvedAnchor === "pdax" ? mapAssetToPdax(args.asset) : undefined;
+    let cachedPdaxRoute: { address: string; memo?: string; mappedAsset: string } | undefined;
 
     if (args.idempotencyKey !== undefined) {
       const existing = await ctx.db
@@ -669,22 +671,47 @@ export const createPublicPaymentIntentV2 = mutation({
       if (connection?.status !== "connected") {
         return { status: "anchor_not_connected" as const, projectId: auth.project._id };
       }
+
+      const cached = await ctx.db
+        .query("pdaxRouteCache")
+        .withIndex("by_project_and_mapped_asset", (q) =>
+          q.eq("projectId", auth.project._id).eq("mappedAsset", mappedAsset!),
+        )
+        .unique();
+      if (cached && cached.expiresAt > now) {
+        cachedPdaxRoute = {
+          address: cached.address,
+          ...(cached.memo !== undefined ? { memo: cached.memo } : {}),
+          mappedAsset: cached.mappedAsset,
+        };
+      }
     }
 
     const paymentIntentId = await ctx.db.insert("paymentIntents", {
       projectId: auth.project._id,
       amount: args.amount,
       asset: args.asset,
-      ...(resolvedAnchor === "inhouse" ? { receiverAddress: auth.project.ownerAddress } : {}),
+      ...(resolvedAnchor === "inhouse"
+        ? { receiverAddress: auth.project.ownerAddress }
+        : cachedPdaxRoute
+          ? {
+              receiverAddress: cachedPdaxRoute.address,
+              ...(cachedPdaxRoute.memo !== undefined ? { receiverMemo: cachedPdaxRoute.memo } : {}),
+              anchorDepositCurrency: cachedPdaxRoute.mappedAsset,
+            }
+          : {}),
       merchantName: auth.project.name,
       ...(args.description !== undefined ? { description: args.description } : {}),
-      status: resolvedAnchor === "pdax" ? "awaiting_route" : "created",
+      status: resolvedAnchor === "pdax" && !cachedPdaxRoute ? "awaiting_route" : "created",
       ...(args.successUrl !== undefined ? { successUrl: args.successUrl } : {}),
       ...(args.cancelUrl !== undefined ? { cancelUrl: args.cancelUrl } : {}),
       anchor: resolvedAnchor,
       ...(args.correlationId !== undefined ? { correlationId: args.correlationId } : {}),
       expiresAt: now + PAYMENT_INTENT_EXPIRY_MS,
-      stageTimestamps: { created: now },
+      stageTimestamps: {
+        created: now,
+        ...(cachedPdaxRoute ? { routeReady: now } : {}),
+      },
       createdAt: now,
       updatedAt: now,
     });
@@ -700,11 +727,11 @@ export const createPublicPaymentIntentV2 = mutation({
       });
     }
 
-    if (resolvedAnchor === "pdax") {
+    if (resolvedAnchor === "pdax" && !cachedPdaxRoute) {
       await ctx.db.insert("paymentIntentRouteJobs", {
         paymentIntentId,
         projectId: auth.project._id,
-        mappedAsset: mapAssetToPdax(args.asset),
+        mappedAsset: mappedAsset!,
         state: "scheduled",
         attempts: 0,
         nextAttemptAt: now,
@@ -871,38 +898,36 @@ export const completePdaxRoute = internalMutation({
       });
       return { applied: false };
     }
-    const cached = await ctx.db
-      .query("pdaxRouteCache")
-      .withIndex("by_project_and_mapped_asset", (q) =>
-        q.eq("projectId", job.projectId).eq("mappedAsset", args.mappedAsset),
-      )
-      .unique();
-    const cacheValue = {
-      projectId: job.projectId,
-      mappedAsset: args.mappedAsset,
-      address: args.address,
-      ...(args.memo !== undefined ? { memo: args.memo } : {}),
-      expiresAt: now + ROUTE_CACHE_TTL_MS,
-      updatedAt: now,
-    };
-    if (cached) await ctx.db.replace(cached._id, cacheValue);
-    else await ctx.db.insert("pdaxRouteCache", cacheValue);
-
-    const resilience = await ctx.db
-      .query("providerResilience")
-      .withIndex("by_project_and_provider", (q) =>
-        q.eq("projectId", job.projectId).eq("provider", "pdax"),
-      )
-      .unique();
-    if (
-      !args.fromCache &&
-      (resilience?.leaseToken !== args.leaseToken ||
+    if (!args.fromCache) {
+      const resilience = await ctx.db
+        .query("providerResilience")
+        .withIndex("by_project_and_provider", (q) =>
+          q.eq("projectId", job.projectId).eq("provider", "pdax"),
+        )
+        .unique();
+      if (
+        resilience?.leaseToken !== args.leaseToken ||
         !resilience.leaseExpiresAt ||
-        resilience.leaseExpiresAt <= now)
-    ) {
-      return { applied: false };
-    }
-    if (resilience?.leaseToken === args.leaseToken) {
+        resilience.leaseExpiresAt <= now
+      ) {
+        return { applied: false };
+      }
+      const cached = await ctx.db
+        .query("pdaxRouteCache")
+        .withIndex("by_project_and_mapped_asset", (q) =>
+          q.eq("projectId", job.projectId).eq("mappedAsset", args.mappedAsset),
+        )
+        .unique();
+      const cacheValue = {
+        projectId: job.projectId,
+        mappedAsset: args.mappedAsset,
+        address: args.address,
+        ...(args.memo !== undefined ? { memo: args.memo } : {}),
+        expiresAt: now + ROUTE_CACHE_TTL_MS,
+        updatedAt: now,
+      };
+      if (cached) await ctx.db.replace(cached._id, cacheValue);
+      else await ctx.db.insert("pdaxRouteCache", cacheValue);
       await ctx.db.patch(resilience._id, {
         consecutiveFailures: 0,
         circuitOpenUntil: undefined,
@@ -1039,5 +1064,83 @@ export const failPdaxRoute = internalMutation({
       paymentIntentId: args.paymentIntentId,
     });
     return true;
+  },
+});
+
+/**
+ * Recovers PDAX route work whose scheduled action was lost or whose worker lease expired.
+ * The cron calling this mutation is a safety net; claimRouteJob still provides fencing.
+ */
+export const recoverPdaxRouteJobs = internalMutation({
+  args: { limit: v.number() },
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    const limit = Math.max(1, Math.min(Math.floor(args.limit), 100));
+    const dueJobs = [];
+
+    for (const state of ["scheduled", "retry_wait", "leased"] as const) {
+      const remaining = limit - dueJobs.length;
+      if (remaining <= 0) break;
+      const jobs = await ctx.db
+        .query("paymentIntentRouteJobs")
+        .withIndex("by_state_and_next_attempt_at", (q) =>
+          q.eq("state", state).lte("nextAttemptAt", now),
+        )
+        .take(remaining);
+      dueJobs.push(...jobs);
+    }
+
+    let recovered = 0;
+    let expired = 0;
+    for (const job of dueJobs) {
+      if (job.state === "leased" && job.leaseExpiresAt && job.leaseExpiresAt > now) continue;
+
+      const intent = await ctx.db.get(job.paymentIntentId);
+      if (!intent || intent.status !== "awaiting_route") {
+        await ctx.db.patch(job._id, {
+          state: "failed",
+          lastErrorCode: intent ? `intent_${intent.status}` : "intent_not_found",
+          leaseToken: undefined,
+          leaseExpiresAt: undefined,
+          updatedAt: now,
+        });
+        continue;
+      }
+
+      if (intent.expiresAt <= now) {
+        await ctx.db.patch(intent._id, {
+          status: "expired",
+          stageTimestamps: {
+            created: intent.stageTimestamps?.created ?? intent.createdAt,
+            ...intent.stageTimestamps,
+            expired: now,
+          },
+          updatedAt: now,
+        });
+        await ctx.db.patch(job._id, {
+          state: "failed",
+          lastErrorCode: "intent_expired",
+          leaseToken: undefined,
+          leaseExpiresAt: undefined,
+          updatedAt: now,
+        });
+        expired += 1;
+        continue;
+      }
+
+      await ctx.db.patch(job._id, {
+        state: "scheduled",
+        nextAttemptAt: now,
+        leaseToken: undefined,
+        leaseExpiresAt: undefined,
+        updatedAt: now,
+      });
+      await ctx.scheduler.runAfter(0, internal.payment_intents.actions.enrichPdaxRoute, {
+        paymentIntentId: job.paymentIntentId,
+      });
+      recovered += 1;
+    }
+
+    return { recovered, expired };
   },
 });
