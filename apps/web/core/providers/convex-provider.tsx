@@ -5,6 +5,7 @@ import { ConvexProviderWithAuth, ConvexReactClient } from "convex/react";
 import { usePathname } from "next/navigation";
 import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { isPublicRoute, shouldReportWalletAuthenticated } from "../auth/convex-auth";
 import { env } from "../config/env";
 
 const convex = new ConvexReactClient(env.NEXT_PUBLIC_CONVEX_URL!);
@@ -67,15 +68,6 @@ function validTokenForWallet(
   }
 
   return jwtExpiresAt(token.token) - Date.now() > TOKEN_REFRESH_MARGIN_MS;
-}
-
-function isPublicRoute(path: string) {
-  return (
-    path === "/" ||
-    path.startsWith("/docs") ||
-    path.startsWith("/verify") ||
-    path.startsWith("/pay")
-  );
 }
 
 function useWalletConvexAuth() {
@@ -184,10 +176,12 @@ function useWalletConvexAuth() {
   return useMemo(
     () => ({
       isLoading: wallet.status === "initializing" || wallet.status === "connecting",
-      isAuthenticated:
-        wallet.status === "connected" &&
-        Boolean(wallet.address) &&
-        (!isPublicRoute(pathname) || validTokenForWallet(tokenState, wallet.address)),
+      isAuthenticated: shouldReportWalletAuthenticated({
+        walletStatus: wallet.status,
+        walletAddress: wallet.address,
+        pathname,
+        hasValidToken: validTokenForWallet(tokenState, wallet.address),
+      }),
       fetchAccessToken,
     }),
     [fetchAccessToken, wallet.address, wallet.status, pathname, tokenState],
