@@ -177,7 +177,9 @@ function createHttpAdapter(
     prime: async (fixture, context) => {
       if (context.temperature !== "warm") return;
       const sample = await execute(fixture, { ...context, sample: "prime" });
-      if (sample.status !== "success") throw new Error(`${scenario.id} warm prime failed`);
+      if (sample.status !== "success") {
+        throw new Error(formatWarmPrimeFailure(scenario.id, sample));
+      }
     },
     execute,
     cleanup: async (fixture, context) => {
@@ -693,6 +695,18 @@ function classifyHttpError(status, headers) {
     source,
     attributed: Boolean(dependency || source),
   };
+}
+
+function formatWarmPrimeFailure(scenarioId, sample) {
+  const failure = sample.errorDetail ?? sample.error;
+  const details = [
+    sample.httpStatus > 0 ? `HTTP ${sample.httpStatus}` : null,
+    sample.timeout ? "request timed out" : null,
+    failure?.class ? `class=${failure.class}` : null,
+    failure?.code ? `code=${failure.code}` : null,
+    ...(sample.errorDetail?.errors ?? []),
+  ].filter(Boolean);
+  return `${scenarioId} warm prime failed${details.length ? `: ${details.join("; ")}` : ""}`;
 }
 
 function safeString(value) {

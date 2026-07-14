@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { resolveTargetSamples } from "./benchmark-config.mjs";
 import { loadBenchmarkContract, validateCapturedReport } from "./benchmark-contract.mjs";
 import { runOpenLoop } from "./benchmark-runner-lib.mjs";
 
@@ -76,4 +77,11 @@ test("open-loop runner enforces the concurrency cap and reports saturation", asy
   assert.ok(observedMax <= 2);
   assert.equal(result.maxInFlight, observedMax);
   assert.ok(result.saturatedArrivals > 0);
+});
+
+test("explicit sample count overrides the qualification workload floor", () => {
+  const normal = { requestsPerSecond: 10, durationSeconds: 300, sampleTarget: 1000 };
+
+  assert.equal(resolveTargetSamples({ samples: "100" }, normal), 100);
+  assert.equal(resolveTargetSamples({}, normal), 3000);
 });

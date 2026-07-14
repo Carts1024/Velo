@@ -108,10 +108,11 @@ Every cell uses the same lifecycle:
    receipt bound to the same capture and cohort.
 
 The `normal` profile fixes 10 arrivals/s, concurrency 25, and 300 seconds. `growth` fixes 50
-arrivals/s, concurrency 100, and 300 seconds. The runner chooses the greatest of `--samples`, the
-profile sample target, and `requestsPerSecond × durationSeconds`; with the checked-in contract this
-is at least 3,000 attempts for a normal cell and 15,000 for a growth cell. These are workload
-requirements, not observed successes.
+arrivals/s, concurrency 100, and 300 seconds. Qualification runs omit `--samples`, so the runner
+chooses the greatest of the profile sample target and `requestsPerSecond × durationSeconds`; with
+the checked-in contract this is at least 3,000 attempts for a normal cell and 15,000 for a growth
+cell. An explicit `--samples N` is an exact local/canary override and is not a qualification claim.
+These are workload requirements, not observed successes.
 
 ## Controller authentication and cold-reset attestation
 

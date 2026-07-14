@@ -7,6 +7,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { basename, dirname, relative, resolve } from "node:path";
 
 import { loadBenchmarkContract } from "./benchmark-contract.mjs";
+import { resolveTargetSamples } from "./benchmark-config.mjs";
 import { deriveVeloContributors } from "./benchmark-gate-lib.mjs";
 import { runOpenLoop } from "./benchmark-runner-lib.mjs";
 import { createScenarioAdapter } from "./benchmark/adapters.mjs";
@@ -84,9 +85,7 @@ if (args["dry-run"]) {
 async function captureCell(cell, currentContract, captureId) {
   const scenario = cell.scenarioConfig;
   const profile = currentContract.profiles.profiles.find((entry) => entry.id === cell.profile);
-  const requested = positiveInt(args.samples ?? "1000", "samples");
-  const durationSamples = Math.ceil(profile.requestsPerSecond * profile.durationSeconds);
-  const targetSamples = Math.max(requested, profile.sampleTarget, durationSamples);
+  const targetSamples = resolveTargetSamples(args, profile);
   const concurrency = positiveInt(args.concurrency ?? String(profile.concurrency), "concurrency");
   if (concurrency !== profile.concurrency) {
     throw new Error(

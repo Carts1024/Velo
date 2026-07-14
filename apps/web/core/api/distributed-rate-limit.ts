@@ -37,10 +37,16 @@ export async function consumeDistributedRateLimit(
   let lastError: unknown;
   for (let attempt = 0; attempt <= MAX_OCC_RETRIES; attempt++) {
     try {
-      // ConvexHttpClient serializes queued mutations per client. Keep that
-      // queue enabled here so requests handled by the same server instance do
-      // not all race on the same token bucket document.
-      return await convex.mutation(api.rate_limits.mutations.consume, { apiKeyHash });
+      // This module-level HTTP client is shared by every route request in the
+      // server process. Its default mutation queue is strictly serial, so it
+      // becomes an unbounded process-local bottleneck under concurrent load.
+      // Convex remains the source of truth for bucket serialization; the OCC
+      // retry loop below handles conflicting reservations.
+      return await convex.mutation(
+        api.rate_limits.mutations.consume,
+        { apiKeyHash },
+        { skipQueue: true },
+      );
     } catch (error) {
       if (!isOccError(error) || attempt === MAX_OCC_RETRIES) throw error;
       lastError = error;

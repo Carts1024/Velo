@@ -4,6 +4,7 @@ import { v, ConvexError } from "convex/values";
 import { internal } from "../_generated/api";
 import { internalMutation, mutation } from "../_generated/server";
 import { recordMetric, recordSpan } from "../telemetry_outbox/helpers";
+import { hasEnabledWebhookForEvent } from "../webhook_endpoints/helpers";
 import {
   createPaymentIntentFingerprint,
   mapAssetToPdax,
@@ -79,12 +80,14 @@ export const createPaymentIntent = mutation({
     });
 
     // 3. Increment request count on the API key
-    await ctx.scheduler.runAfter(0, internal.webhookDelivery.trigger, {
-      projectId: project._id,
-      eventType: "payment.created",
-      paymentIntentId: id,
-      ...(args.correlationId !== undefined ? { correlationId: args.correlationId } : {}),
-    });
+    if (await hasEnabledWebhookForEvent(ctx, project._id, "payment.created")) {
+      await ctx.scheduler.runAfter(0, internal.webhookDelivery.trigger, {
+        projectId: project._id,
+        eventType: "payment.created",
+        paymentIntentId: id,
+        ...(args.correlationId !== undefined ? { correlationId: args.correlationId } : {}),
+      });
+    }
 
     return { paymentIntentId: id, projectId: project._id };
   },
@@ -201,12 +204,14 @@ export const createPublicPaymentIntent = mutation({
       });
     }
 
-    await ctx.scheduler.runAfter(0, internal.webhookDelivery.trigger, {
-      projectId: auth.project._id,
-      eventType: "payment.created",
-      paymentIntentId,
-      ...(args.correlationId !== undefined ? { correlationId: args.correlationId } : {}),
-    });
+    if (await hasEnabledWebhookForEvent(ctx, auth.project._id, "payment.created")) {
+      await ctx.scheduler.runAfter(0, internal.webhookDelivery.trigger, {
+        projectId: auth.project._id,
+        eventType: "payment.created",
+        paymentIntentId,
+        ...(args.correlationId !== undefined ? { correlationId: args.correlationId } : {}),
+      });
+    }
 
     const intent = await ctx.db.get(paymentIntentId);
     if (!intent) {
@@ -313,7 +318,10 @@ export const updateStatus = mutation({
       }
     }
 
-    if (args.status === "failed") {
+    if (
+      args.status === "failed" &&
+      (await hasEnabledWebhookForEvent(ctx, intent.projectId, "payment.failed"))
+    ) {
       await ctx.scheduler.runAfter(0, internal.webhookDelivery.trigger, {
         projectId: intent.projectId,
         eventType: "payment.failed",
@@ -429,12 +437,14 @@ export const markVerifiedPaid = internalMutation({
       });
     }
 
-    await ctx.scheduler.runAfter(0, internal.webhookDelivery.trigger, {
-      projectId: intent.projectId,
-      eventType: "payment.succeeded",
-      paymentIntentId: args.paymentIntentId,
-      ...(intent.correlationId !== undefined ? { correlationId: intent.correlationId } : {}),
-    });
+    if (await hasEnabledWebhookForEvent(ctx, intent.projectId, "payment.succeeded")) {
+      await ctx.scheduler.runAfter(0, internal.webhookDelivery.trigger, {
+        projectId: intent.projectId,
+        eventType: "payment.succeeded",
+        paymentIntentId: args.paymentIntentId,
+        ...(intent.correlationId !== undefined ? { correlationId: intent.correlationId } : {}),
+      });
+    }
 
     return { applied: true as const, projectId: intent.projectId };
   },
@@ -584,12 +594,14 @@ export const prepareOrInsertPaymentIntentV2 = internalMutation({
       });
     }
 
-    await ctx.scheduler.runAfter(0, internal.webhookDelivery.trigger, {
-      projectId: auth.project._id,
-      eventType: "payment.created",
-      paymentIntentId,
-      ...(args.correlationId !== undefined ? { correlationId: args.correlationId } : {}),
-    });
+    if (await hasEnabledWebhookForEvent(ctx, auth.project._id, "payment.created")) {
+      await ctx.scheduler.runAfter(0, internal.webhookDelivery.trigger, {
+        projectId: auth.project._id,
+        eventType: "payment.created",
+        paymentIntentId,
+        ...(args.correlationId !== undefined ? { correlationId: args.correlationId } : {}),
+      });
+    }
 
     const intent = await ctx.db.get(paymentIntentId);
     if (!intent) {
@@ -698,12 +710,14 @@ export const insertPublicPaymentIntentV2 = internalMutation({
       });
     }
 
-    await ctx.scheduler.runAfter(0, internal.webhookDelivery.trigger, {
-      projectId: auth.project._id,
-      eventType: "payment.created",
-      paymentIntentId,
-      ...(args.correlationId !== undefined ? { correlationId: args.correlationId } : {}),
-    });
+    if (await hasEnabledWebhookForEvent(ctx, auth.project._id, "payment.created")) {
+      await ctx.scheduler.runAfter(0, internal.webhookDelivery.trigger, {
+        projectId: auth.project._id,
+        eventType: "payment.created",
+        paymentIntentId,
+        ...(args.correlationId !== undefined ? { correlationId: args.correlationId } : {}),
+      });
+    }
 
     const intent = await ctx.db.get(paymentIntentId);
     if (!intent) {
@@ -881,12 +895,14 @@ export const createPublicPaymentIntentV2 = mutation({
         paymentIntentId,
       });
     } else {
-      await ctx.scheduler.runAfter(0, internal.webhookDelivery.trigger, {
-        projectId: auth.project._id,
-        eventType: "payment.created",
-        paymentIntentId,
-        ...(args.correlationId !== undefined ? { correlationId: args.correlationId } : {}),
-      });
+      if (await hasEnabledWebhookForEvent(ctx, auth.project._id, "payment.created")) {
+        await ctx.scheduler.runAfter(0, internal.webhookDelivery.trigger, {
+          projectId: auth.project._id,
+          eventType: "payment.created",
+          paymentIntentId,
+          ...(args.correlationId !== undefined ? { correlationId: args.correlationId } : {}),
+        });
+      }
     }
 
     const intent = await ctx.db.get(paymentIntentId);
@@ -1109,12 +1125,14 @@ export const completePdaxRoute = internalMutation({
       journeyCorrelationId: intent.correlationId,
       traceparent: intent.traceparent,
     });
-    await ctx.scheduler.runAfter(0, internal.webhookDelivery.trigger, {
-      projectId: intent.projectId,
-      eventType: "payment.created",
-      paymentIntentId: intent._id,
-      ...(intent.correlationId !== undefined ? { correlationId: intent.correlationId } : {}),
-    });
+    if (await hasEnabledWebhookForEvent(ctx, intent.projectId, "payment.created")) {
+      await ctx.scheduler.runAfter(0, internal.webhookDelivery.trigger, {
+        projectId: intent.projectId,
+        eventType: "payment.created",
+        paymentIntentId: intent._id,
+        ...(intent.correlationId !== undefined ? { correlationId: intent.correlationId } : {}),
+      });
+    }
     return { applied: true };
   },
 });
@@ -1224,12 +1242,14 @@ export const failPdaxRoute = internalMutation({
         },
         updatedAt: now,
       });
-      await ctx.scheduler.runAfter(0, internal.webhookDelivery.trigger, {
-        projectId: intent.projectId,
-        eventType: "payment.failed",
-        paymentIntentId: intent._id,
-        ...(intent.correlationId !== undefined ? { correlationId: intent.correlationId } : {}),
-      });
+      if (await hasEnabledWebhookForEvent(ctx, intent.projectId, "payment.failed")) {
+        await ctx.scheduler.runAfter(0, internal.webhookDelivery.trigger, {
+          projectId: intent.projectId,
+          eventType: "payment.failed",
+          paymentIntentId: intent._id,
+          ...(intent.correlationId !== undefined ? { correlationId: intent.correlationId } : {}),
+        });
+      }
       return true;
     }
     const retryDelay =

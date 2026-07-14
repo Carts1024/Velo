@@ -199,6 +199,51 @@ test("HTTP adapter requires cohort control, validates outcomes, and rejects cold
   assert.equal(invalid.errorDetail.code, "invalid_http_outcome");
 });
 
+test("HTTP warm prime preserves the response failure that blocked capture", async () => {
+  const scenario = contract.scenarios.scenarios.find(
+    (entry) => entry.id === "payment-intent-create",
+  );
+  const fetchImpl = async (url) => {
+    if (String(url).includes("bench.example.test")) {
+      if (String(url).endsWith("/setup")) {
+        return jsonResponse({
+          authorized: true,
+          authorizationId: "load-window-9",
+          evidenceMode: "real",
+          cohortId: "cohort-sprint-9",
+          fixtureId: "http-fixture-1",
+          cleanupToken: "cleanup-token",
+          setupReceiptId: "http-setup-1",
+          temperatureApplied: "warm",
+          profileApplied: "normal",
+        });
+      }
+      return jsonResponse({
+        cleaned: true,
+        captureId: "capture-1",
+        cohortId: "cohort-sprint-9",
+        receiptId: "http-cleanup-1",
+        cleanedAt: "2026-07-13T01:30:00.000Z",
+      });
+    }
+    return new Response(JSON.stringify({ error: { code: "rate_limit_exceeded" } }), {
+      status: 429,
+      headers: {
+        "content-type": "application/json",
+        "retry-after": "2",
+      },
+    });
+  };
+  const adapter = createScenarioAdapter(scenario, { env: httpEnv(), fetchImpl });
+  const context = runContext();
+  const fixture = await adapter.setup(context);
+  await assert.rejects(
+    () => adapter.prime(fixture, context),
+    /payment-intent-create warm prime failed: HTTP 429; class=http_4xx/,
+  );
+  await adapter.cleanup(fixture, context);
+});
+
 test("lifecycle validation enforces named boundaries and millisecond units", () => {
   const scenario = contract.scenarios.scenarios.find(
     (entry) => entry.id === "checkout-preparation",

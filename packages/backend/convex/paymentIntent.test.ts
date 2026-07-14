@@ -45,6 +45,10 @@ test("payment intent lifecycle", async () => {
     checkoutCredits: 100,
   });
 
+  const scheduledBeforeCreate = await t.run(
+    async (ctx) => await ctx.db.system.query("_scheduled_functions").collect(),
+  );
+
   // Generate API key
   const { rawKey } = await owner.mutation(api.projects.mutation.generateApiKey, {
     id: projectId,
@@ -75,6 +79,11 @@ test("payment intent lifecycle", async () => {
     successUrl: "https://merchant.xyz/success",
     cancelUrl: "https://merchant.xyz/cancel",
   });
+
+  const scheduledAfterCreate = await t.run(
+    async (ctx) => await ctx.db.system.query("_scheduled_functions").collect(),
+  );
+  expect(scheduledAfterCreate).toHaveLength(scheduledBeforeCreate.length);
 
   // Retrieve the payment intent
   let intent = await t.query(api.payment_intents.queries.getPaymentIntent, {
@@ -618,6 +627,65 @@ test("payment anchor resolution precedence and mismatch rejections", async () =>
   ).rejects.toThrow(
     "Anchor mismatch: Requested anchor does not match the API key's scoped anchor.",
   );
+});
+
+test("payment.created webhook scheduling is demand-driven", async () => {
+  const t = convexTest(schema, modules);
+  const ownerAddress = "GD7O2C226SF2677PFFUVD6O2ICFOBNCWPI5Z46N43ZSFQGLM65U3I2SP";
+  const owner = asWallet(t, ownerAddress);
+  const projectId = await owner.mutation(api.projects.mutation.createDraft, {
+    name: "Webhook Scheduling Store",
+    slug: "webhook-scheduling-store",
+    description: "Verifies demand-driven payment webhook scheduling",
+    metadataJson: "{}",
+    metadataHash: "0".repeat(64),
+    ownerAddress,
+  });
+  await owner.mutation(api.projects.mutation.markPaymentAccessActive, {
+    id: projectId,
+    checkoutCredits: 100,
+  });
+  const { rawKey } = await owner.mutation(api.projects.mutation.generateApiKey, {
+    id: projectId,
+    label: "Webhook scheduling test",
+  });
+  const apiKeyHash = await sha256Hex(rawKey);
+  const scheduledWebhookCount = async () =>
+    await t.run(
+      async (ctx) =>
+        (
+          await ctx.db.system.query("_scheduled_functions").collect()
+        ).filter((row) => row.name.includes("webhookDelivery:trigger")).length,
+    );
+
+  const beforeNoEndpoint = await scheduledWebhookCount();
+  const noEndpoint = await t.mutation(api.payment_intents.mutations.createPublicPaymentIntentV2, {
+    apiKeyHash,
+    amount: "1.00",
+    asset: "native",
+    idempotencyKey: "without-webhook",
+  });
+  expect(noEndpoint.status).toBe("success");
+  expect(await scheduledWebhookCount()).toBe(beforeNoEndpoint);
+
+  await owner.mutation(api.webhook_endpoints.mutation.saveSettings, {
+    projectId,
+    url: "https://merchant.example/webhook",
+    enabled: true,
+    eventTypes: ["payment.created"],
+  });
+  const beforeSubscribed = await scheduledWebhookCount();
+  const subscribed = await t.mutation(
+    api.payment_intents.mutations.createPublicPaymentIntentV2,
+    {
+      apiKeyHash,
+      amount: "2.00",
+      asset: "native",
+      idempotencyKey: "with-webhook",
+    },
+  );
+  expect(subscribed.status).toBe("success");
+  expect(await scheduledWebhookCount()).toBe(beforeSubscribed + 1);
 });
 
 test("public payment intent v2 creates one awaiting route and completes it safely", async () => {
