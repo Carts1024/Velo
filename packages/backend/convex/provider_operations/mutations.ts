@@ -308,6 +308,38 @@ export const finishReconciliation = internalMutation({
   },
 });
 
+export const resolveFromWebhook = internalMutation({
+  args: {
+    provider: v.literal("pdax"),
+    providerKey: v.string(),
+    observation: v.union(v.literal("succeeded"), v.literal("failed")),
+    resultJson: v.optional(v.string()),
+    errorMessage: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const operation = await ctx.db
+      .query("providerOperations")
+      .withIndex("by_provider_and_provider_key", (q) =>
+        q.eq("provider", args.provider).eq("providerKey", args.providerKey),
+      )
+      .unique();
+    if (!operation) return { updated: false };
+
+    if (["succeeded", "failed", "dead_letter"].includes(operation.state)) {
+      return { updated: false, state: operation.state };
+    }
+
+    const now = Date.now();
+    await ctx.db.patch(operation._id, {
+      state: args.observation,
+      ...(args.resultJson !== undefined ? { resultJson: args.resultJson } : {}),
+      ...(args.errorMessage !== undefined ? { errorMessage: args.errorMessage } : {}),
+      updatedAt: now,
+    });
+    return { updated: true, state: args.observation };
+  },
+});
+
 export const redrive = mutation({
   args: { operationId: v.id("providerOperations") },
   handler: async (ctx, args) => {

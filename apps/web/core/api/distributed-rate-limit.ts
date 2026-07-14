@@ -18,13 +18,38 @@ export function distributedRateLimitHeaders(result: DistributedRateLimit) {
   };
 }
 
+const MAX_OCC_RETRIES = 3;
+const BASE_DELAY_MS = 50;
+
+function isOccError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  return error.message.includes("OptimisticConcurrencyControlFailure");
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export async function consumeDistributedRateLimit(
   convex: ConvexHttpClient,
   apiKeyHash: string,
 ): Promise<{ authorized: false } | ({ authorized: true } & DistributedRateLimit)> {
-  return await convex.mutation(
-    api.rate_limits.mutations.consume,
-    { apiKeyHash },
-    { skipQueue: true },
-  );
+  let lastError: unknown;
+  for (let attempt = 0; attempt <= MAX_OCC_RETRIES; attempt++) {
+    try {
+      return await convex.mutation(
+        api.rate_limits.mutations.consume,
+        { apiKeyHash },
+        { skipQueue: true },
+      );
+    } catch (error) {
+      if (!isOccError(error) || attempt === MAX_OCC_RETRIES) throw error;
+      lastError = error;
+      // Exponential backoff + random jitter
+      const delay = BASE_DELAY_MS * 2 ** attempt + Math.random() * BASE_DELAY_MS;
+      await sleep(delay);
+    }
+  }
+  throw lastError;
 }
+

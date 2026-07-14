@@ -5,6 +5,10 @@ import type { MutationCtx } from "../_generated/server";
 
 import { mutation } from "../_generated/server";
 
+// Spread writes across NUM_SHARDS sub-buckets to reduce OCC contention.
+// Each shard holds capacity/NUM_SHARDS tokens and refills at rate/NUM_SHARDS.
+const NUM_SHARDS = 8;
+
 async function consumeBucket(
   ctx: MutationCtx,
   scopeKey: string,
@@ -12,22 +16,28 @@ async function consumeBucket(
   refillPerSecond: number,
   now: number,
 ) {
+  // Pick a random shard so concurrent mutations hit different documents
+  const shard = Math.floor(Math.random() * NUM_SHARDS);
+  const shardKey = `${scopeKey}#${shard}`;
+  const shardCapacity = capacity / NUM_SHARDS;
+  const shardRefill = refillPerSecond / NUM_SHARDS;
+
   const bucket = await ctx.db
     .query("rateLimitBuckets")
-    .withIndex("by_scope_key", (q) => q.eq("scopeKey", scopeKey))
+    .withIndex("by_scope_key", (q) => q.eq("scopeKey", shardKey))
     .unique();
   const available = bucket
-    ? Math.min(capacity, bucket.tokens + ((now - bucket.updatedAt) / 1_000) * refillPerSecond)
-    : capacity;
+    ? Math.min(shardCapacity, bucket.tokens + ((now - bucket.updatedAt) / 1_000) * shardRefill)
+    : shardCapacity;
   const allowed = available >= 1;
   const tokens = allowed ? available - 1 : available;
   if (bucket) await ctx.db.patch(bucket._id, { tokens, updatedAt: now });
-  else await ctx.db.insert("rateLimitBuckets", { scopeKey, tokens, updatedAt: now });
+  else await ctx.db.insert("rateLimitBuckets", { scopeKey: shardKey, tokens, updatedAt: now });
   return {
     allowed,
     limit: capacity,
-    remaining: Math.max(0, Math.floor(tokens)),
-    retryAfterMs: allowed ? 0 : Math.ceil(((1 - available) / refillPerSecond) * 1_000),
+    remaining: Math.max(0, Math.floor(tokens * NUM_SHARDS)),
+    retryAfterMs: allowed ? 0 : Math.ceil(((1 - available) / shardRefill) * 1_000),
   };
 }
 

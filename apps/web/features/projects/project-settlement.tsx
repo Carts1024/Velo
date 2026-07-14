@@ -298,6 +298,7 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
   // Trade flow state
   const [tradeLoading, setTradeLoading] = useState(false);
   const [tradeError, setTradeError] = useState<string | null>(null);
+  const [tradeInfo, setTradeInfo] = useState<string | null>(null);
   const [tradeSuccess, setTradeSuccess] = useState<PdaxOrderDetails | null>(null);
   const [tradeOperationId, setTradeOperationId] = useState<Id<"providerOperations"> | null>(null);
   const tradeIdempotencyKey = useRef<string | null>(null);
@@ -317,6 +318,7 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
   const [withdrawLastName, setWithdrawLastName] = useState("Doe");
   const [withdrawLoading, setWithdrawLoading] = useState(false);
   const [withdrawError, setWithdrawError] = useState<string | null>(null);
+  const [withdrawInfo, setWithdrawInfo] = useState<string | null>(null);
   const [withdrawSuccess, setWithdrawSuccess] = useState<PdaxFiatWithdrawData | null>(null);
   const [withdrawOperationId, setWithdrawOperationId] = useState<Id<"providerOperations"> | null>(
     null,
@@ -386,6 +388,7 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
       const trade = JSON.parse(tradeOperation.resultJson) as PdaxOrderDetails;
       setTradeSuccess(trade);
       setTradeError(null);
+      setTradeInfo(null);
       setTradeOperationId(null);
       tradeIdempotencyKey.current = null;
       if (trade.total_amount) {
@@ -397,6 +400,7 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
       setTradeError(
         `Trade outcome requires recovery (operation ${tradeOperation._id}). Do not retry with a new idempotency key.`,
       );
+      setTradeInfo(null);
     }
   }, [tradeOperation, refreshBalances]);
 
@@ -409,6 +413,7 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
     }
     if (withdrawOperation.state === "succeeded") {
       setWithdrawError(null);
+      setWithdrawInfo(null);
       setWithdrawOperationId(null);
       withdrawIdempotencyKey.current = null;
       void refreshBalances();
@@ -416,6 +421,7 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
       setWithdrawError(
         `Payout outcome requires recovery (operation ${withdrawOperation._id}). Do not retry with a new idempotency key.`,
       );
+      setWithdrawInfo(null);
     }
   }, [withdrawOperation, refreshBalances]);
 
@@ -472,6 +478,7 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
     setActiveQuote(null);
     setTradeSuccess(null);
     setTradeError(null);
+    setTradeInfo(null);
 
     const qty = parseFloat(quoteQuantity);
     if (isNaN(qty) || qty <= 0) {
@@ -519,6 +526,7 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
     if (!activeQuote) return;
     setTradeLoading(true);
     setTradeError(null);
+    setTradeInfo(null);
     setTradeSuccess(null);
     toast.loading("Executing conversion trade...", { id: "pdax-trade" });
 
@@ -547,7 +555,11 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
           result.state === "recovery_required"
             ? `Trade outcome requires recovery (operation ${result.operationId}). Do not submit a new trade.`
             : `Trade submitted safely and is awaiting provider confirmation (operation ${result.operationId}).`;
-        setTradeError(message);
+        if (result.state === "recovery_required") {
+          setTradeError(message);
+        } else {
+          setTradeInfo(message);
+        }
         toast.warning(message, { id: "pdax-trade" });
       }
     } catch (err: unknown) {
@@ -563,6 +575,7 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
   const handleWithdraw = async () => {
     setWithdrawLoading(true);
     setWithdrawError(null);
+    setWithdrawInfo(null);
     setWithdrawSuccess(null);
 
     const amt = parseFloat(withdrawAmount);
@@ -600,7 +613,11 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
           result.state === "recovery_required"
             ? `Payout outcome requires recovery (operation ${result.operationId}). Do not create a new payout.`
             : `Payout accepted and awaiting provider confirmation (operation ${result.operationId}).`;
-        setWithdrawError(message);
+        if (result.state === "recovery_required") {
+          setWithdrawError(message);
+        } else {
+          setWithdrawInfo(message);
+        }
         toast.warning(message, { id: "pdax-withdraw" });
       }
     } catch (err: unknown) {
@@ -1216,6 +1233,16 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
                       </Alert>
                     )}
 
+                    {tradeInfo && !tradeSuccess && (
+                      <Alert className="border-amber-500/20 bg-amber-500/5 text-amber-600 dark:text-amber-500 animate-in zoom-in-95 duration-200">
+                        <RefreshCwIcon className="h-4 w-4 animate-spin text-amber-500" />
+                        <AlertTitle className="font-semibold text-amber-700 dark:text-amber-400">
+                          Execution Pending
+                        </AlertTitle>
+                        <AlertDescription className="text-xs">{tradeInfo}</AlertDescription>
+                      </Alert>
+                    )}
+
                     <Button
                       onClick={handleExecuteTrade}
                       disabled={tradeLoading}
@@ -1316,6 +1343,16 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
                     <XCircleIcon className="h-4 w-4" />
                     <AlertTitle>Payout Failed</AlertTitle>
                     <AlertDescription className="text-xs">{withdrawError}</AlertDescription>
+                  </Alert>
+                )}
+
+                {withdrawInfo && !withdrawSuccess && (
+                  <Alert className="border-amber-500/20 bg-amber-500/5 text-amber-600 dark:text-amber-500 animate-in zoom-in-95 duration-200">
+                    <RefreshCwIcon className="h-4 w-4 animate-spin text-amber-500" />
+                    <AlertTitle className="font-semibold text-amber-700 dark:text-amber-400">
+                      Payout Pending
+                    </AlertTitle>
+                    <AlertDescription className="text-xs">{withdrawInfo}</AlertDescription>
                   </Alert>
                 )}
 

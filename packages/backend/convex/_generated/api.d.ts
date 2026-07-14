@@ -46,6 +46,7 @@ import type * as provider_operations_actions from "../provider_operations/action
 import type * as provider_operations_mutations from "../provider_operations/mutations.js";
 import type * as provider_operations_queries from "../provider_operations/queries.js";
 import type * as rate_limits_mutations from "../rate_limits/mutations.js";
+import type * as seedBenchmarkKey from "../seedBenchmarkKey.js";
 import type * as settlement_actions from "../settlement/actions.js";
 import type * as settlement_helpers from "../settlement/helpers.js";
 import type * as settlement_quotes_mutation from "../settlement_quotes/mutation.js";
@@ -117,6 +118,7 @@ declare const fullApi: ApiFromModules<{
   "provider_operations/mutations": typeof provider_operations_mutations;
   "provider_operations/queries": typeof provider_operations_queries;
   "rate_limits/mutations": typeof rate_limits_mutations;
+  seedBenchmarkKey: typeof seedBenchmarkKey;
   "settlement/actions": typeof settlement_actions;
   "settlement/helpers": typeof settlement_helpers;
   "settlement_quotes/mutation": typeof settlement_quotes_mutation;

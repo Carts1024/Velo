@@ -606,7 +606,12 @@ export const fiatWithdraw = action({
       nextState: "provider_pending",
       providerReference: withdrawal.identifier,
       resultJson: JSON.stringify(result),
-      nextAttemptAt: Date.now() + 2 * 60 * 1_000,
+      nextAttemptAt: Date.now() + 5 * 1_000,
+    });
+
+    // Schedule reconciliation check in 5 seconds
+    await ctx.scheduler.runAfter(5, internal.provider_operations.actions.reconcileDue, {
+      limit: 10,
     });
 
     // Trigger Webhook
@@ -775,6 +780,18 @@ export const handlePdaxWebhook = action({
           accountNumber: existingDetails.accountNumber,
         },
       });
+
+      if (newStatus === "PAYOUT_SUCCEEDED" || newStatus === "PAYOUT_FAILED") {
+        await ctx.runMutation(internal.provider_operations.mutations.resolveFromWebhook, {
+          provider: "pdax",
+          providerKey: identifier,
+          observation: newStatus === "PAYOUT_SUCCEEDED" ? "succeeded" : "failed",
+          resultJson: JSON.stringify(payload),
+          ...(newStatus === "PAYOUT_FAILED"
+            ? { errorMessage: "Webhook reported failure status: " + status }
+            : {}),
+        });
+      }
 
       // Dispatch Velo merchant webhook
       await ctx.scheduler.runAfter(0, internal.webhookDelivery.trigger, {
@@ -1146,6 +1163,18 @@ export const pollPendingPayouts = internalAction({
                 accountNumber: existingDetails.accountNumber,
               },
             });
+
+            if (newStatus === "PAYOUT_SUCCEEDED" || newStatus === "PAYOUT_FAILED") {
+              await ctx.runMutation(internal.provider_operations.mutations.resolveFromWebhook, {
+                provider: "pdax",
+                providerKey: identifier,
+                observation: newStatus === "PAYOUT_SUCCEEDED" ? "succeeded" : "failed",
+                resultJson: JSON.stringify(pdaxTx),
+                ...(newStatus === "PAYOUT_FAILED"
+                  ? { errorMessage: "Polling reported failure status: " + pdaxTx.status }
+                  : {}),
+              });
+            }
 
             await ctx.scheduler.runAfter(0, internal.webhookDelivery.trigger, {
               projectId: tx.projectId,
