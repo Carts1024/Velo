@@ -10,17 +10,11 @@ export function isPublicRoute(path: string) {
 export function shouldReportWalletAuthenticated({
   walletStatus,
   walletAddress,
-  pathname,
   hasValidToken,
 }: {
   walletStatus: string;
   walletAddress: string | null;
-  pathname: string;
   hasValidToken: boolean;
 }) {
-  return (
-    walletStatus === "connected" &&
-    Boolean(walletAddress) &&
-    (hasValidToken || !isPublicRoute(pathname))
-  );
+  return walletStatus === "connected" && Boolean(walletAddress) && hasValidToken;
 }

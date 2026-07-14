@@ -173,18 +173,38 @@ function useWalletConvexAuth() {
     [wallet, tokenState],
   );
 
+  const hasValidToken = validTokenForWallet(tokenState, wallet.address);
+
+  // Convex only calls fetchAccessToken after the auth provider reports an
+  // authenticated user. Bootstrap the wallet JWT separately so that the
+  // provider can safely remain unauthenticated until a token exists.
+  useEffect(() => {
+    if (
+      wallet.status !== "connected" ||
+      !wallet.address ||
+      isPublicRoute(pathname) ||
+      hasValidToken
+    ) {
+      return;
+    }
+
+    void fetchAccessToken({ forceRefreshToken: false });
+  }, [fetchAccessToken, hasValidToken, pathname, wallet.address, wallet.status]);
+
   return useMemo(
     () => ({
-      isLoading: wallet.status === "initializing" || wallet.status === "connecting",
+      isLoading:
+        wallet.status === "initializing" ||
+        wallet.status === "connecting" ||
+        (wallet.status === "connected" && !isPublicRoute(pathname) && !hasValidToken),
       isAuthenticated: shouldReportWalletAuthenticated({
         walletStatus: wallet.status,
         walletAddress: wallet.address,
-        pathname,
-        hasValidToken: validTokenForWallet(tokenState, wallet.address),
+        hasValidToken,
       }),
       fetchAccessToken,
     }),
-    [fetchAccessToken, wallet.address, wallet.status, pathname, tokenState],
+    [fetchAccessToken, hasValidToken, wallet.address, wallet.status, pathname],
   );
 }
 
