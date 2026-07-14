@@ -15,7 +15,7 @@ import {
 } from "./benchmark-gate-lib.mjs";
 import { assembleWindowReports } from "./benchmark-merge-lib.mjs";
 import { generateBenchmarkMarkdown } from "./benchmark-report-lib.mjs";
-import { createScenarioAdapter } from "./benchmark/adapters.mjs";
+import { createScenarioAdapter, parseServerTimingHeader } from "./benchmark/adapters.mjs";
 import {
   coldResetPayload,
   summarizeLifecycleSamples,
@@ -34,6 +34,20 @@ test("Sprint 9 contract exposes exactly seven executable headline adapters", () 
     assert.ok(scenario.primaryMetric, scenario.id);
     assert.ok(scenario.requiredMetrics.length > 0, scenario.id);
   }
+});
+
+test("Server-Timing parsing records valid Velo dependency durations", () => {
+  assert.deepEqual(
+    parseServerTimingHeader(
+      'rate_limit;dur=12.345;desc="atomic admission", convex.action;dur=41, redis;desc="cache, primary";dur=3.2, missing, negative;dur=-1, invalid name;dur=9',
+    ),
+    [
+      { name: "rate_limit", durationMs: 12.35, controlledBy: "Velo" },
+      { name: "convex.action", durationMs: 41, controlledBy: "Velo" },
+      { name: "redis", durationMs: 3.2, controlledBy: "Velo" },
+    ],
+  );
+  assert.deepEqual(parseServerTimingHeader(null), []);
 });
 
 test("control adapter executes setup, real sample, and scoped cleanup", async () => {
@@ -167,6 +181,7 @@ test("HTTP adapter requires cohort control, validates outcomes, and rejects cold
       status: 201,
       headers: {
         "content-type": "application/json",
+        "server-timing": "rate_limit;dur=12.5, convex.action;dur=37.25",
         "x-correlation-id": "corr-http-1",
       },
     });
@@ -178,6 +193,11 @@ test("HTTP adapter requires cohort control, validates outcomes, and rejects cold
   const cleanup = await adapter.cleanup(fixture, context);
   assert.equal(sample.status, "success");
   assert.equal(sample.outcome.object, "payment_intent");
+  assert.deepEqual(sample.dependencyTimings, [
+    { name: "rate_limit", durationMs: 12.5, controlledBy: "Velo" },
+    { name: "convex.action", durationMs: 37.25, controlledBy: "Velo" },
+  ]);
+  assert.equal(sample.metrics[0].name, "http_request_ms");
   assert.equal(cleanup.controlled, true);
 
   const coldContext = { ...context, temperature: "cold" };

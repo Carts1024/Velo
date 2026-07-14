@@ -30,6 +30,9 @@ export default defineTable({
   checkoutCredits: v.optional(v.number()),
   paymentAccessLastSyncAt: v.optional(v.number()),
   defaultPaymentAnchor: v.optional(v.union(v.literal("inhouse"), v.literal("pdax"))),
+  rateLimitBackend: v.optional(
+    v.union(v.literal("convex"), v.literal("migrating"), v.literal("upstash")),
+  ),
   createdAt: v.number(),
   updatedAt: v.number(),
 })

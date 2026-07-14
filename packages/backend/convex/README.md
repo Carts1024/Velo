@@ -10,8 +10,10 @@ Together these provide **exactly-once observable transitions**, not exactly-once
 Provider and payment workers use indexed pages of at most 100 and continuation scheduling. The
 capacity contract is covered by [`10,000 reconciliation jobs drain in exactly 100 bounded pages`](durableReliability.test.ts). Provider lease fencing is covered by [`lease fencing rejects stale completion and ambiguous trades cannot resubmit`](durableReliability.test.ts).
 
-Public payment REST routes call `rate_limits.mutations.consume` once before create/get/list and use
-its result for rate-limit headers. Shared enforcement is covered by [`distributed rate limits are shared by concurrent callers`](durableReliability.test.ts).
+Public payment REST routes call one `payment_intents.public_api` action. The action authorizes,
+admits both the API-key and project quota, then invokes one internal read or write. Projects use the
+legacy Convex bucket while `rateLimitBackend` is `convex`; `migrating` fails closed; `upstash` uses
+one exact Redis Lua operation. See the [payment limiter cutover runbook](../../../docs/operations/payment-rate-limit-cutover.md).
 
 ## Configuration and rollout
 

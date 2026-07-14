@@ -402,7 +402,7 @@ test("public payment intent create is idempotent per project and request", async
     slug: "idempotent-merchant",
   });
 
-  const first = await t.mutation(api.payment_intents.mutations.createPublicPaymentIntent, {
+  const first = await t.mutation(internal.payment_intents.mutations.createPublicPaymentIntent, {
     apiKeyHash,
     amount: "25.00",
     asset: "native",
@@ -412,7 +412,7 @@ test("public payment intent create is idempotent per project and request", async
   expect(first.authorized).toBe(true);
   if (!first.authorized || "idempotencyConflict" in first) throw new Error("expected create");
 
-  const replay = await t.mutation(api.payment_intents.mutations.createPublicPaymentIntent, {
+  const replay = await t.mutation(internal.payment_intents.mutations.createPublicPaymentIntent, {
     apiKeyHash,
     amount: "25.00",
     asset: "native",
@@ -424,7 +424,7 @@ test("public payment intent create is idempotent per project and request", async
   expect(replay.idempotencyReplay).toBe(true);
   expect(replay.intent._id).toBe(first.intent._id);
 
-  const conflict = await t.mutation(api.payment_intents.mutations.createPublicPaymentIntent, {
+  const conflict = await t.mutation(internal.payment_intents.mutations.createPublicPaymentIntent, {
     apiKeyHash,
     amount: "30.00",
     asset: "native",
@@ -448,19 +448,19 @@ test("public retrieve and list are scoped to the API key project", async () => {
     slug: "scoped-merchant-b",
   });
 
-  const a1 = await t.mutation(api.payment_intents.mutations.createPublicPaymentIntent, {
+  const a1 = await t.mutation(internal.payment_intents.mutations.createPublicPaymentIntent, {
     apiKeyHash: projectA.apiKeyHash,
     amount: "10.00",
     asset: "native",
     description: "A1",
   });
-  const a2 = await t.mutation(api.payment_intents.mutations.createPublicPaymentIntent, {
+  const a2 = await t.mutation(internal.payment_intents.mutations.createPublicPaymentIntent, {
     apiKeyHash: projectA.apiKeyHash,
     amount: "20.00",
     asset: "native",
     description: "A2",
   });
-  const b1 = await t.mutation(api.payment_intents.mutations.createPublicPaymentIntent, {
+  const b1 = await t.mutation(internal.payment_intents.mutations.createPublicPaymentIntent, {
     apiKeyHash: projectB.apiKeyHash,
     amount: "30.00",
     asset: "native",
@@ -477,7 +477,7 @@ test("public retrieve and list are scoped to the API key project", async () => {
     payerAddress: "GDFX...PAYER",
   });
 
-  const ownRetrieve = await t.query(api.payment_intents.queries.getPublicPaymentIntent, {
+  const ownRetrieve = await t.query(internal.payment_intents.queries.getPublicPaymentIntent, {
     apiKeyHash: projectA.apiKeyHash,
     paymentIntentId: a1.intent._id,
   });
@@ -485,7 +485,7 @@ test("public retrieve and list are scoped to the API key project", async () => {
   if (!ownRetrieve.authorized) throw new Error("expected auth");
   expect(ownRetrieve.intent?._id).toBe(a1.intent._id);
 
-  const crossRetrieve = await t.query(api.payment_intents.queries.getPublicPaymentIntent, {
+  const crossRetrieve = await t.query(internal.payment_intents.queries.getPublicPaymentIntent, {
     apiKeyHash: projectA.apiKeyHash,
     paymentIntentId: b1.intent._id,
   });
@@ -493,7 +493,7 @@ test("public retrieve and list are scoped to the API key project", async () => {
   if (!crossRetrieve.authorized) throw new Error("expected auth");
   expect(crossRetrieve.intent).toBeNull();
 
-  const malformedRetrieve = await t.query(api.payment_intents.queries.getPublicPaymentIntent, {
+  const malformedRetrieve = await t.query(internal.payment_intents.queries.getPublicPaymentIntent, {
     apiKeyHash: projectA.apiKeyHash,
     paymentIntentId: "not-a-valid-id",
   });
@@ -501,7 +501,7 @@ test("public retrieve and list are scoped to the API key project", async () => {
   if (!malformedRetrieve.authorized) throw new Error("expected auth");
   expect(malformedRetrieve.intent).toBeNull();
 
-  const list = await t.query(api.payment_intents.queries.listPublicPaymentIntents, {
+  const list = await t.query(internal.payment_intents.queries.listPublicPaymentIntents, {
     apiKeyHash: projectA.apiKeyHash,
     paginationOpts: { numItems: 20, cursor: null },
   });
@@ -511,7 +511,7 @@ test("public retrieve and list are scoped to the API key project", async () => {
     [a1.intent._id, a2.intent._id].sort(),
   );
 
-  const pendingList = await t.query(api.payment_intents.queries.listPublicPaymentIntents, {
+  const pendingList = await t.query(internal.payment_intents.queries.listPublicPaymentIntents, {
     apiKeyHash: projectA.apiKeyHash,
     status: "pending",
     paginationOpts: { numItems: 20, cursor: null },
@@ -563,11 +563,14 @@ test("payment anchor resolution precedence and mismatch rejections", async () =>
   const projDefaultOmitted = await createProjectWithAnchor("default-omitted");
   const keyUnscoped = await generateScopedKey(projDefaultOmitted);
 
-  const resOmitted = await t.mutation(api.payment_intents.mutations.createPublicPaymentIntent, {
-    apiKeyHash: keyUnscoped,
-    amount: "10.00",
-    asset: "native",
-  });
+  const resOmitted = await t.mutation(
+    internal.payment_intents.mutations.createPublicPaymentIntent,
+    {
+      apiKeyHash: keyUnscoped,
+      amount: "10.00",
+      asset: "native",
+    },
+  );
   expect(resOmitted.authorized).toBe(true);
   if (!resOmitted.authorized || "idempotencyConflict" in resOmitted)
     throw new Error("expected create");
@@ -577,11 +580,14 @@ test("payment anchor resolution precedence and mismatch rejections", async () =>
   const projPdaxDefault = await createProjectWithAnchor("pdax-default", "pdax");
   const keyForPdaxDefault = await generateScopedKey(projPdaxDefault);
 
-  const resProjDefault = await t.mutation(api.payment_intents.mutations.createPublicPaymentIntent, {
-    apiKeyHash: keyForPdaxDefault,
-    amount: "20.00",
-    asset: "native",
-  });
+  const resProjDefault = await t.mutation(
+    internal.payment_intents.mutations.createPublicPaymentIntent,
+    {
+      apiKeyHash: keyForPdaxDefault,
+      amount: "20.00",
+      asset: "native",
+    },
+  );
   expect(resProjDefault.authorized).toBe(true);
   if (!resProjDefault.authorized || "idempotencyConflict" in resProjDefault)
     throw new Error("expected create");
@@ -591,11 +597,14 @@ test("payment anchor resolution precedence and mismatch rejections", async () =>
   const projInhouseDefault = await createProjectWithAnchor("inhouse-default", "inhouse");
   const keyScopedPdax = await generateScopedKey(projInhouseDefault, "pdax");
 
-  const resScopedKey = await t.mutation(api.payment_intents.mutations.createPublicPaymentIntent, {
-    apiKeyHash: keyScopedPdax,
-    amount: "30.00",
-    asset: "native",
-  });
+  const resScopedKey = await t.mutation(
+    internal.payment_intents.mutations.createPublicPaymentIntent,
+    {
+      apiKeyHash: keyScopedPdax,
+      amount: "30.00",
+      asset: "native",
+    },
+  );
   expect(resScopedKey.authorized).toBe(true);
   if (!resScopedKey.authorized || "idempotencyConflict" in resScopedKey)
     throw new Error("expected create");
@@ -603,7 +612,7 @@ test("payment anchor resolution precedence and mismatch rejections", async () =>
 
   // Case 1: Explicit request matches scoped key anchor
   const resExplicitMatch = await t.mutation(
-    api.payment_intents.mutations.createPublicPaymentIntent,
+    internal.payment_intents.mutations.createPublicPaymentIntent,
     {
       apiKeyHash: keyScopedPdax,
       amount: "40.00",
@@ -618,7 +627,7 @@ test("payment anchor resolution precedence and mismatch rejections", async () =>
 
   // Case 1 Mismatch: Explicit request does not match scoped key anchor (pdax key vs inhouse request)
   await expect(
-    t.mutation(api.payment_intents.mutations.createPublicPaymentIntent, {
+    t.mutation(internal.payment_intents.mutations.createPublicPaymentIntent, {
       apiKeyHash: keyScopedPdax,
       amount: "50.00",
       asset: "native",
@@ -659,12 +668,15 @@ test("payment.created webhook scheduling is demand-driven", async () => {
     );
 
   const beforeNoEndpoint = await scheduledWebhookCount();
-  const noEndpoint = await t.mutation(api.payment_intents.mutations.createPublicPaymentIntentV2, {
-    apiKeyHash,
-    amount: "1.00",
-    asset: "native",
-    idempotencyKey: "without-webhook",
-  });
+  const noEndpoint = await t.mutation(
+    internal.payment_intents.mutations.createPublicPaymentIntentV2,
+    {
+      apiKeyHash,
+      amount: "1.00",
+      asset: "native",
+      idempotencyKey: "without-webhook",
+    },
+  );
   expect(noEndpoint.status).toBe("success");
   expect(await scheduledWebhookCount()).toBe(beforeNoEndpoint);
 
@@ -675,12 +687,15 @@ test("payment.created webhook scheduling is demand-driven", async () => {
     eventTypes: ["payment.created"],
   });
   const beforeSubscribed = await scheduledWebhookCount();
-  const subscribed = await t.mutation(api.payment_intents.mutations.createPublicPaymentIntentV2, {
-    apiKeyHash,
-    amount: "2.00",
-    asset: "native",
-    idempotencyKey: "with-webhook",
-  });
+  const subscribed = await t.mutation(
+    internal.payment_intents.mutations.createPublicPaymentIntentV2,
+    {
+      apiKeyHash,
+      amount: "2.00",
+      asset: "native",
+      idempotencyKey: "with-webhook",
+    },
+  );
   expect(subscribed.status).toBe("success");
   expect(await scheduledWebhookCount()).toBe(beforeSubscribed + 1);
 });
@@ -712,7 +727,7 @@ test("public payment intent v2 creates one awaiting route and completes it safel
   const apiKeyHash = await sha256Hex(rawKey);
 
   const resNoConnection = await t.mutation(
-    api.payment_intents.mutations.createPublicPaymentIntentV2,
+    internal.payment_intents.mutations.createPublicPaymentIntentV2,
     {
       apiKeyHash,
       amount: "10.00",
@@ -730,7 +745,7 @@ test("public payment intent v2 creates one awaiting route and completes it safel
   });
 
   const create = () =>
-    t.mutation(api.payment_intents.mutations.createPublicPaymentIntentV2, {
+    t.mutation(internal.payment_intents.mutations.createPublicPaymentIntentV2, {
       apiKeyHash,
       amount: "15.00",
       asset: "USDC",
@@ -786,12 +801,15 @@ test("public payment intent v2 creates one awaiting route and completes it safel
   expect(completed?.status).toBe("created");
   expect(completed?.receiverAddress).toBe("G-MOCK-PDAX-DEPOSIT-ADDRESS");
 
-  const cachedCreate = await t.mutation(api.payment_intents.mutations.createPublicPaymentIntentV2, {
-    apiKeyHash,
-    amount: "16.00",
-    asset: "USDC",
-    anchor: "pdax",
-  });
+  const cachedCreate = await t.mutation(
+    internal.payment_intents.mutations.createPublicPaymentIntentV2,
+    {
+      apiKeyHash,
+      amount: "16.00",
+      asset: "USDC",
+      anchor: "pdax",
+    },
+  );
   if (cachedCreate.status !== "success") throw new Error("Expected cached-route creation");
   expect(cachedCreate.intent.status).toBe("created");
   expect(cachedCreate.intent.receiverAddress).toBe("G-MOCK-PDAX-DEPOSIT-ADDRESS");
@@ -801,7 +819,7 @@ test("public payment intent v2 creates one awaiting route and completes it safel
     await t.run(async (ctx) => (await ctx.db.query("paymentIntentRouteJobs").collect()).length),
   ).toBe(1);
 
-  const failing = await t.mutation(api.payment_intents.mutations.createPublicPaymentIntentV2, {
+  const failing = await t.mutation(internal.payment_intents.mutations.createPublicPaymentIntentV2, {
     apiKeyHash,
     amount: "20.00",
     asset: "native",

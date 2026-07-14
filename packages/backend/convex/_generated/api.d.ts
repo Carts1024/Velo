@@ -18,10 +18,13 @@ import type * as feedback_mutation from "../feedback/mutation.js";
 import type * as feedback_query from "../feedback/query.js";
 import type * as http from "../http.js";
 import type * as journey_stages_mutations from "../journey_stages/mutations.js";
+import type * as migrations from "../migrations.js";
 import type * as payAccessSync from "../payAccessSync.js";
 import type * as payment_intents_actions from "../payment_intents/actions.js";
 import type * as payment_intents_helpers from "../payment_intents/helpers.js";
 import type * as payment_intents_mutations from "../payment_intents/mutations.js";
+import type * as payment_intents_public_api from "../payment_intents/public_api.js";
+import type * as payment_intents_public_api_internal from "../payment_intents/public_api_internal.js";
 import type * as payment_intents_queries from "../payment_intents/queries.js";
 import type * as payment_intents_scanner from "../payment_intents/scanner.js";
 import type * as payment_intents_verification from "../payment_intents/verification.js";
@@ -46,7 +49,10 @@ import type * as provider_events_processing from "../provider_events/processing.
 import type * as provider_operations_actions from "../provider_operations/actions.js";
 import type * as provider_operations_mutations from "../provider_operations/mutations.js";
 import type * as provider_operations_queries from "../provider_operations/queries.js";
+import type * as rate_limits_cutover from "../rate_limits/cutover.js";
+import type * as rate_limits_model from "../rate_limits/model.js";
 import type * as rate_limits_mutations from "../rate_limits/mutations.js";
+import type * as rate_limits_upstash from "../rate_limits/upstash.js";
 import type * as seedBenchmarkKey from "../seedBenchmarkKey.js";
 import type * as settlement_actions from "../settlement/actions.js";
 import type * as settlement_helpers from "../settlement/helpers.js";
@@ -96,10 +102,13 @@ declare const fullApi: ApiFromModules<{
   "feedback/query": typeof feedback_query;
   http: typeof http;
   "journey_stages/mutations": typeof journey_stages_mutations;
+  migrations: typeof migrations;
   payAccessSync: typeof payAccessSync;
   "payment_intents/actions": typeof payment_intents_actions;
   "payment_intents/helpers": typeof payment_intents_helpers;
   "payment_intents/mutations": typeof payment_intents_mutations;
+  "payment_intents/public_api": typeof payment_intents_public_api;
+  "payment_intents/public_api_internal": typeof payment_intents_public_api_internal;
   "payment_intents/queries": typeof payment_intents_queries;
   "payment_intents/scanner": typeof payment_intents_scanner;
   "payment_intents/verification": typeof payment_intents_verification;
@@ -124,7 +133,10 @@ declare const fullApi: ApiFromModules<{
   "provider_operations/actions": typeof provider_operations_actions;
   "provider_operations/mutations": typeof provider_operations_mutations;
   "provider_operations/queries": typeof provider_operations_queries;
+  "rate_limits/cutover": typeof rate_limits_cutover;
+  "rate_limits/model": typeof rate_limits_model;
   "rate_limits/mutations": typeof rate_limits_mutations;
+  "rate_limits/upstash": typeof rate_limits_upstash;
   seedBenchmarkKey: typeof seedBenchmarkKey;
   "settlement/actions": typeof settlement_actions;
   "settlement/helpers": typeof settlement_helpers;
@@ -184,4 +196,6 @@ export declare const internal: FilterApi<
   FunctionReference<any, "internal">
 >;
 
-export declare const components: {};
+export declare const components: {
+  migrations: import("@convex-dev/migrations/_generated/component.js").ComponentApi<"migrations">;
+};

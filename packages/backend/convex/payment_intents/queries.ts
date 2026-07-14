@@ -21,7 +21,7 @@ const paymentIntentStatusValidator = v.union(
   v.literal("cancelled"),
 );
 
-export const getPublicPaymentIntent = query({
+export const getPublicPaymentIntent = internalQuery({
   args: {
     apiKeyHash: v.string(),
     paymentIntentId: v.string(),
@@ -46,7 +46,7 @@ export const getPublicPaymentIntent = query({
   },
 });
 
-export const listPublicPaymentIntents = query({
+export const listPublicPaymentIntents = internalQuery({
   args: {
     apiKeyHash: v.string(),
     status: v.optional(paymentIntentStatusValidator),

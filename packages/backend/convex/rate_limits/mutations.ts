@@ -3,7 +3,7 @@ import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 
-import { mutation } from "../_generated/server";
+import { internalMutation, mutation } from "../_generated/server";
 import { recordMetric } from "../telemetry_outbox/helpers";
 
 // One transactional bucket guarantees the advertised global capacity. Random
@@ -74,6 +74,35 @@ export const consume = mutation({
     return {
       authorized: true as const,
       ...(await consumePaymentRateLimits(ctx, args.apiKeyHash, apiKey.projectId)),
+    };
+  },
+});
+
+export const consumeAuthorized = internalMutation({
+  args: {
+    apiKeyId: v.id("apiKeys"),
+    projectId: v.id("projects"),
+    apiKeyHash: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const [apiKey, project] = await Promise.all([
+      ctx.db.get(args.apiKeyId),
+      ctx.db.get(args.projectId),
+    ]);
+    if (
+      !apiKey ||
+      apiKey.revoked ||
+      apiKey.keyHash !== args.apiKeyHash ||
+      apiKey.projectId !== args.projectId ||
+      !project ||
+      !project.paymentAccessActive ||
+      (project.rateLimitBackend ?? "convex") !== "convex"
+    ) {
+      return { authorized: false as const };
+    }
+    return {
+      authorized: true as const,
+      ...(await consumePaymentRateLimits(ctx, args.apiKeyHash, args.projectId)),
     };
   },
 });

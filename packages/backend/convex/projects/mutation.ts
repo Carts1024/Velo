@@ -32,6 +32,7 @@ export const createDraft = mutation({
       ownerTokenIdentifier: identity.tokenIdentifier,
       status: "draft",
       defaultPaymentAnchor: args.defaultPaymentAnchor ?? "inhouse",
+      rateLimitBackend: "convex",
       lastSyncAt: undefined,
       createdAt: now,
       updatedAt: now,

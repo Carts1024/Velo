@@ -220,7 +220,7 @@ export function withRouteTelemetry<Args extends unknown[]>(
 }
 
 function safeTimingName(name: string) {
-  return name.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 48) || "stage";
+  return name.replace(/[^a-zA-Z0-9_.-]/g, "_").slice(0, 48) || "stage";
 }
 
 function formatDuration(value: number) {

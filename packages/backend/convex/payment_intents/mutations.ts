@@ -97,7 +97,7 @@ export const createPaymentIntent = mutation({
  * Creates a payment intent for SDK-facing REST routes.
  * Auth and project scope are derived from the API key hash.
  */
-export const createPublicPaymentIntent = mutation({
+export const createPublicPaymentIntent = internalMutation({
   args: {
     apiKeyHash: v.string(),
     correlationId: v.optional(v.string()),
@@ -734,7 +734,7 @@ const CIRCUIT_OPEN_MS = 30_000;
 const MAX_ROUTE_ATTEMPTS = 5;
 const ROUTE_RETRY_DELAYS_MS = [1_000, 5_000, 30_000, 60_000] as const;
 
-export const createPublicPaymentIntentV2 = mutation({
+export const createPublicPaymentIntentV2 = internalMutation({
   args: {
     apiKeyHash: v.string(),
     correlationId: v.optional(v.string()),
@@ -912,6 +912,195 @@ export const createPublicPaymentIntentV2 = mutation({
       projectId: auth.project._id,
       intent,
       timings: { authMs: authCompletedAt - startedAt, totalMs: Date.now() - startedAt },
+    };
+  },
+});
+
+export const createAuthorizedPaymentIntentV2 = internalMutation({
+  args: {
+    apiKeyId: v.id("apiKeys"),
+    projectId: v.id("projects"),
+    apiKeyHash: v.string(),
+    expectedRateLimitBackend: v.union(v.literal("convex"), v.literal("upstash")),
+    admissionId: v.string(),
+    correlationId: v.optional(v.string()),
+    traceparent: v.optional(v.string()),
+    amount: v.string(),
+    asset: v.string(),
+    description: v.optional(v.string()),
+    successUrl: v.optional(v.string()),
+    cancelUrl: v.optional(v.string()),
+    idempotencyKey: v.optional(v.string()),
+    anchor: v.optional(v.union(v.literal("inhouse"), v.literal("pdax"))),
+  },
+  handler: async (ctx, args) => {
+    const startedAt = Date.now();
+    const [apiKey, project] = await Promise.all([
+      ctx.db.get(args.apiKeyId),
+      ctx.db.get(args.projectId),
+    ]);
+    const currentBackend = project?.rateLimitBackend ?? "convex";
+    if (
+      !apiKey ||
+      apiKey.revoked ||
+      apiKey.keyHash !== args.apiKeyHash ||
+      apiKey.projectId !== args.projectId ||
+      !project ||
+      !project.paymentAccessActive
+    ) {
+      return { status: "unauthorized" as const };
+    }
+    if (currentBackend === "migrating" || currentBackend !== args.expectedRateLimitBackend) {
+      return { status: "limiter_unavailable" as const };
+    }
+
+    const resolvedAnchor = resolvePaymentAnchor({
+      requestedAnchor: args.anchor,
+      apiKeyAnchor: apiKey.paymentAnchor,
+      projectDefaultAnchor: project.defaultPaymentAnchor,
+    });
+    const fingerprint = createPaymentIntentFingerprint({ ...args, anchor: resolvedAnchor });
+    const effectiveIdempotencyKey = args.idempotencyKey ?? `\u0000admission:${args.admissionId}`;
+    const now = Date.now();
+    const existing = await ctx.db
+      .query("paymentIntentIdempotencyKeys")
+      .withIndex("by_project_and_key", (q) =>
+        q.eq("projectId", project._id).eq("key", effectiveIdempotencyKey),
+      )
+      .unique();
+    if (existing) {
+      if (existing.requestFingerprint !== fingerprint) {
+        return { status: "idempotency_conflict" as const, projectId: project._id };
+      }
+      const intent = await ctx.db.get(existing.paymentIntentId);
+      if (intent?.projectId === project._id) {
+        return {
+          status: "idempotency_replay" as const,
+          projectId: project._id,
+          intent,
+          timings: { createMs: Date.now() - startedAt },
+        };
+      }
+    }
+
+    const mappedAsset = resolvedAnchor === "pdax" ? mapAssetToPdax(args.asset) : undefined;
+    let cachedPdaxRoute: { address: string; memo?: string; mappedAsset: string } | undefined;
+    if (resolvedAnchor === "pdax") {
+      const connection = await ctx.db
+        .query("providerConnections")
+        .withIndex("by_project_provider", (q) =>
+          q.eq("projectId", project._id).eq("provider", "pdax"),
+        )
+        .unique();
+      if (connection?.status !== "connected") {
+        return { status: "anchor_not_connected" as const, projectId: project._id };
+      }
+      const cached = await ctx.db
+        .query("pdaxRouteCache")
+        .withIndex("by_project_and_mapped_asset", (q) =>
+          q.eq("projectId", project._id).eq("mappedAsset", mappedAsset!),
+        )
+        .unique();
+      if (cached && cached.expiresAt > now) {
+        cachedPdaxRoute = {
+          address: cached.address,
+          ...(cached.memo !== undefined ? { memo: cached.memo } : {}),
+          mappedAsset: cached.mappedAsset,
+        };
+      }
+    }
+
+    const intentFields = {
+      projectId: project._id,
+      amount: args.amount,
+      asset: args.asset,
+      ...(resolvedAnchor === "inhouse"
+        ? { receiverAddress: project.ownerAddress }
+        : cachedPdaxRoute
+          ? {
+              receiverAddress: cachedPdaxRoute.address,
+              ...(cachedPdaxRoute.memo !== undefined ? { receiverMemo: cachedPdaxRoute.memo } : {}),
+              anchorDepositCurrency: cachedPdaxRoute.mappedAsset,
+            }
+          : {}),
+      merchantName: project.name,
+      ...(args.description !== undefined ? { description: args.description } : {}),
+      status:
+        resolvedAnchor === "pdax" && !cachedPdaxRoute
+          ? ("awaiting_route" as const)
+          : ("created" as const),
+      ...(args.successUrl !== undefined ? { successUrl: args.successUrl } : {}),
+      ...(args.cancelUrl !== undefined ? { cancelUrl: args.cancelUrl } : {}),
+      anchor: resolvedAnchor,
+      ...(args.correlationId !== undefined ? { correlationId: args.correlationId } : {}),
+      ...(args.traceparent !== undefined ? { traceparent: args.traceparent } : {}),
+      expiresAt: now + PAYMENT_INTENT_EXPIRY_MS,
+      stageTimestamps: {
+        created: now,
+        ...(cachedPdaxRoute ? { routeReady: now } : {}),
+      },
+      createdAt: now,
+      updatedAt: now,
+    };
+    const paymentIntentId = await ctx.db.insert("paymentIntents", intentFields);
+
+    if (args.correlationId !== undefined && deterministicSample(args.correlationId, 0.1)) {
+      await ctx.db.insert("telemetryOutbox", {
+        kind: "span",
+        name: "velo.convex.operation",
+        operation: "payment_intent.create.public_action",
+        stage: "mutation",
+        outcome: "success",
+        requestCorrelationId: args.correlationId,
+        journeyCorrelationId: args.correlationId,
+        ...(args.traceparent !== undefined ? { traceparent: args.traceparent } : {}),
+        durationMs: Date.now() - startedAt,
+        state: "pending",
+        attemptCount: 0,
+        nextAttemptAt: now,
+        leaseGeneration: 0,
+        expiresAt: now + 14 * 24 * 60 * 60 * 1_000,
+        createdAt: now,
+      });
+    }
+
+    await ctx.db.insert("paymentIntentIdempotencyKeys", {
+      projectId: project._id,
+      key: effectiveIdempotencyKey,
+      requestFingerprint: fingerprint,
+      paymentIntentId,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    if (resolvedAnchor === "pdax" && !cachedPdaxRoute) {
+      await ctx.db.insert("paymentIntentRouteJobs", {
+        paymentIntentId,
+        projectId: project._id,
+        mappedAsset: mappedAsset!,
+        state: "scheduled",
+        attempts: 0,
+        nextAttemptAt: now,
+        createdAt: now,
+        updatedAt: now,
+      });
+      await ctx.scheduler.runAfter(0, internal.payment_intents.actions.enrichPdaxRoute, {
+        paymentIntentId,
+      });
+    } else if (await hasEnabledWebhookForEvent(ctx, project._id, "payment.created")) {
+      await ctx.scheduler.runAfter(0, internal.webhookDelivery.trigger, {
+        projectId: project._id,
+        eventType: "payment.created",
+        paymentIntentId,
+        ...(args.correlationId !== undefined ? { correlationId: args.correlationId } : {}),
+      });
+    }
+
+    return {
+      status: "success" as const,
+      projectId: project._id,
+      intent: { _id: paymentIntentId, ...intentFields },
+      timings: { createMs: Date.now() - startedAt },
     };
   },
 });

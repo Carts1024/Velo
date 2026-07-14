@@ -14,6 +14,68 @@ export function createScenarioAdapter(scenario, options = {}) {
   throw new Error(`${scenario.id} uses non-executable adapter ${scenario.adapter}`);
 }
 
+export function parseServerTimingHeader(header) {
+  if (typeof header !== "string" || !header.trim()) return [];
+
+  const timings = [];
+  for (const entry of splitQuotedHeaderValue(header, ",")) {
+    const [rawName, ...parameters] = splitQuotedHeaderValue(entry, ";");
+    const name = rawName.trim();
+    if (!isHttpToken(name)) continue;
+
+    const durationParameter = parameters.find((parameter) => {
+      const separator = parameter.indexOf("=");
+      return separator >= 0 && parameter.slice(0, separator).trim().toLowerCase() === "dur";
+    });
+    if (!durationParameter) continue;
+
+    const separator = durationParameter.indexOf("=");
+    const rawDuration = durationParameter.slice(separator + 1).trim();
+    if (!/^(?:\d+(?:\.\d*)?|\.\d+)$/.test(rawDuration)) continue;
+    const durationMs = Number(rawDuration);
+    if (!Number.isFinite(durationMs)) continue;
+
+    timings.push({ name, durationMs: round(durationMs), controlledBy: "Velo" });
+  }
+  return timings;
+}
+
+function splitQuotedHeaderValue(value, delimiter) {
+  const parts = [];
+  let current = "";
+  let escaped = false;
+  let quoted = false;
+  for (const character of value) {
+    if (escaped) {
+      current += character;
+      escaped = false;
+      continue;
+    }
+    if (quoted && character === "\\") {
+      current += character;
+      escaped = true;
+      continue;
+    }
+    if (character === '"') {
+      current += character;
+      quoted = !quoted;
+      continue;
+    }
+    if (!quoted && character === delimiter) {
+      parts.push(current);
+      current = "";
+      continue;
+    }
+    current += character;
+  }
+  parts.push(current);
+  return parts;
+}
+
+function isHttpToken(value) {
+  return /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/.test(value);
+}
+
 function createHttpAdapter(
   scenario,
   { env = process.env, fetchImpl = globalThis.fetch, fixtureController } = {},
@@ -138,7 +200,7 @@ function createHttpAdapter(
             durationMs: round(endedAt - startedAt),
           },
         ],
-        dependencyTimings: [],
+        dependencyTimings: parseServerTimingHeader(response.headers.get("server-timing")),
         queueDepth: 0,
         eventLagMs: 0,
         ...(success
