@@ -115,10 +115,16 @@ export const pollProject = action({
 export const pollScheduled = internalAction({
   args: {},
   handler: async (ctx): Promise<{ projectCount: number; eventCount: number }> => {
-    const targets: PollTarget[] = await ctx.runQuery(
-      internal.contract_events.query.listScheduledTargets,
-      {},
-    );
+    let targets: PollTarget[];
+    try {
+      targets = await ctx.runQuery(internal.contract_events.query.listScheduledTargets, {});
+    } catch (error) {
+      console.warn(
+        "scheduled_contract_event_poll_failed",
+        error instanceof Error ? error.message : error,
+      );
+      return { projectCount: 0, eventCount: 0 };
+    }
     let eventCount = 0;
     const limit = 5; // Bounded worker concurrency
 

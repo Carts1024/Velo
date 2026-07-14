@@ -46,7 +46,9 @@ test("known-good three-window fixture passes", async () => {
 });
 
 test("current captured report is rejected as non-qualifying", async () => {
-  const result = await run("benchmarks/reports/payment-intent-create.json");
+  // Keep this deterministic: the checked-in afternoon capture is the current
+  // partial report; raw/live capture paths are intentionally external.
+  const result = await run("benchmarks/reports/afternoon-payment-intent-create.json");
   assert.equal(result.status, "fail");
   assert.match(result.failures.join(" "), /successful samples|error rate|missing required window/);
 });

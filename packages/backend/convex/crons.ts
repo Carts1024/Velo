@@ -17,6 +17,7 @@ const exportTelemetry = makeFunctionReference<"action">("telemetry_outbox/action
 const expireTelemetry = makeFunctionReference<"mutation">("telemetry_outbox/mutations:expire");
 const captureTelemetryGauges = makeFunctionReference<"mutation">("telemetry_outbox/gauges:capture");
 const expireJourneyStages = makeFunctionReference<"mutation">("journey_stages/mutations:expire");
+const SCHEDULED_WORKER_PAGE_SIZE = 25;
 
 crons.interval(
   "poll recent contract events",
@@ -31,22 +32,22 @@ crons.interval("capture bounded telemetry gauges", { minutes: 1 }, captureTeleme
 crons.interval("expire safe journey stages", { hours: 1 }, expireJourneyStages, { limit: 100 });
 
 crons.interval("drain payment reconciliation jobs", { minutes: 1 }, drainPaymentReconciliation, {
-  limit: 100,
+  limit: SCHEDULED_WORKER_PAGE_SIZE,
 });
 
 crons.interval(
   "reconcile durable provider operations",
   { minutes: 1 },
   reconcileProviderOperations,
-  { limit: 100 },
+  { limit: SCHEDULED_WORKER_PAGE_SIZE },
 );
 
 crons.interval("recover and drain provider events", { minutes: 1 }, drainProviderEvents, {
-  limit: 100,
+  limit: SCHEDULED_WORKER_PAGE_SIZE,
 });
 
 crons.interval("recover PDAX payment routes", { minutes: 1 }, recoverPdaxRouteJobs, {
-  limit: 100,
+  limit: SCHEDULED_WORKER_PAGE_SIZE,
 });
 
 crons.interval(

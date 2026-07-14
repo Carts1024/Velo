@@ -12,6 +12,8 @@ const outcome = v.union(
   v.literal("rejected"),
 );
 
+const MAX_CLAIM_BATCH = 50;
+
 export const recordUiMarker = mutation({
   args: {
     paymentIntentId: v.id("paymentIntents"),
@@ -121,24 +123,15 @@ export const claim = internalMutation({
   args: { leaseToken: v.string(), limit: v.number() },
   handler: async (ctx, args) => {
     const now = Date.now();
-    const limit = Math.min(100, Math.max(1, Math.floor(args.limit)));
+    const limit = Math.min(MAX_CLAIM_BATCH, Math.max(1, Math.floor(args.limit)));
     const expired = await ctx.db
       .query("telemetryOutbox")
       .withIndex("by_state_and_lease_expires_at", (q) =>
         q.eq("state", "leased").lt("leaseExpiresAt", now),
       )
       .take(limit);
-    for (const row of expired) {
-      await ctx.db.patch(row._id, { state: "pending", nextAttemptAt: now });
-    }
-    const rows = await ctx.db
-      .query("telemetryOutbox")
-      .withIndex("by_state_and_next_attempt_at", (q) =>
-        q.eq("state", "pending").lte("nextAttemptAt", now),
-      )
-      .take(limit);
     const claimed = [];
-    for (const row of rows) {
+    for (const row of expired) {
       const leaseGeneration = row.leaseGeneration + 1;
       await ctx.db.patch(row._id, {
         state: "leased",
@@ -147,6 +140,25 @@ export const claim = internalMutation({
         leaseExpiresAt: now + 60_000,
       });
       claimed.push({ ...row, leaseToken: args.leaseToken, leaseGeneration });
+    }
+    const remaining = limit - claimed.length;
+    if (remaining > 0) {
+      const rows = await ctx.db
+        .query("telemetryOutbox")
+        .withIndex("by_state_and_next_attempt_at", (q) =>
+          q.eq("state", "pending").lte("nextAttemptAt", now),
+        )
+        .take(remaining);
+      for (const row of rows) {
+        const leaseGeneration = row.leaseGeneration + 1;
+        await ctx.db.patch(row._id, {
+          state: "leased",
+          leaseToken: args.leaseToken,
+          leaseGeneration,
+          leaseExpiresAt: now + 60_000,
+        });
+        claimed.push({ ...row, leaseToken: args.leaseToken, leaseGeneration });
+      }
     }
     return claimed;
   },

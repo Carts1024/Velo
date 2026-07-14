@@ -408,6 +408,13 @@ pnpm build
 
 ## Key Documentation
 
+- [Sprint 11 comparative throughput certification architecture](docs/architecture/sprint-11-comparative-throughput-certification.md)
+- [Sprint 11 qualification operator runbook](docs/operations/sprint-11-comparative-throughput-qualification-runbook.md)
+- [Sprint 11 qualification report](docs/references/sprint-11-comparative-throughput-qualification-report.md)
+- [Sprint 11 compact evidence manifest](benchmarks/evidence/sprint-11/evidence-manifest.json)
+- [Sprint 11 qualification summary](benchmarks/evidence/sprint-11/qualification-summary.json)
+- [Sprint 11 qualification report metadata](benchmarks/evidence/sprint-11/qualification-report.json)
+- [Sprint 11 release decision metadata](benchmarks/evidence/sprint-11/release-decision.json)
 - [Sprint 10 observability architecture](docs/architecture/sprint-10-end-to-end-observability-and-redaction.md)
 - [Sprint 10 operator runbook](docs/operations/sprint-10-observability-and-redaction-runbook.md)
 - [Sprint 10 observability, redaction, and overhead report](docs/references/sprint-10-observability-redaction-and-overhead-report.md)

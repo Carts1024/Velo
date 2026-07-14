@@ -238,6 +238,30 @@ test("leases are fenced, success deletes, and five failures dead-letter", async 
   expect(failed?.state).toBe("dead_letter");
 });
 
+test("telemetry claims stay within the bounded exporter batch", async () => {
+  const t = convexTest(schema, modules);
+  for (let index = 0; index < 60; index += 1) {
+    await t.mutation(enqueue, {
+      kind: "metric",
+      name: "velo_request_total",
+      operation: "bounded_claim_test",
+      stage: "mutation",
+      outcome: "success",
+      value: 1,
+    });
+  }
+
+  const claimed = await t.mutation(claim, { leaseToken: "bounded-lease", limit: 100 });
+  expect(claimed).toHaveLength(50);
+  expect(
+    await t.run(
+      async (ctx) =>
+        (await ctx.db.query("telemetryOutbox").collect()).filter((row) => row.state === "pending")
+          .length,
+    ),
+  ).toBe(10);
+});
+
 test("outbox deletion preserves the durable safe journey projection", async () => {
   const t = convexTest(schema, modules);
   const outboxId = await t.mutation(enqueue, {

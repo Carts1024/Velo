@@ -56,6 +56,7 @@ docs/architecture/*
 !docs/architecture/sprint-8-durable-financial-reliability.md
 !docs/architecture/sprint-9-real-lifecycle-benchmark-architecture.md
 !docs/architecture/sprint-10-end-to-end-observability-and-redaction.md
+!docs/architecture/sprint-11-comparative-throughput-certification.md
 docs/operations/
 !docs/operations/
 docs/operations/*
@@ -65,12 +66,14 @@ docs/operations/*
 !docs/operations/sprint-8-durable-financial-reliability-runbook.md
 !docs/operations/sprint-9-real-lifecycle-benchmark-runbook.md
 !docs/operations/sprint-10-observability-and-redaction-runbook.md
+!docs/operations/sprint-11-comparative-throughput-qualification-runbook.md
 docs/references/
 !docs/references/
 docs/references/*
 !docs/references/benchmark-contract-slo-report-reference.md
 !docs/references/sprint-9-benchmark-evidence-and-closure.md
 !docs/references/sprint-10-observability-redaction-and-overhead-report.md
+!docs/references/sprint-11-comparative-throughput-qualification-report.md
 
 # Sprint 9 keeps compact evidence metadata in Git. Raw captures remain ignored/external.
 benchmarks/evidence/
@@ -81,3 +84,8 @@ benchmarks/evidence/sprint-9/*
 benchmarks/evidence/sprint-9/*.ndjson
 !benchmarks/evidence/sprint-9/qualification-summary.json
 !benchmarks/evidence/sprint-9/evidence-manifest.json
+!benchmarks/evidence/sprint-11/
+!benchmarks/evidence/sprint-11/qualification-report.json
+!benchmarks/evidence/sprint-11/qualification-summary.json
+!benchmarks/evidence/sprint-11/evidence-manifest.json
+!benchmarks/evidence/sprint-11/release-decision.json

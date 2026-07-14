@@ -1,6 +1,10 @@
 import { internalMutation } from "../_generated/server";
 
-const MAX_SCAN = 101;
+// Keep this mutation comfortably below Convex's transaction/system-operation
+// budget. Gauge values are intentionally approximate, so a small bounded
+// sample is preferable to letting diagnostics compete with business writes.
+const MAX_SCAN = 25;
+const MAX_DURATION_SAMPLES = 10;
 
 export function boundedScenarioDurations(
   intents: Array<{
@@ -144,7 +148,7 @@ export const capture = internalMutation({
     for (const [operation, durations] of Object.entries(
       boundedScenarioDurations(intents, deliveries, uiStages),
     )) {
-      for (const value of durations.slice(0, 100)) {
+      for (const value of durations.slice(0, MAX_DURATION_SAMPLES)) {
         await ctx.db.insert("telemetryOutbox", {
           kind: "metric",
           name: "velo_journey_duration_seconds",

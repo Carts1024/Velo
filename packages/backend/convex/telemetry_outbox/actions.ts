@@ -9,6 +9,7 @@ import { internalAction } from "../_generated/server";
 const claimRef = makeFunctionReference<"mutation">("telemetry_outbox/mutations:claim");
 const completeRef = makeFunctionReference<"mutation">("telemetry_outbox/mutations:complete");
 const failRef = makeFunctionReference<"mutation">("telemetry_outbox/mutations:fail");
+const MAX_EXPORT_BATCH = 50;
 
 export type OutboxRow = {
   _id: Id<"telemetryOutbox">;
@@ -154,7 +155,7 @@ export const exportBatch = internalAction({
     const leaseToken = crypto.randomUUID();
     const rows = (await ctx.runMutation(claimRef, {
       leaseToken,
-      limit: Math.min(args.limit ?? 100, 100),
+      limit: Math.min(args.limit ?? MAX_EXPORT_BATCH, MAX_EXPORT_BATCH),
     })) as OutboxRow[];
     if (rows.length === 0) return { exported: 0 };
     const endpoint = process.env.VELO_OTEL_EXPORTER_OTLP_ENDPOINT;
