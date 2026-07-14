@@ -179,6 +179,59 @@ test("webhook delivery retry and backoff lifecycle", async () => {
   }
 });
 
+test("scheduled delivery contains invalid legacy endpoints in the retry lifecycle", async () => {
+  const t = convexTest(schema, modules);
+  const ownerAddress = "GD7O2C226SF2677PFFUVD6O2ICFOBNCWPI5Z46N43ZSFQGLM65U3I2SP";
+  const owner = asWallet(t, ownerAddress);
+  const projectId = await owner.mutation(api.projects.mutation.createDraft, {
+    name: "Legacy Webhook Merchant",
+    slug: "legacy-webhook-merchant",
+    description: "Testing legacy webhook delivery",
+    metadataJson: "{}",
+    metadataHash: "0000000000000000000000000000000000000000000000000000000000000000",
+    ownerAddress,
+  });
+
+  await t.run(async (ctx) => {
+    const now = Date.now();
+    await ctx.db.insert("webhookEndpoints", {
+      projectId,
+      // Older data can predate the current HTTPS/loopback validation.
+      url: "http://localhost:3000/webhook",
+      destinationHost: "localhost:3000",
+      enabled: true,
+      eventTypes: ["payment.succeeded"],
+      createdAt: now,
+      updatedAt: now,
+    });
+  });
+
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => {
+    throw new Error("Convex cannot reach localhost");
+  };
+
+  try {
+    await expect(
+      t.action(internal.webhookDelivery.trigger, {
+        projectId,
+        eventType: "payment.succeeded",
+      }),
+    ).resolves.toBeNull();
+
+    const deliveries = await owner.query(api.webhook_deliveries.query.listByProject, {
+      projectId,
+      limit: 10,
+    });
+    expect(deliveries).toHaveLength(1);
+    expect(deliveries[0].status).toBe("pending");
+    expect(deliveries[0].errorMessage).toBe("webhook_network_error");
+    expect(deliveries[0].nextAttemptAt).toBeDefined();
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("webhook retry scheduling honors Retry-After for retryable endpoint failures", async () => {
   const t = convexTest(schema, modules);
 

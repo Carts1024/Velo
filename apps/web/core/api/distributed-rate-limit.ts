@@ -18,7 +18,7 @@ export function distributedRateLimitHeaders(result: DistributedRateLimit) {
   };
 }
 
-const MAX_OCC_RETRIES = 3;
+const MAX_OCC_RETRIES = 6;
 const BASE_DELAY_MS = 50;
 
 function isOccError(error: unknown): boolean {
@@ -37,11 +37,10 @@ export async function consumeDistributedRateLimit(
   let lastError: unknown;
   for (let attempt = 0; attempt <= MAX_OCC_RETRIES; attempt++) {
     try {
-      return await convex.mutation(
-        api.rate_limits.mutations.consume,
-        { apiKeyHash },
-        { skipQueue: true },
-      );
+      // ConvexHttpClient serializes queued mutations per client. Keep that
+      // queue enabled here so requests handled by the same server instance do
+      // not all race on the same token bucket document.
+      return await convex.mutation(api.rate_limits.mutations.consume, { apiKeyHash });
     } catch (error) {
       if (!isOccError(error) || attempt === MAX_OCC_RETRIES) throw error;
       lastError = error;

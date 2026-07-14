@@ -124,7 +124,9 @@ export const getDeliveryTargetInternal = internalQuery({
       return null;
     }
 
-    validateWebhookUrl(endpoint.url);
+    // Scheduled delivery must handle invalid or unreachable legacy endpoints
+    // through the dispatcher's retry/dead-letter path. The authenticated
+    // settings mutation still validates URLs before storing new endpoints.
 
     const contractEvent = args.contractEventId ? await ctx.db.get(args.contractEventId) : undefined;
 
