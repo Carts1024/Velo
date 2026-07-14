@@ -6,7 +6,21 @@ export default defineTable({
   provider: v.literal("pdax"),
   eventId: v.string(), // reference_number, txn_hash, request_id, etc.
   type: v.union(v.literal("DEPOSIT"), v.literal("WITHDRAWAL"), v.literal("TRADE")),
-  rawEvent: v.string(), // JSON stringified payload
+  rawEvent: v.optional(v.string()), // legacy only; new ingress stores eventSummary
+  eventSummary: v.optional(
+    v.object({
+      eventType: v.string(),
+      eventId: v.string(),
+      payloadDigest: v.optional(v.string()),
+      identifier: v.optional(v.string()),
+      status: v.optional(v.string()),
+    }),
+  ),
+  errorCode: v.optional(v.string()),
+  requestCorrelationId: v.optional(v.string()),
+  journeyCorrelationId: v.optional(v.string()),
+  traceparent: v.optional(v.string()),
+  requestTraceparent: v.optional(v.string()),
   processed: v.boolean(),
   processingState: v.optional(
     v.union(

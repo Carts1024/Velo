@@ -24,6 +24,7 @@ const getIntentRef = makeFunctionReference<"query">(
 );
 const updateStatusRef = makeFunctionReference<"mutation">("payment_intents/mutations:updateStatus");
 const drainRef = makeFunctionReference<"action">("payment_reconciliation_jobs/actions:drain");
+const telemetryRef = makeFunctionReference<"mutation">("telemetry_outbox/mutations:enqueue");
 const WORKER_CONCURRENCY = 10;
 
 export const drain = internalAction({
@@ -54,16 +55,44 @@ export const drain = internalAction({
         jobs.slice(offset, offset + WORKER_CONCURRENCY).map(async (job) => {
           try {
             if (!job.txHash) throw new Error("Pending payment has no transaction hash");
+            const intent = (await ctx.runQuery(getIntentRef, {
+              paymentIntentId: job.paymentIntentId,
+            })) as Doc<"paymentIntents"> | null;
+            if (!intent) throw new Error("Payment intent not found");
+            const requestCorrelationId = randomUUID();
             const result = await lookupTestnetTransaction(
               process.env.STELLAR_RPC_URL ?? "https://soroban-testnet.stellar.org",
               job.txHash,
-              { timeoutMs: 2_500 },
+              {
+                timeoutMs: 2_500,
+                telemetryContext: {
+                  requestCorrelationId,
+                  ...(intent.correlationId ? { journeyCorrelationId: intent.correlationId } : {}),
+                  ...(intent.traceparent ? { traceparent: intent.traceparent } : {}),
+                },
+              },
             );
+            await ctx.runMutation(telemetryRef, {
+              kind: "span",
+              name: "velo.dependency.call",
+              operation: "stellar_rpc_lookup",
+              stage: "ledger_wait",
+              outcome: "success",
+              requestCorrelationId,
+              journeyCorrelationId: intent.correlationId,
+              traceparent: intent.traceparent,
+            });
+            await ctx.runMutation(telemetryRef, {
+              kind: "span",
+              name: "velo.worker.run",
+              operation: "payment_reconciliation",
+              stage: "observation",
+              outcome: "success",
+              requestCorrelationId,
+              journeyCorrelationId: intent.correlationId,
+              traceparent: intent.traceparent,
+            });
             if (result.status === "success") {
-              const intent = (await ctx.runQuery(getIntentRef, {
-                paymentIntentId: job.paymentIntentId,
-              })) as Doc<"paymentIntents"> | null;
-              if (!intent) throw new Error("Payment intent not found");
               const verifiedPayment = findVerifiedPayment(result.operations, intent);
               if (!verifiedPayment) {
                 await ctx.runMutation(updateStatusRef, {
@@ -109,16 +138,24 @@ export const drain = internalAction({
                 leaseToken,
                 leaseGeneration: job.leaseGeneration,
                 resolved: false,
-                errorMessage: `RPC status: ${result.status}`,
+                errorMessage: "rpc_status_error",
               });
             }
-          } catch (error) {
+          } catch {
+            await ctx.runMutation(telemetryRef, {
+              kind: "span",
+              name: "velo.dependency.call",
+              operation: "stellar_rpc_lookup",
+              stage: "ledger_wait",
+              outcome: "error",
+              errorCode: "dependency_unavailable",
+            });
             await ctx.runMutation(finishRef, {
               jobId: job._id,
               leaseToken,
               leaseGeneration: job.leaseGeneration,
               resolved: false,
-              errorMessage: error instanceof Error ? error.message : String(error),
+              errorMessage: "rpc_dependency_error",
             });
           }
         }),

@@ -13,6 +13,10 @@ const drainProviderEvents = makeFunctionReference<"action">("provider_events/pro
 const recoverPdaxRouteJobs = makeFunctionReference<"mutation">(
   "payment_intents/mutations:recoverPdaxRouteJobs",
 );
+const exportTelemetry = makeFunctionReference<"action">("telemetry_outbox/actions:exportBatch");
+const expireTelemetry = makeFunctionReference<"mutation">("telemetry_outbox/mutations:expire");
+const captureTelemetryGauges = makeFunctionReference<"mutation">("telemetry_outbox/gauges:capture");
+const expireJourneyStages = makeFunctionReference<"mutation">("journey_stages/mutations:expire");
 
 crons.interval(
   "poll recent contract events",
@@ -20,6 +24,11 @@ crons.interval(
   internal.contractEventPolling.pollScheduled,
   {},
 );
+
+crons.interval("export bounded telemetry outbox", { minutes: 1 }, exportTelemetry, { limit: 100 });
+crons.interval("expire telemetry diagnostics", { hours: 1 }, expireTelemetry, { limit: 100 });
+crons.interval("capture bounded telemetry gauges", { minutes: 1 }, captureTelemetryGauges, {});
+crons.interval("expire safe journey stages", { hours: 1 }, expireJourneyStages, { limit: 100 });
 
 crons.interval("drain payment reconciliation jobs", { minutes: 1 }, drainPaymentReconciliation, {
   limit: 100,

@@ -151,8 +151,17 @@ export const complete = internalMutation({
       ...(args.providerReference !== undefined
         ? { providerReference: args.providerReference }
         : {}),
-      ...(args.resultJson !== undefined ? { resultJson: args.resultJson } : {}),
-      ...(args.errorMessage !== undefined ? { errorMessage: args.errorMessage.slice(0, 500) } : {}),
+      ...(["succeeded", "failed", "dead_letter"].includes(nextState)
+        ? {
+            responseSummary: {
+              status: nextState,
+              ...(args.providerReference ? { providerReference: args.providerReference } : {}),
+            },
+            resultJson: undefined,
+            errorMessage: undefined,
+          }
+        : {}),
+      ...(args.errorMessage !== undefined ? { errorCode: "dependency_unavailable" } : {}),
       ...(args.nextAttemptAt !== undefined ? { nextAttemptAt: args.nextAttemptAt } : {}),
       ...(args.nextState === "reconciling"
         ? { reconciliationCount: operation.reconciliationCount + 1 }
@@ -298,8 +307,17 @@ export const finishReconciliation = internalMutation({
       ...(args.providerReference !== undefined
         ? { providerReference: args.providerReference }
         : {}),
-      ...(args.resultJson !== undefined ? { resultJson: args.resultJson } : {}),
-      ...(args.errorMessage !== undefined ? { errorMessage: args.errorMessage.slice(0, 500) } : {}),
+      ...(["succeeded", "failed", "dead_letter"].includes(state)
+        ? {
+            responseSummary: {
+              status: state,
+              ...(args.providerReference ? { providerReference: args.providerReference } : {}),
+            },
+            resultJson: undefined,
+            errorMessage: undefined,
+          }
+        : {}),
+      ...(args.errorMessage !== undefined ? { errorCode: "dependency_unavailable" } : {}),
       leaseToken: undefined,
       leaseExpiresAt: undefined,
       updatedAt: now,
@@ -332,8 +350,10 @@ export const resolveFromWebhook = internalMutation({
     const now = Date.now();
     await ctx.db.patch(operation._id, {
       state: args.observation,
-      ...(args.resultJson !== undefined ? { resultJson: args.resultJson } : {}),
-      ...(args.errorMessage !== undefined ? { errorMessage: args.errorMessage } : {}),
+      responseSummary: { status: args.observation },
+      resultJson: undefined,
+      errorMessage: undefined,
+      ...(args.errorMessage !== undefined ? { errorCode: "dependency_unavailable" } : {}),
       updatedAt: now,
     });
     return { updated: true, state: args.observation };

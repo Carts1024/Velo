@@ -10,6 +10,9 @@
     "lint:fix": "oxlint --fix . && oxfmt --write . && tsc --noEmit",
     "test": "node --experimental-strip-types --test src/*.test.ts"
   },
+  "dependencies": {
+    "@repo/observability": "workspace:*"
+  },
   "devDependencies": {
     "@repo/typescript-config": "workspace:*",
     "@types/node": "^22.15.3",

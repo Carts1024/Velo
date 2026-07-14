@@ -4,11 +4,13 @@ import {
   distributedRateLimitHeaders,
 } from "@/core/api/distributed-rate-limit";
 import { env } from "@/core/config/env";
+import { withRouteTelemetry } from "@/core/observability";
 import { api } from "@repo/backend/convex/_generated/api";
 import { ConvexHttpClient } from "convex/browser";
 import { NextRequest, NextResponse } from "next/server";
 
-export async function GET(request: NextRequest) {
+export const GET = withRouteTelemetry("events.list.v1", async (baseRequest) => {
+  const request = baseRequest as NextRequest;
   const apiKey = getApiKeyFromRequest(request);
 
   if (!apiKey || !/^tk_live_[a-f0-9]{32}$/.test(apiKey)) {
@@ -59,8 +61,7 @@ export async function GET(request: NextRequest) {
     });
 
     return response;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Internal Server Error";
-    return NextResponse.json({ error: `Internal Server Error: ${message}` }, { status: 500 });
+  } catch {
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
-}
+});

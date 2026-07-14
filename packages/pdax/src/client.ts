@@ -323,13 +323,15 @@ function parseFiatWebhook(record: Record<string, unknown>): PdaxFiatWebhookPaylo
 export class PdaxClient {
   private baseUrl: string;
   private timeoutMs: number;
+  private telemetryContext?: TelemetryContext;
 
   constructor(
     baseUrl: string = "https://uat.services.sandbox.pdax.ph/api/pdax-api",
-    options: { timeoutMs?: number } = {},
+    options: { timeoutMs?: number; telemetryContext?: TelemetryContext } = {},
   ) {
     this.baseUrl = baseUrl;
     this.timeoutMs = Math.max(1, options.timeoutMs ?? 2_500);
+    this.telemetryContext = options.telemetryContext;
   }
 
   private async request<T>(
@@ -369,6 +371,7 @@ export class PdaxClient {
         signal: controller.signal,
         headers: {
           "Content-Type": "application/json",
+          ...(this.telemetryContext ? telemetryHeaders(this.telemetryContext) : {}),
           ...headers,
         },
         body: body ? JSON.stringify(body) : undefined,
@@ -622,3 +625,4 @@ export class PdaxClient {
     return false;
   }
 }
+import { telemetryHeaders, type TelemetryContext } from "@repo/observability";

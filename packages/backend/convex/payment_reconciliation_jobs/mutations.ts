@@ -11,6 +11,8 @@ export const ensure = internalMutation({
     paymentIntentId: v.id("paymentIntents"),
     projectId: v.id("projects"),
     txHash: v.optional(v.string()),
+    requestCorrelationId: v.optional(v.string()),
+    traceparent: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const existing = await ctx.db
@@ -150,7 +152,7 @@ export const finish = internalMutation({
         nextAttemptAt: Date.now() + Math.min(60_000, 1_000 * 2 ** Math.min(job.attemptCount, 6)),
         leaseToken: undefined,
         leaseExpiresAt: undefined,
-        lastError: args.errorMessage?.slice(0, 500),
+        lastError: args.errorMessage ? "reconciliation_failed" : undefined,
         updatedAt: Date.now(),
       });
     }

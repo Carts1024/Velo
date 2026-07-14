@@ -1057,8 +1057,7 @@ export const checkPayoutStatus = action({
         });
 
         updated++;
-      } catch (err) {
-        console.error(`Failed to poll PDAX for withdrawal ${identifier}:`, err);
+      } catch {
         // Continue with next transaction, don't fail the whole batch
       }
     }
@@ -1184,13 +1183,9 @@ export const pollPendingPayouts = internalAction({
             });
 
             totalUpdated++;
-          } catch (err) {
-            console.error(`Failed to poll PDAX for withdrawal ${identifier}:`, err);
-          }
+          } catch {}
         }
-      } catch (err) {
-        console.error(`Failed to get PDAX connection for project ${projectId}:`, err);
-      }
+      } catch {}
     }
 
     return { updated: totalUpdated, total: pendingTxs.length };

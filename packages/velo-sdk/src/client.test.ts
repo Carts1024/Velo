@@ -59,7 +59,11 @@ test("HttpClient sets correct authorization and custom headers", async () => {
       "POST",
       "/test",
       { foo: "bar" },
-      { idempotencyKey: "idem-123" },
+      {
+        idempotencyKey: "idem-123",
+        correlationId: "request-00000001",
+        traceparent: "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+      },
     );
 
     assert.deepEqual(res, { success: true });
@@ -70,6 +74,8 @@ test("HttpClient sets correct authorization and custom headers", async () => {
     assert.equal(headers["Authorization"], "Bearer test-key");
     assert.equal(headers["Content-Type"], "application/json");
     assert.equal(headers["Idempotency-Key"], "idem-123");
+    assert.equal(headers["X-Correlation-Id"], "request-00000001");
+    assert.equal(headers.traceparent, "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01");
     assert.equal(calledOptions?.body, JSON.stringify({ foo: "bar" }));
   } finally {
     globalThis.fetch = originalFetch;
@@ -441,12 +447,21 @@ test("POST with idempotency key retries on 500", async () => {
 test("HttpClient sends correlation header and honors Retry-After on retryable responses", async () => {
   const originalFetch = globalThis.fetch;
   let calls = 0;
-  let correlationHeader: string | null = null;
+  const propagated: Array<{
+    correlation: string | null;
+    traceparent: string | null;
+    idempotency: string | null;
+  }> = [];
   const startedAt = Date.now();
 
   globalThis.fetch = async (_url, options) => {
     calls++;
-    correlationHeader = new Headers(options?.headers).get("x-correlation-id");
+    const headers = new Headers(options?.headers);
+    propagated.push({
+      correlation: headers.get("x-correlation-id"),
+      traceparent: headers.get("traceparent"),
+      idempotency: headers.get("idempotency-key"),
+    });
     if (calls === 1) {
       return new Response(
         JSON.stringify({
@@ -468,9 +483,22 @@ test("HttpClient sends correlation header and honors Retry-After on retryable re
     const client = new HttpClient({ apiKey: "test-key", baseUrl: "https://api.example.com" });
     const res = await client.request("GET", "/test", undefined, {
       correlationId: "pay-2026-sdk-0001",
+      traceparent: "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+      idempotencyKey: "retry-idempotency-1",
     });
     assert.deepEqual(res, { ok: true });
-    assert.equal(correlationHeader, "pay-2026-sdk-0001");
+    assert.deepEqual(propagated, [
+      {
+        correlation: "pay-2026-sdk-0001",
+        traceparent: "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+        idempotency: "retry-idempotency-1",
+      },
+      {
+        correlation: "pay-2026-sdk-0001",
+        traceparent: "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+        idempotency: "retry-idempotency-1",
+      },
+    ]);
     assert.equal(calls, 2);
     assert.ok(Date.now() - startedAt >= 15);
   } finally {

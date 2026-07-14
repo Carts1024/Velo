@@ -365,6 +365,7 @@ function lifecycleProjection(
   correlationId: string,
   intents: Doc<"paymentIntents">[],
   deliveries: Doc<"webhookDeliveries">[],
+  journeyStages: Doc<"journeyStages">[] = [],
 ) {
   const paymentIntents = intents.map((intent) => ({
     id: intent._id,
@@ -373,6 +374,7 @@ function lifecycleProjection(
     createdAt: intent.createdAt,
     updatedAt: intent.updatedAt,
     stageTimestamps: intent.stageTimestamps ?? null,
+    traceparent: intent.traceparent ?? null,
   }));
   const webhookDeliveries = deliveries.map((delivery) => ({
     id: delivery._id,
@@ -390,58 +392,75 @@ function lifecycleProjection(
     responseTimeMs: delivery.responseTimeMs ?? null,
   }));
 
+  const stages = [
+    ...paymentIntents.flatMap((intent) => {
+      const intentStages = intent.stageTimestamps ?? { created: intent.createdAt };
+      return Object.entries(intentStages)
+        .filter((entry): entry is [string, number] => typeof entry[1] === "number")
+        .flatMap(([name, at]) => [
+          { name: `payment_intent.${name}`, at, paymentIntentId: intent.id },
+          ...(name === "confirmed"
+            ? [{ name: "payment_intent.paid", at, paymentIntentId: intent.id }]
+            : []),
+        ]);
+    }),
+    ...webhookDeliveries.flatMap((delivery) => [
+      { name: "webhook.enqueued", at: delivery.enqueuedAt, deliveryId: delivery.id },
+      ...(delivery.attemptStartedAt === null
+        ? []
+        : [
+            {
+              name: "webhook.attempt_started",
+              at: delivery.attemptStartedAt,
+              deliveryId: delivery.id,
+            },
+          ]),
+      ...(delivery.responseReceivedAt === null
+        ? []
+        : [
+            {
+              name: "webhook.response_received",
+              at: delivery.responseReceivedAt,
+              deliveryId: delivery.id,
+            },
+          ]),
+      ...(delivery.acknowledgedAt === null
+        ? []
+        : [
+            { name: "webhook.acknowledged", at: delivery.acknowledgedAt, deliveryId: delivery.id },
+            { name: "webhook.success", at: delivery.acknowledgedAt, deliveryId: delivery.id },
+          ]),
+    ]),
+    ...journeyStages.map((event) => ({
+      name: event.name,
+      at: event.at,
+      journeyStageId: event._id,
+      source: event.source,
+      outcome: event.outcome,
+    })),
+  ].sort((left, right) => left.at - right.at);
+  const observed = new Set(stages.map((stage) => stage.name));
+  const required = [
+    "payment_intent.created",
+    "payment_intent.submitted",
+    "payment_intent.observed",
+    "payment_intent.confirmed",
+    "webhook.acknowledged",
+    "ui.rendered",
+  ];
+
   return {
     correlationId,
+    traceIdentifiers: {
+      journeyCorrelationId: correlationId,
+      traceparents: paymentIntents.flatMap((intent) =>
+        intent.traceparent === null ? [] : [intent.traceparent],
+      ),
+    },
     paymentIntents,
     webhookDeliveries,
-    stages: [
-      ...paymentIntents.flatMap((intent) => {
-        const stages = intent.stageTimestamps ?? { created: intent.createdAt };
-        return Object.entries(stages)
-          .filter((entry): entry is [string, number] => typeof entry[1] === "number")
-          .flatMap(([name, at]) => [
-            { name: `payment_intent.${name}`, at, paymentIntentId: intent.id },
-            ...(name === "confirmed"
-              ? [{ name: "payment_intent.paid", at, paymentIntentId: intent.id }]
-              : []),
-          ]);
-      }),
-      ...webhookDeliveries.flatMap((delivery) => [
-        { name: "webhook.enqueued", at: delivery.enqueuedAt, deliveryId: delivery.id },
-        ...(delivery.attemptStartedAt === null
-          ? []
-          : [
-              {
-                name: "webhook.attempt_started",
-                at: delivery.attemptStartedAt,
-                deliveryId: delivery.id,
-              },
-            ]),
-        ...(delivery.responseReceivedAt === null
-          ? []
-          : [
-              {
-                name: "webhook.response_received",
-                at: delivery.responseReceivedAt,
-                deliveryId: delivery.id,
-              },
-            ]),
-        ...(delivery.acknowledgedAt === null
-          ? []
-          : [
-              {
-                name: "webhook.acknowledged",
-                at: delivery.acknowledgedAt,
-                deliveryId: delivery.id,
-              },
-              {
-                name: "webhook.success",
-                at: delivery.acknowledgedAt,
-                deliveryId: delivery.id,
-              },
-            ]),
-      ]),
-    ].sort((left, right) => left.at - right.at),
+    stages,
+    missingStages: required.filter((stage) => !observed.has(stage)),
   };
 }
 
@@ -473,7 +492,15 @@ export const getProjectPaymentLifecycleByCorrelation = query({
       .order("asc")
       .take(100);
 
-    return lifecycleProjection(args.correlationId, intents, deliveries);
+    const journeyStages = await ctx.db
+      .query("journeyStages")
+      .withIndex("by_journey_correlation_id_and_at", (q) =>
+        q.eq("journeyCorrelationId", args.correlationId),
+      )
+      .order("asc")
+      .take(100);
+
+    return lifecycleProjection(args.correlationId, intents, deliveries, journeyStages);
   },
 });
 

@@ -4,10 +4,12 @@ import type { Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 
 import { mutation } from "../_generated/server";
+import { recordMetric } from "../telemetry_outbox/helpers";
 
-// Spread writes across NUM_SHARDS sub-buckets to reduce OCC contention.
-// Each shard holds capacity/NUM_SHARDS tokens and refills at rate/NUM_SHARDS.
-const NUM_SHARDS = 8;
+// One transactional bucket guarantees the advertised global capacity. Random
+// shards reject early when traffic is uneven and can exceed capacity when each
+// shard is independently full; Convex OCC retries serialize this bounded write.
+const NUM_SHARDS = 1;
 
 async function consumeBucket(
   ctx: MutationCtx,
@@ -49,6 +51,9 @@ export async function consumePaymentRateLimits(
   const now = Date.now();
   const apiKey = await consumeBucket(ctx, `api:${apiKeyHash}`, 200, 60, now);
   const project = await consumeBucket(ctx, `project:${projectId}`, 300, 100, now);
+  if (!apiKey.allowed || !project.allowed) {
+    await recordMetric(ctx, "velo_rate_limit_total", "payment_rate_limit", "auth", "rejected");
+  }
   return {
     allowed: apiKey.allowed && project.allowed,
     limit: Math.min(apiKey.limit, project.limit),

@@ -5,6 +5,8 @@ export default defineTable({
   paymentIntentId: v.id("paymentIntents"),
   projectId: v.id("projects"),
   txHash: v.optional(v.string()),
+  requestCorrelationId: v.optional(v.string()),
+  traceparent: v.optional(v.string()),
   state: v.union(v.literal("pending"), v.literal("leased"), v.literal("dead_letter")),
   attemptCount: v.number(),
   nextAttemptAt: v.number(),

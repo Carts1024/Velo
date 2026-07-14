@@ -46,3 +46,15 @@ timing is stored in `nextAttemptAt`/`lastAttemptAt`; endpoint latency is stored 
 See the [Sprint 8 runbook](../../../docs/operations/sprint-8-durable-financial-reliability-runbook.md).
 
 Sprint 8 has no live SLO qualification and no production availability evidence.
+
+## Sprint 10 observability and redaction
+
+Payment journeys now retain a durable correlation ID and trace context across scheduled reconciliation, provider ingestion, settlement, and webhook delivery. `getProjectPaymentLifecycleByCorrelation` verifies project ownership before indexed reads and returns ordered payment, provider/worker/UI, and webhook stages with missing-stage diagnostics.
+
+Transaction-created telemetry uses a 100-row fenced outbox. The one-minute exporter deletes successful rows, retries failures at most five times, exposes dead letters, and never rolls back business mutations. One-minute bounded gauge capture covers queue, scanner, provider, webhook, confirmation, and exporter state; telemetry and journey-stage rows expire after 14 days.
+
+New provider callbacks persist typed summaries and digests instead of raw payloads. The schema remains in its widening state while deployed data is migrated and verified; do not remove the optional legacy fields until the paginated verification returns zero forbidden rows.
+
+Configure `VELO_OTEL_EXPORTER_OTLP_ENDPOINT` and optional `VELO_OTEL_EXPORTER_OTLP_AUTHORIZATION` in the Convex environment. Durable UI markers also require the same server-only `VELO_UI_TELEMETRY_INTAKE_SECRET` configured in the web environment.
+
+Sprint 10 is **IMPLEMENTED — LIVE EVIDENCE PENDING**. See the [architecture](../../../docs/architecture/sprint-10-end-to-end-observability-and-redaction.md), [operator runbook](../../../docs/operations/sprint-10-observability-and-redaction-runbook.md), and [evidence report](../../../docs/references/sprint-10-observability-redaction-and-overhead-report.md).

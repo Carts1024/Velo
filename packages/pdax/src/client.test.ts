@@ -28,7 +28,12 @@ describe("PdaxClient", () => {
   });
 
   test("login success", async () => {
-    const client = new PdaxClient(BASE_URL);
+    const client = new PdaxClient(BASE_URL, {
+      telemetryContext: {
+        requestCorrelationId: "request-00000001",
+        traceparent: "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+      },
+    });
     const mockPayload = {
       email: "example@gmail.com",
       username: "96a8c8b5-8fee-40c9-9242-a5cd172e9a96",
@@ -51,6 +56,12 @@ describe("PdaxClient", () => {
     assert.deepStrictEqual(res, mockPayload);
     assert.strictEqual(mockFetchCall?.url, `${BASE_URL}/pdax-institution/v1/login`);
     assert.strictEqual(mockFetchCall?.options!.method, "POST");
+    const headers = mockFetchCall?.options!.headers as Record<string, string>;
+    assert.strictEqual(headers["x-correlation-id"], "request-00000001");
+    assert.strictEqual(
+      headers.traceparent,
+      "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+    );
     assert.strictEqual(
       mockFetchCall?.options!.body,
       JSON.stringify({ username: "example@gmail.com", password: "P@ssw0rd" }),

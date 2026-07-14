@@ -113,6 +113,7 @@ export function CheckoutClient({ paymentIntentId }: CheckoutClientProps) {
       entityId: paymentIntentId,
       state: intent.status,
       version: intent.updatedAt,
+      correlationId: intent.correlationId,
     };
     if (intent.status === "created" && intent.receiverAddress) {
       emitCheckoutBenchmarkMarker(env.NEXT_PUBLIC_VELO_BENCHMARK_MARKERS, "velo:checkout-ready", {

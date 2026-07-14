@@ -1,4 +1,3 @@
-
 # Velo
 
 <p align="center">
@@ -221,6 +220,8 @@ Webhook behavior:
 - Transaction debugger accepts 64-character Stellar transaction hashes.
 - Contract event monitor polls active official contract IDs.
 - Dashboard shows payment stats, recent payments, recent events, webhook health, and demo readiness.
+- Sprint 10 adds end-to-end request and journey correlation, vendor-neutral OTLP export, bounded Convex telemetry outbox processing, safe UI markers, and allowlist-only redaction.
+- The checked-in local stack provisions Grafana, Tempo, Loki, Prometheus, and OpenTelemetry Collector. Sprint 10 is **IMPLEMENTED — LIVE EVIDENCE PENDING**; no live reconstruction or `<3%` p95 overhead verdict is claimed.
 
 ## Repository Structure
 
@@ -383,6 +384,7 @@ pnpm --filter @repo/backend test
 pnpm --filter @repo/stellar test
 pnpm --filter @repo/pdax test
 pnpm --filter @carts1024/velo-sdk test
+pnpm --filter @repo/observability test
 ```
 
 Run contract tests:
@@ -406,6 +408,9 @@ pnpm build
 
 ## Key Documentation
 
+- [Sprint 10 observability architecture](docs/architecture/sprint-10-end-to-end-observability-and-redaction.md)
+- [Sprint 10 operator runbook](docs/operations/sprint-10-observability-and-redaction-runbook.md)
+- [Sprint 10 observability, redaction, and overhead report](docs/references/sprint-10-observability-redaction-and-overhead-report.md)
 - [Velo master context for AI agents](docs/velo-master-context.md)
 - [Velo Pay checkout guide](docs/velo-pay-checkout.md)
 - [Demo setup guide](docs/demo-setup.md)

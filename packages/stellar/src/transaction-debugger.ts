@@ -1,3 +1,4 @@
+import { telemetryHeaders, type TelemetryContext } from "@repo/observability";
 import {
   Address,
   humanizeEvents,
@@ -270,11 +271,13 @@ export function parseTransactionResponse(
 export async function lookupTestnetTransaction(
   rpcUrl: string,
   hash: string,
-  options: { timeoutMs?: number } = {},
+  options: { timeoutMs?: number; telemetryContext?: TelemetryContext; allowHttp?: boolean } = {},
 ) {
   const normalizedHash = assertValidTransactionHash(hash);
   const response = await new rpc.Server(rpcUrl, {
     timeout: options.timeoutMs ?? 5_000,
+    ...(options.allowHttp !== undefined ? { allowHttp: options.allowHttp } : {}),
+    ...(options.telemetryContext ? { headers: telemetryHeaders(options.telemetryContext) } : {}),
   }).getTransaction(normalizedHash);
   return parseTransactionResponse(normalizedHash, response);
 }

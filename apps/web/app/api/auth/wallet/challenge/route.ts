@@ -1,7 +1,8 @@
 import { createWalletChallenge } from "@/core/auth/wallet-jwt";
+import { withRouteTelemetry } from "@/core/observability";
 import { NextResponse } from "next/server";
 
-export async function POST(request: Request) {
+export const POST = withRouteTelemetry("wallet.challenge", async (request) => {
   try {
     const body = (await request.json()) as { address?: string };
     if (!body.address) {
@@ -9,8 +10,7 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json(createWalletChallenge(body.address));
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unable to create challenge";
-    return NextResponse.json({ error: message }, { status: 400 });
+  } catch {
+    return NextResponse.json({ error: "Unable to create challenge" }, { status: 400 });
   }
-}
+});

@@ -27,6 +27,7 @@ export default defineTable({
   anchorDepositCurrency: v.optional(v.string()),
   // Public request correlation, deliberately opaque and never derived from wallet data.
   correlationId: v.optional(v.string()),
+  traceparent: v.optional(v.string()),
   stageTimestamps: v.optional(
     v.object({
       created: v.number(),

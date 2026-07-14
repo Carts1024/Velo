@@ -28,6 +28,16 @@ export const createPending = internalMutation({
       if (existing) return existing._id;
     }
     const now = Date.now();
+    if (args.correlationId) {
+      await ctx.db.insert("journeyStages", {
+        journeyCorrelationId: args.correlationId,
+        name: "webhook.enqueued",
+        source: "webhook",
+        outcome: "pending",
+        at: now,
+        expiresAt: now + 14 * 24 * 60 * 60 * 1_000,
+      });
+    }
     if (eventKey) {
       const domainEvent = await ctx.db
         .query("webhookDomainEvents")
@@ -123,6 +133,16 @@ export const finish = internalMutation({
       leaseToken: undefined,
       leaseExpiresAt: undefined,
     });
+    if (delivery.correlationId) {
+      await ctx.db.insert("journeyStages", {
+        journeyCorrelationId: delivery.correlationId,
+        name: args.status === "success" ? "webhook.acknowledged" : "webhook.failed",
+        source: "webhook",
+        outcome: args.status === "success" ? "success" : "error",
+        at: completedAt,
+        expiresAt: completedAt + 14 * 24 * 60 * 60 * 1_000,
+      });
+    }
     return true;
   },
 });

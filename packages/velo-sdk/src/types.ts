@@ -11,6 +11,8 @@ export type PaymentIntent = {
   id: string;
   object: "payment_intent";
   paymentIntentId: string;
+  /** Durable journey identifier returned by Velo. */
+  correlationId?: string | null;
   status: PaymentIntentStatus;
   amount: string;
   asset: string;
@@ -51,6 +53,8 @@ export type CreateCheckoutSessionParams = {
 export type RequestOptions = {
   idempotencyKey?: string;
   correlationId?: string;
+  /** W3C trace context propagated to Velo and downstream dependencies. */
+  traceparent?: string;
   signal?: AbortSignal;
   /** Overrides the client default total wall-clock deadline for this request. */
   timeoutMs?: number;

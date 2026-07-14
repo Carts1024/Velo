@@ -112,6 +112,8 @@ export function publicPaymentIntentFromDoc(intent: PublicPaymentIntentDoc, appUr
 }
 
 export type PublicPaymentIntentDocV2 = PublicPaymentIntentDoc & {
+  correlationId?: string;
+  traceparent?: string;
   anchor?: "inhouse" | "pdax";
   receiverAddress?: string;
   receiverMemo?: string;
@@ -139,6 +141,7 @@ export function publicPaymentIntentFromDocV2(intent: PublicPaymentIntentDocV2, a
     id: paymentIntentId,
     object: "payment_intent" as const,
     paymentIntentId,
+    correlationId: intent.correlationId ?? null,
     status: intent.status,
     amount: intent.amount,
     asset: intent.asset,

@@ -14,9 +14,9 @@ import {
 import { env } from "@/core/config/env";
 import { stellarConfig } from "@/core/config/stellar";
 import {
-  completeRequestTelemetry,
   measureTelemetryStage,
-  startRequestTelemetry,
+  withRouteTelemetry,
+  type RouteTelemetry,
 } from "@/core/observability";
 import { api } from "@repo/backend/convex/_generated/api";
 import { ConvexHttpClient } from "convex/browser";
@@ -46,10 +46,9 @@ type PublicPaymentIntentListResult =
 
 const convex = new ConvexHttpClient(env.NEXT_PUBLIC_CONVEX_URL);
 
-export async function POST(request: NextRequest) {
-  const telemetry = startRequestTelemetry(request, "payment_intent.create.v1");
-  const complete = <T extends Response>(response: T) =>
-    completeRequestTelemetry(telemetry, response);
+async function postHandler(baseRequest: Request, telemetry: RouteTelemetry) {
+  const request = baseRequest as NextRequest;
+  const complete = <T extends Response>(response: T) => response;
   const auth = getApiKeyHashOrError(request);
   if (!auth.ok) {
     return complete(auth.response);
@@ -95,6 +94,7 @@ export async function POST(request: NextRequest) {
         {
           apiKeyHash: auth.apiKeyHash,
           correlationId: telemetry.correlationId,
+          traceparent: telemetry.context.traceparent,
           amount: parsed.body.amount,
           asset: resolvedAsset,
           ...(parsed.body.description !== undefined
@@ -159,10 +159,15 @@ export async function POST(request: NextRequest) {
       publicPaymentIntentFromDocV2(result.intent, env.NEXT_PUBLIC_APP_URL),
       { status: result.status === "idempotency_replay" ? 200 : 201 },
     );
+    if (result.intent.correlationId) {
+      telemetry.context.journeyCorrelationId = result.intent.correlationId;
+      response.headers.set("X-Velo-Journey-Id", result.intent.correlationId);
+    }
+    if (result.status === "idempotency_replay" && result.intent.traceparent) {
+      telemetry.linkTraceparent = result.intent.traceparent;
+    }
     return complete(attachHeaders(response, rateLimitHeaders));
   } catch (error) {
-    console.error("Payment intent creation failed:", error);
-
     if (error instanceof Error) {
       const data = (error as { data?: { code?: string } }).data;
       if (
@@ -202,10 +207,11 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function GET(request: NextRequest) {
-  const telemetry = startRequestTelemetry(request, "payment_intent.list.v1");
-  const complete = <T extends Response>(response: T) =>
-    completeRequestTelemetry(telemetry, response);
+export const POST = withRouteTelemetry("payment_intent.create.v1", postHandler);
+
+async function getHandler(baseRequest: Request, telemetry: RouteTelemetry) {
+  const request = baseRequest as NextRequest;
+  const complete = <T extends Response>(response: T) => response;
   const auth = getApiKeyHashOrError(request);
   if (!auth.ok) {
     return complete(auth.response);
@@ -272,8 +278,7 @@ export async function GET(request: NextRequest) {
       nextCursor: result.page.isDone ? null : result.page.continueCursor,
     });
     return complete(attachHeaders(response, rateLimitHeaders));
-  } catch (error) {
-    console.error("Payment intent list failed:", error);
+  } catch {
     return complete(
       attachHeaders(
         veloErrorResponse({
@@ -287,3 +292,5 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+
+export const GET = withRouteTelemetry("payment_intent.list.v1", getHandler);

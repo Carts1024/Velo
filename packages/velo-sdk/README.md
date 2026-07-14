@@ -75,6 +75,7 @@ Retrieving or creating a payment intent in V2 returns the following anchor-aware
 ```ts
 const intent = await velo.paymentIntents.retrieve("pi_12345");
 
+console.log(intent.correlationId); // Durable Velo journey ID, when available
 console.log(intent.anchor); // 'inhouse' | 'pdax'
 console.log(intent.receiverAddress); // Destination wallet address (e.g. project owner or PDAX deposit address)
 console.log(intent.receiverMemo); // String memo/tag if required (e.g. PDAX tag, else null)
@@ -259,8 +260,11 @@ const controller = new AbortController();
 const intent = await velo.paymentIntents.retrieve("pi_123", {
   signal: controller.signal,
   correlationId: "order-2026-0001",
+  traceparent: "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
 });
 ```
+
+`correlationId` becomes `X-Correlation-Id` for the current request. `traceparent` is an optional W3C trace context value propagated to Velo and supported downstream dependencies. A returned payment intent can also contain its durable journey `correlationId`; keep that value for journey lookup rather than replacing it with a later retry's request ID.
 
 Only safe reads, or explicitly idempotent writes with an `idempotencyKey`, are retried. Retry
 delays use capped jitter and honor `Retry-After`; creation is never retried without an idempotency
@@ -282,6 +286,7 @@ Idempotency keys are scoped to your project. Repeating a request with the same p
 
 - Add an `idempotencyKey` to checkout/session creation before relying on automatic retries.
 - Pass `correlationId` from your order or request context when you need to join SDK calls with Velo API and webhook logs.
+- Pass `traceparent` when your service already has a W3C trace and you want Velo calls to participate in it.
 - Set `timeoutMs` below your serverless or API-route deadline; the SDK budget includes retries and retry waits.
 - Treat `VeloSubmissionUnknownError` as "check by transaction hash / intent state" rather than "submit again."
 - For webhook consumers, continue deduplicating deliveries by `x-velo-delivery` and verifying `x-velo-signature` with the raw request body.

@@ -113,6 +113,7 @@ export class HttpClient {
     };
     if (options?.idempotencyKey) headers["Idempotency-Key"] = options.idempotencyKey;
     if (options?.correlationId) headers["X-Correlation-Id"] = options.correlationId;
+    if (options?.traceparent) headers.traceparent = options.traceparent;
 
     for (let attempt = 0; ; attempt++) {
       if (options?.signal?.aborted) throw abortReason(options.signal);

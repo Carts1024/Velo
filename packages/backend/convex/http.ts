@@ -1,3 +1,4 @@
+import { createTraceparent, isCorrelationId, isTraceparent } from "@repo/observability";
 import { PdaxClient } from "@repo/pdax";
 import { makeFunctionReference } from "convex/server";
 import { httpRouter } from "convex/server";
@@ -17,10 +18,18 @@ function constantTimeEqual(left: string, right: string) {
   return mismatch === 0;
 }
 
-function textResponse(status: number, message: string) {
+function responseHeaders(correlationId: string) {
+  return {
+    "content-type": "application/json",
+    "X-Correlation-Id": correlationId,
+    "X-Request-Id": correlationId,
+  };
+}
+
+function textResponse(status: number, message: string, correlationId: string) {
   return new Response(JSON.stringify({ error: message }), {
     status,
-    headers: { "content-type": "application/json" },
+    headers: responseHeaders(correlationId),
   });
 }
 
@@ -28,29 +37,35 @@ http.route({
   path: "/api/webhooks/pdax/v1",
   method: "POST",
   handler: httpAction(async (ctx, request) => {
+    const supplied = request.headers.get("x-correlation-id")?.trim();
+    const correlationId = isCorrelationId(supplied) ? supplied : crypto.randomUUID();
+    const suppliedTrace = request.headers.get("traceparent")?.trim();
+    const traceparent = isTraceparent(suppliedTrace) ? suppliedTrace : createTraceparent();
     const configuredToken = process.env.PDAX_WEBHOOK_TOKEN;
     const token = new URL(request.url).searchParams.get("token") ?? "";
     if (!configuredToken || !constantTimeEqual(token, configuredToken)) {
-      return textResponse(401, "Unauthorized");
+      return textResponse(401, "Unauthorized", correlationId);
     }
     const contentType = request.headers.get("content-type")?.split(";", 1)[0]?.trim();
-    if (contentType !== "application/json") return textResponse(415, "JSON required");
+    if (contentType !== "application/json")
+      return textResponse(415, "JSON required", correlationId);
     const bytes = await request.arrayBuffer();
-    if (bytes.byteLength > MAX_BODY_BYTES) return textResponse(413, "Payload too large");
+    if (bytes.byteLength > MAX_BODY_BYTES)
+      return textResponse(413, "Payload too large", correlationId);
     let value: unknown;
     try {
       value = JSON.parse(new TextDecoder().decode(bytes));
     } catch {
-      return textResponse(400, "Malformed JSON");
+      return textResponse(400, "Malformed JSON", correlationId);
     }
     if (!value || typeof value !== "object" || Array.isArray(value)) {
-      return textResponse(400, "Invalid PDAX event");
+      return textResponse(400, "Invalid PDAX event", correlationId);
     }
     let normalized: ReturnType<PdaxClient["parseWebhook"]>;
     try {
       normalized = new PdaxClient().parseWebhook(value);
     } catch {
-      return textResponse(400, "Invalid PDAX event schema");
+      return textResponse(400, "Invalid PDAX event schema", correlationId);
     }
     const input = normalized as unknown as Record<string, unknown>;
     const identifier = normalized.identifier;
@@ -67,12 +82,14 @@ http.route({
       eventId,
       identifier,
       type: type as "DEPOSIT" | "WITHDRAWAL",
-      rawEvent,
       payloadDigest,
+      status: typeof input.status === "string" ? input.status : undefined,
+      requestCorrelationId: correlationId,
+      traceparent,
     });
     return new Response(JSON.stringify(result), {
       status: result.status === "quarantined" ? 202 : 200,
-      headers: { "content-type": "application/json" },
+      headers: responseHeaders(correlationId),
     });
   }),
 });

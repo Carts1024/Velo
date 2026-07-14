@@ -1,4 +1,7 @@
 import { PdaxClient, PdaxError } from "@repo/pdax";
+import { makeFunctionReference } from "convex/server";
+
+import type { TelemetryContext } from "@repo/observability";
 
 import { internal } from "../_generated/api";
 import { Id } from "../_generated/dataModel";
@@ -7,8 +10,22 @@ import { ActionCtx } from "../_generated/server";
 export async function getOrRefreshPdaxConnection(
   ctx: ActionCtx,
   projectId: Id<"projects">,
-  options: { signal?: AbortSignal } = {},
+  options: { signal?: AbortSignal; telemetryContext?: TelemetryContext } = {},
 ): Promise<{ accessToken: string; idToken: string; client: PdaxClient }> {
+  const telemetryRef = makeFunctionReference<"mutation">("telemetry_outbox/mutations:enqueue");
+  const recordAuth = async () => {
+    if (!options.telemetryContext) return;
+    await ctx.runMutation(telemetryRef, {
+      kind: "span",
+      name: "velo.dependency.call",
+      operation: "pdax_authentication",
+      stage: "provider_auth",
+      outcome: "success",
+      requestCorrelationId: options.telemetryContext.requestCorrelationId,
+      journeyCorrelationId: options.telemetryContext.journeyCorrelationId,
+      traceparent: options.telemetryContext.traceparent,
+    });
+  };
   const username = process.env.PDAX_UAT_USERNAME;
   const password = process.env.PDAX_UAT_PASSWORD;
   const baseUrl =
@@ -40,6 +57,7 @@ export async function getOrRefreshPdaxConnection(
       refreshToken: loginData.refresh_token,
       tokenExpiresAt: now + loginData.expiry * 1000,
     });
+    await recordAuth();
     return { accessToken: loginData.access_token, idToken: loginData.id_token, client };
   }
 
@@ -59,9 +77,10 @@ export async function getOrRefreshPdaxConnection(
           refreshToken: refreshData.refresh_token,
           tokenExpiresAt: now + refreshData.expiry * 1000,
         });
+        await recordAuth();
         return { accessToken: refreshData.access_token, idToken: refreshData.id_token, client };
-      } catch (error) {
-        console.warn("Failed to refresh PDAX token, falling back to login", error);
+      } catch {
+        // Refresh failures fall back to login; raw provider errors are never logged.
       }
     }
 
@@ -77,10 +96,12 @@ export async function getOrRefreshPdaxConnection(
       refreshToken: loginData.refresh_token,
       tokenExpiresAt: now + loginData.expiry * 1000,
     });
+    await recordAuth();
     return { accessToken: loginData.access_token, idToken: loginData.id_token, client };
   }
 
   // Connection is valid
+  await recordAuth();
   return {
     accessToken: connection.accessToken!,
     idToken: connection.idToken!,

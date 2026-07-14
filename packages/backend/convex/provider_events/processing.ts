@@ -88,12 +88,27 @@ export const quarantineHint = internalMutation({
       leaseToken: undefined,
       leaseExpiresAt: undefined,
     });
+    if (event.journeyCorrelationId) {
+      const now = Date.now();
+      await ctx.db.insert("journeyStages", {
+        journeyCorrelationId: event.journeyCorrelationId,
+        name: "worker.provider_hint_quarantined",
+        source: "worker",
+        outcome: "success",
+        at: now,
+        expiresAt: now + 14 * 24 * 60 * 60 * 1_000,
+      });
+    }
     return true;
   },
 });
 
 export const processOne = internalAction({
-  args: { eventId: v.id("providerEvents") },
+  args: {
+    eventId: v.id("providerEvents"),
+    requestCorrelationId: v.optional(v.string()),
+    traceparent: v.optional(v.string()),
+  },
   handler: async (ctx, args) => {
     const leaseToken = crypto.randomUUID();
     const claim = (await ctx.runMutation(claimRef, { eventId: args.eventId, leaseToken })) as {

@@ -1,3 +1,4 @@
+import { telemetryHeaders, type TelemetryContext } from "@repo/observability";
 import {
   Horizon,
   Networks,
@@ -15,14 +16,20 @@ export type CheckoutPaymentParams = {
   networkPassphrase?: string;
   horizonUrl?: string;
   memo?: string;
+  telemetryContext?: TelemetryContext;
 };
 
 export type CheckoutSubmitParams = {
   signedXdr: string;
   horizonUrl?: string;
+  telemetryContext?: TelemetryContext;
 };
 
 const DEFAULT_TESTNET_HORIZON = "https://horizon-testnet.stellar.org";
+
+export function horizonOptions(telemetryContext?: TelemetryContext) {
+  return telemetryContext ? { headers: telemetryHeaders(telemetryContext) } : undefined;
+}
 
 type HorizonErrorPayload = {
   title?: string;
@@ -140,7 +147,7 @@ export async function buildCheckoutPaymentTransaction(
     throw new Error("Amount must be positive");
   }
 
-  const server = new Horizon.Server(horizonUrl);
+  const server = new Horizon.Server(horizonUrl, horizonOptions(params.telemetryContext));
   const [account, receiverAccount] = await Promise.all([
     server.loadAccount(payerAddress),
     server.loadAccount(receiverAddress),
@@ -198,7 +205,7 @@ export async function submitCheckoutTransaction(
 ): Promise<{ hash: string; successful: boolean }> {
   const { signedXdr, horizonUrl = DEFAULT_TESTNET_HORIZON } = params;
 
-  const server = new Horizon.Server(horizonUrl);
+  const server = new Horizon.Server(horizonUrl, horizonOptions(params.telemetryContext));
   const transaction = TransactionBuilder.fromXDR(signedXdr, Networks.TESTNET);
 
   try {
@@ -209,7 +216,6 @@ export async function submitCheckoutTransaction(
     };
   } catch (error) {
     const message = describeHorizonError(error);
-    console.error("Stellar Horizon submission error:", message, error);
     throw new Error(message);
   }
 }
@@ -234,12 +240,14 @@ export type CreatePaymentIntentParams = {
   cancelUrl?: string;
   baseUrl?: string;
   correlationId?: string;
+  telemetryContext?: TelemetryContext;
 };
 
 export type CreatePaymentIntentResult = {
   paymentIntentId: string;
   checkoutUrl: string;
   expiresIn: number;
+  correlationId?: string;
 };
 
 /**
@@ -249,7 +257,13 @@ export type CreatePaymentIntentResult = {
 export async function createCheckoutSession(
   params: CreatePaymentIntentParams,
 ): Promise<CreatePaymentIntentResult> {
-  const { apiKey, baseUrl = "http://localhost:3000", correlationId, ...body } = params;
+  const {
+    apiKey,
+    baseUrl = "http://localhost:3000",
+    correlationId,
+    telemetryContext,
+    ...body
+  } = params;
 
   if (!apiKey) {
     throw new Error("API key is required");
@@ -261,6 +275,7 @@ export async function createCheckoutSession(
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
       ...(correlationId ? { "X-Correlation-Id": correlationId } : {}),
+      ...(telemetryContext ? telemetryHeaders(telemetryContext) : {}),
     },
     body: JSON.stringify(body),
   });

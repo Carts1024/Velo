@@ -4,6 +4,7 @@ import { v } from "convex/values";
 import apiKeys from "./api_keys/schema";
 import contractEvents from "./contract_events/schema";
 import feedback from "./feedback/schema";
+import journeyStages from "./journey_stages/schema";
 import paymentIntentIdempotencyKeys from "./payment_intent_idempotency_keys/schema";
 import paymentIntentRouteJobs from "./payment_intent_route_jobs/schema";
 import paymentIntents from "./payment_intents/schema";
@@ -19,6 +20,7 @@ import providerResilience from "./provider_resilience/schema";
 import rateLimitBuckets from "./rate_limit_buckets/schema";
 import settlementQuotes from "./settlement_quotes/schema";
 import settlementTransactions from "./settlement_transactions/schema";
+import telemetryOutbox from "./telemetry_outbox/schema";
 import transactions from "./transactions/schema";
 import users from "./users/schema";
 import webhookDeliveries from "./webhook_deliveries/schema";
@@ -29,6 +31,7 @@ export default defineSchema({
   apiKeys,
   contractEvents,
   feedback,
+  journeyStages,
   paymentIntentIdempotencyKeys,
   paymentIntentRouteJobs,
   paymentReconciliationJobs,
@@ -45,6 +48,7 @@ export default defineSchema({
   providerResilience,
   settlementQuotes,
   settlementTransactions,
+  telemetryOutbox,
   providerEvents,
   providerOperations,
   rateLimitBuckets,

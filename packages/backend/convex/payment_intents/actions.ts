@@ -71,7 +71,14 @@ export const enrichPdaxRoute = internalAction({
       const { accessToken, idToken, client } = await getOrRefreshPdaxConnection(
         ctx,
         claim.projectId,
-        { signal },
+        {
+          signal,
+          telemetryContext: {
+            requestCorrelationId: leaseToken,
+            ...(claim.correlationId ? { journeyCorrelationId: claim.correlationId } : {}),
+            ...(claim.traceparent ? { traceparent: claim.traceparent } : {}),
+          },
+        },
       );
       const response = await client.cryptoDepositAddress(
         accessToken,

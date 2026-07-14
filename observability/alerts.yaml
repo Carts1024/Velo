@@ -1,0 +1,51 @@
+groups:
+  - name: velo-sprint-10
+    rules:
+      - record: velo_journey_p95_seconds
+        expr: histogram_quantile(0.95, sum by (le, operation) (rate(velo_journey_duration_seconds_bucket[10m])))
+      - alert: VeloCorrelationCoverageLow
+        expr: sum(rate(velo_correlation_return_total[15m])) / clamp_min(sum(rate(velo_success_total[15m])), 1) < 0.999
+        for: 15m
+        labels: { severity: critical, owner: "API/Web" }
+        annotations:
+          {
+            runbook: "docs/operations/sprint-10-observability-and-redaction-runbook.md#correlation-coverage",
+          }
+      - alert: VeloErrorRateHigh
+        expr: sum(rate(velo_error_total[5m])) / clamp_min(sum(rate(velo_request_total[5m])), 1) >= 0.005
+        for: 5m
+        labels: { severity: critical, owner: "API/Web" }
+        annotations:
+          { runbook: "docs/operations/sprint-10-observability-and-redaction-runbook.md#error-rate" }
+      - alert: VeloScenarioP95High
+        expr: velo_journey_p95_seconds > on(operation) velo_locked_slo_p95_seconds
+        for: 10m
+        labels: { severity: warning, owner: "Payments Backend" }
+        annotations:
+          {
+            runbook: "docs/operations/sprint-10-observability-and-redaction-runbook.md#scenario-latency",
+          }
+      - alert: VeloTelemetryDeadLetters
+        expr: velo_telemetry_dead_letters > 0
+        for: 1m
+        labels: { severity: warning, owner: "Payments Backend" }
+        annotations:
+          {
+            runbook: "docs/operations/sprint-10-observability-and-redaction-runbook.md#telemetry-exporter",
+          }
+      - alert: VeloProviderUnhealthy
+        expr: velo_provider_healthy == 0
+        for: 2m
+        labels: { severity: critical, owner: "Settlement/PDAX" }
+        annotations:
+          {
+            runbook: "docs/operations/sprint-10-observability-and-redaction-runbook.md#provider-health",
+          }
+      - alert: VeloQueueStalled
+        expr: velo_queue_depth > 100 and velo_queue_oldest_seconds > 120
+        for: 2m
+        labels: { severity: critical, owner: "Webhooks/Integrations" }
+        annotations:
+          {
+            runbook: "docs/operations/sprint-10-observability-and-redaction-runbook.md#queue-backlog",
+          }

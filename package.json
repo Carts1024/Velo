@@ -3,7 +3,7 @@
   "private": true,
   "scripts": {
     "benchmark:gate": "node scripts/benchmark-gate.mjs",
-    "benchmark:gate:test": "node --test scripts/release-gate.test.mjs scripts/benchmark-sprint9.test.mjs",
+    "benchmark:gate:test": "node --test scripts/release-gate.test.mjs scripts/benchmark-sprint9.test.mjs scripts/telemetry-overhead-gate.test.mjs scripts/observability-assets.test.mjs",
     "benchmark:merge": "node scripts/benchmark-merge.mjs",
     "benchmark:report": "node scripts/benchmark-report.mjs",
     "benchmark:smoke": "node scripts/benchmark.mjs --dry-run --suite",

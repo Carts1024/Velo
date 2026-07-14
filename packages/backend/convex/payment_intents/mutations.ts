@@ -1,7 +1,9 @@
+import { deterministicSample } from "@repo/observability";
 import { v, ConvexError } from "convex/values";
 
 import { internal } from "../_generated/api";
 import { internalMutation, mutation } from "../_generated/server";
+import { recordMetric, recordSpan } from "../telemetry_outbox/helpers";
 import {
   createPaymentIntentFingerprint,
   mapAssetToPdax,
@@ -105,6 +107,7 @@ export const createPublicPaymentIntent = mutation({
     anchor: v.optional(v.union(v.literal("inhouse"), v.literal("pdax"))),
   },
   handler: async (ctx, args) => {
+    const startedAt = Date.now();
     const auth = await verifyApiKeyForPayments(ctx, args.apiKeyHash);
     if (!auth.authorized) {
       return { authorized: false as const, reason: auth.reason };
@@ -168,6 +171,24 @@ export const createPublicPaymentIntent = mutation({
       createdAt: now,
       updatedAt: now,
     });
+    if (args.correlationId !== undefined && deterministicSample(args.correlationId, 0.1)) {
+      await ctx.db.insert("telemetryOutbox", {
+        kind: "span",
+        name: "velo.convex.operation",
+        operation: "payment_intent.create",
+        stage: "mutation",
+        outcome: "success",
+        requestCorrelationId: args.correlationId,
+        journeyCorrelationId: args.correlationId,
+        durationMs: Date.now() - startedAt,
+        state: "pending",
+        attemptCount: 0,
+        nextAttemptAt: now,
+        leaseGeneration: 0,
+        expiresAt: now + 14 * 24 * 60 * 60 * 1_000,
+        createdAt: now,
+      });
+    }
 
     if (args.idempotencyKey !== undefined) {
       await ctx.db.insert("paymentIntentIdempotencyKeys", {
@@ -432,6 +453,7 @@ export const prepareOrInsertPaymentIntentV2 = internalMutation({
     anchor: v.optional(v.union(v.literal("inhouse"), v.literal("pdax"))),
   },
   handler: async (ctx, args) => {
+    const startedAt = Date.now();
     const auth = await verifyApiKeyForPayments(ctx, args.apiKeyHash);
     if (!auth.authorized) {
       return { status: "unauthorized" as const, reason: auth.reason };
@@ -522,6 +544,25 @@ export const prepareOrInsertPaymentIntentV2 = internalMutation({
       createdAt: now,
       updatedAt: now,
     });
+
+    if (args.correlationId !== undefined && deterministicSample(args.correlationId, 0.1)) {
+      await ctx.db.insert("telemetryOutbox", {
+        kind: "span",
+        name: "velo.convex.operation",
+        operation: "payment_intent.create.v2",
+        stage: "mutation",
+        outcome: "success",
+        requestCorrelationId: args.correlationId,
+        journeyCorrelationId: args.correlationId,
+        durationMs: Date.now() - startedAt,
+        state: "pending",
+        attemptCount: 0,
+        nextAttemptAt: now,
+        leaseGeneration: 0,
+        expiresAt: now + 14 * 24 * 60 * 60 * 1_000,
+        createdAt: now,
+      });
+    }
 
     if (args.idempotencyKey !== undefined) {
       const requestFingerprint = createPaymentIntentFingerprint({
@@ -683,6 +724,7 @@ export const createPublicPaymentIntentV2 = mutation({
   args: {
     apiKeyHash: v.string(),
     correlationId: v.optional(v.string()),
+    traceparent: v.optional(v.string()),
     amount: v.string(),
     asset: v.string(),
     description: v.optional(v.string()),
@@ -716,6 +758,13 @@ export const createPublicPaymentIntentV2 = mutation({
         .unique();
       if (existing) {
         if (existing.requestFingerprint !== fingerprint) {
+          await recordMetric(
+            ctx,
+            "velo_idempotency_contention_total",
+            "payment_intent_create",
+            "mutation",
+            "rejected",
+          );
           return { status: "idempotency_conflict" as const, projectId: auth.project._id };
         }
         const intent = await ctx.db.get(existing.paymentIntentId);
@@ -776,6 +825,7 @@ export const createPublicPaymentIntentV2 = mutation({
       ...(args.cancelUrl !== undefined ? { cancelUrl: args.cancelUrl } : {}),
       anchor: resolvedAnchor,
       ...(args.correlationId !== undefined ? { correlationId: args.correlationId } : {}),
+      ...(args.traceparent !== undefined ? { traceparent: args.traceparent } : {}),
       expiresAt: now + PAYMENT_INTENT_EXPIRY_MS,
       stageTimestamps: {
         created: now,
@@ -784,6 +834,26 @@ export const createPublicPaymentIntentV2 = mutation({
       createdAt: now,
       updatedAt: now,
     });
+
+    if (args.correlationId !== undefined && deterministicSample(args.correlationId, 0.1)) {
+      await ctx.db.insert("telemetryOutbox", {
+        kind: "span",
+        name: "velo.convex.operation",
+        operation: "payment_intent.create.public_v2",
+        stage: "mutation",
+        outcome: "success",
+        requestCorrelationId: args.correlationId,
+        journeyCorrelationId: args.correlationId,
+        ...(args.traceparent !== undefined ? { traceparent: args.traceparent } : {}),
+        durationMs: Date.now() - startedAt,
+        state: "pending",
+        attemptCount: 0,
+        nextAttemptAt: now,
+        leaseGeneration: 0,
+        expiresAt: now + 14 * 24 * 60 * 60 * 1_000,
+        createdAt: now,
+      });
+    }
 
     if (args.idempotencyKey !== undefined) {
       await ctx.db.insert("paymentIntentIdempotencyKeys", {
@@ -874,6 +944,7 @@ export const claimRouteJob = internalMutation({
       projectId: job.projectId,
       mappedAsset: job.mappedAsset,
       correlationId: intent.correlationId,
+      traceparent: intent.traceparent,
     };
   },
 });
@@ -893,6 +964,13 @@ export const claimProviderRoute = internalMutation({
       )
       .unique();
     if (cached && cached.expiresAt > now) {
+      await recordMetric(
+        ctx,
+        "velo_cache_hit_total",
+        "pdax_route_lookup",
+        "indexed_read",
+        "success",
+      );
       return { status: "cache_hit" as const, address: cached.address, memo: cached.memo };
     }
     let resilience = await ctx.db
@@ -1023,6 +1101,14 @@ export const completePdaxRoute = internalMutation({
       leaseExpiresAt: undefined,
       updatedAt: now,
     });
+    await recordSpan(ctx, "velo.dependency.call", "pdax_route_lookup", "provider_call", "success", {
+      journeyCorrelationId: intent.correlationId,
+      traceparent: intent.traceparent,
+    });
+    await recordSpan(ctx, "velo.worker.run", "pdax_route_enrichment", "state_update", "success", {
+      journeyCorrelationId: intent.correlationId,
+      traceparent: intent.traceparent,
+    });
     await ctx.scheduler.runAfter(0, internal.webhookDelivery.trigger, {
       projectId: intent.projectId,
       eventType: "payment.created",
@@ -1056,6 +1142,12 @@ export const deferPdaxRoute = internalMutation({
     await ctx.scheduler.runAfter(delay, internal.payment_intents.actions.enrichPdaxRoute, {
       paymentIntentId: args.paymentIntentId,
     });
+    await recordMetric(ctx, "velo_retry_total", "pdax_route_enrichment", "queue_wait", "retry");
+    const intent = await ctx.db.get(args.paymentIntentId);
+    await recordSpan(ctx, "velo.worker.run", "pdax_route_enrichment", "queue_wait", "retry", {
+      journeyCorrelationId: intent?.correlationId,
+      traceparent: intent?.traceparent,
+    });
     return true;
   },
 });
@@ -1076,6 +1168,28 @@ export const failPdaxRoute = internalMutation({
     if (!job || job.leaseToken !== args.leaseToken || intent?.status !== "awaiting_route")
       return false;
     const attempts = job.attempts + 1;
+    const timeout = args.errorCode === "provider_timeout";
+    if (timeout) {
+      await recordMetric(
+        ctx,
+        "velo_timeout_total",
+        "pdax_route_lookup",
+        "provider_call",
+        "timeout",
+      );
+    }
+    await recordSpan(
+      ctx,
+      "velo.dependency.call",
+      "pdax_route_lookup",
+      "provider_call",
+      timeout ? "timeout" : "error",
+      {
+        journeyCorrelationId: intent.correlationId,
+        traceparent: intent.traceparent,
+        errorCode: timeout ? "dependency_timeout" : "dependency_unavailable",
+      },
+    );
     const resilience = await ctx.db
       .query("providerResilience")
       .withIndex("by_project_and_provider", (q) =>
@@ -1131,6 +1245,11 @@ export const failPdaxRoute = internalMutation({
     });
     await ctx.scheduler.runAfter(retryDelay, internal.payment_intents.actions.enrichPdaxRoute, {
       paymentIntentId: args.paymentIntentId,
+    });
+    await recordMetric(ctx, "velo_retry_total", "pdax_route_enrichment", "queue_wait", "retry");
+    await recordSpan(ctx, "velo.worker.run", "pdax_route_enrichment", "queue_wait", "retry", {
+      journeyCorrelationId: intent.correlationId,
+      traceparent: intent.traceparent,
     });
     return true;
   },

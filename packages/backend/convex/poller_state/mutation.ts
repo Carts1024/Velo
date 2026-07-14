@@ -45,7 +45,7 @@ export const markError = internalMutation({
       projectId: args.projectId,
       status: "error" as const,
       lastRunAt: now,
-      errorMessage: args.message.slice(0, 500),
+      errorMessage: "poller_error",
       updatedAt: now,
     };
 

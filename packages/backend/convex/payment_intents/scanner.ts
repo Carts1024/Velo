@@ -72,20 +72,25 @@ export const checkPendingPayments = internalAction({
               paymentIntentId: intent._id,
               projectId: intent.projectId,
               txHash: intent.txHash,
+              requestCorrelationId: intent.correlationId,
+              traceparent: intent.traceparent,
             });
           }
-        } catch (error) {
+        } catch {
           await ctx.runMutation(ensureReconciliation, {
             paymentIntentId: intent._id,
             projectId: intent.projectId,
             txHash: intent.txHash,
+            requestCorrelationId: intent.correlationId,
+            traceparent: intent.traceparent,
           });
-          console.error(`Error looking up transaction ${intent.txHash}:`, error);
         }
       } else {
         await ctx.runMutation(ensureReconciliation, {
           paymentIntentId: intent._id,
           projectId: intent.projectId,
+          requestCorrelationId: intent.correlationId,
+          traceparent: intent.traceparent,
         });
       }
     }
@@ -173,16 +178,13 @@ export const watchTransaction = internalAction({
           });
           return { status: "failed" };
         }
-      } catch (error) {
-        console.error(`Error checking transaction ${args.txHash} in watchTransaction:`, error);
-      }
+      } catch {}
 
       const jitter = Math.random() * 100;
       await new Promise((resolve) => setTimeout(resolve, delay + jitter));
       delay = Math.min(delay * 2, 5000);
     }
 
-    console.log(`watchTransaction for ${args.txHash} timed out. Handing off to reconciliation.`);
     return { status: "timeout" };
   },
 });

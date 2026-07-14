@@ -29,6 +29,13 @@ export default defineTable({
   providerReference: v.optional(v.string()),
   resultJson: v.optional(v.string()),
   errorMessage: v.optional(v.string()),
+  responseSummary: v.optional(
+    v.object({
+      status: v.string(),
+      providerReference: v.optional(v.string()),
+    }),
+  ),
+  errorCode: v.optional(v.string()),
   createdAt: v.number(),
   updatedAt: v.number(),
 })

@@ -3,13 +3,18 @@ import test from "node:test";
 
 import { Keypair, Horizon, Transaction } from "@stellar/stellar-sdk";
 
-import { createCheckoutSession, buildCheckoutPaymentTransaction } from "./checkout.ts";
+import {
+  createCheckoutSession,
+  buildCheckoutPaymentTransaction,
+  horizonOptions,
+} from "./checkout.ts";
 
 test("createCheckoutSession calls fetch with correct headers and payload", async () => {
   const mockResponse = {
     paymentIntentId: "test-intent-id",
     checkoutUrl: "http://localhost:3000/pay/test-intent-id",
     expiresIn: 1800,
+    correlationId: "journey-00000001",
   };
 
   const originalFetch = globalThis.fetch;
@@ -37,6 +42,10 @@ test("createCheckoutSession calls fetch with correct headers and payload", async
       cancelUrl: "https://example.com/cancel",
       baseUrl: "http://localhost:3000",
       correlationId: "sdk-2026-0001",
+      telemetryContext: {
+        requestCorrelationId: "sdk-2026-0001",
+        traceparent: "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+      },
     });
 
     assert.equal(fetchCalled, true);
@@ -47,6 +56,7 @@ test("createCheckoutSession calls fetch with correct headers and payload", async
     assert.equal(headers["Authorization"], "Bearer tk_live_abcdef1234567890abcdef1234567890");
     assert.equal(headers["Content-Type"], "application/json");
     assert.equal(headers["X-Correlation-Id"], "sdk-2026-0001");
+    assert.equal(headers.traceparent, "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01");
 
     const body = JSON.parse(calledOptions?.body as string);
     assert.equal(body.amount, "5.50");
@@ -56,6 +66,7 @@ test("createCheckoutSession calls fetch with correct headers and payload", async
     assert.equal(body.cancelUrl, "https://example.com/cancel");
 
     assert.deepEqual(result, mockResponse);
+    assert.equal(result.correlationId, "journey-00000001");
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -65,6 +76,23 @@ test("createCheckoutSession rejects missing api key", async () => {
   await assert.rejects(
     () => createCheckoutSession({ apiKey: "", amount: "10.00" }),
     /API key is required/,
+  );
+});
+
+test("Horizon dependency options carry bounded correlation and W3C context", () => {
+  assert.deepEqual(
+    horizonOptions({
+      requestCorrelationId: "request-00000001",
+      journeyCorrelationId: "journey-00000001",
+      traceparent: "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+    }),
+    {
+      headers: {
+        "x-correlation-id": "request-00000001",
+        "x-velo-journey-id": "journey-00000001",
+        traceparent: "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+      },
+    },
   );
 });
 

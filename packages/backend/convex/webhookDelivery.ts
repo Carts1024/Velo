@@ -2,6 +2,7 @@
 
 import crypto from "crypto";
 
+import { makeFunctionReference } from "convex/server";
 import { ConvexError, v } from "convex/values";
 
 import type { Doc } from "./_generated/dataModel";
@@ -29,6 +30,7 @@ const WEBHOOK_TOTAL_TIMEOUT_MS = 8_000;
 const MAX_WEBHOOK_ATTEMPTS = 5;
 const MAX_RETRY_DELAY_SECONDS = 900;
 const RETRY_DELAYS_SECONDS = [0, 15, 60, 300, 900];
+const telemetryRef = makeFunctionReference<"mutation">("telemetry_outbox/mutations:enqueue");
 
 function testCorrelationId(value: string | undefined) {
   if (value === undefined) {
@@ -216,20 +218,14 @@ function buildPayload(
       provider: "pdax",
       eventId: "ref-mock-12345",
       type: "WITHDRAWAL",
-      rawEvent: '{"status":"COMPLETED"}',
+      eventSummary: { eventType: "WITHDRAWAL", eventId: "ref-mock-12345" },
     };
-    let parsedRaw = {};
-    try {
-      parsedRaw = JSON.parse(pe.rawEvent);
-    } catch {
-      parsedRaw = pe.rawEvent;
-    }
     return {
       ...base,
       provider: pe.provider,
       eventId: pe.eventId,
       eventType: pe.type,
-      rawEvent: parsedRaw,
+      eventSummary: pe.eventSummary ?? {},
     };
   }
 
@@ -356,6 +352,7 @@ export const sendTest = action({
     settlementTransactionId: v.optional(v.id("settlementTransactions")),
     providerEventId: v.optional(v.id("providerEvents")),
     correlationId: v.optional(v.string()),
+    traceparent: v.optional(v.string()),
   },
   handler: async (
     ctx,
@@ -433,6 +430,17 @@ export const sendTest = action({
         body: JSON.stringify(payload),
       });
       const responseTimeMs = Date.now() - startTime;
+      await ctx.runMutation(telemetryRef, {
+        kind: "span",
+        name: "velo.dependency.call",
+        operation: "webhook_delivery",
+        stage: "webhook_network",
+        outcome: response.ok ? "success" : "error",
+        requestCorrelationId: correlationId,
+        journeyCorrelationId: correlationId,
+        durationMs: responseTimeMs,
+        ...(!response.ok ? { errorCode: "dependency_unavailable" } : {}),
+      });
       const status = response.ok ? "success" : "failed";
 
       await ctx.runMutation(internal.webhook_deliveries.mutation.finish, {
@@ -444,13 +452,12 @@ export const sendTest = action({
       });
 
       return { deliveryId, status };
-    } catch (error) {
+    } catch {
       const responseTimeMs = Date.now() - startTime;
-      const message = error instanceof Error ? error.message : "Webhook request failed";
       await ctx.runMutation(internal.webhook_deliveries.mutation.finish, {
         deliveryId,
         status: "failed",
-        errorMessage: message,
+        errorMessage: "webhook_network_error",
         responseTimeMs,
       });
       return { deliveryId, status: "failed" };
@@ -486,6 +493,7 @@ export const trigger = internalAction({
     deliveryId: v.optional(v.id("webhookDeliveries")),
     attemptCount: v.optional(v.number()),
     correlationId: v.optional(v.string()),
+    traceparent: v.optional(v.string()),
     nextAttemptAt: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
@@ -503,6 +511,7 @@ export const trigger = internalAction({
     const attemptCount = args.attemptCount ?? 1;
     let overrideEventId: string | undefined = undefined;
     const correlationId = args.correlationId ?? target.paymentIntent?.correlationId;
+    const traceparent = args.traceparent ?? target.paymentIntent?.traceparent;
 
     const sourceIdentity = [
       args.contractEventId,
@@ -603,11 +612,24 @@ export const trigger = internalAction({
           "x-velo-event": args.eventType,
           "x-velo-delivery": String(deliveryId),
           ...(correlationId ? { "x-correlation-id": correlationId } : {}),
+          ...(traceparent ? { traceparent } : {}),
           ...(signatureHeader ? { "x-velo-signature": signatureHeader } : {}),
         },
         body: JSON.stringify(payload),
       });
       const responseTimeMs = Date.now() - startTime;
+      await ctx.runMutation(telemetryRef, {
+        kind: "span",
+        name: "velo.dependency.call",
+        operation: "webhook_delivery",
+        stage: "webhook_network",
+        outcome: response.ok ? "success" : "error",
+        requestCorrelationId: correlationId,
+        journeyCorrelationId: correlationId,
+        traceparent,
+        durationMs: responseTimeMs,
+        ...(!response.ok ? { errorCode: "dependency_unavailable" } : {}),
+      });
 
       if (response.ok) {
         await ctx.runMutation(internal.webhook_deliveries.mutation.finish, {
@@ -663,9 +685,21 @@ export const trigger = internalAction({
           });
         }
       }
-    } catch (error) {
+    } catch {
       const responseTimeMs = Date.now() - startTime;
-      const errorMessage = error instanceof Error ? error.message : "Webhook request failed";
+      const errorMessage = "webhook_network_error";
+      await ctx.runMutation(telemetryRef, {
+        kind: "span",
+        name: "velo.dependency.call",
+        operation: "webhook_delivery",
+        stage: "webhook_network",
+        outcome: "error",
+        errorCode: "dependency_unavailable",
+        requestCorrelationId: correlationId,
+        journeyCorrelationId: correlationId,
+        traceparent,
+        durationMs: responseTimeMs,
+      });
 
       if (attemptCount < MAX_WEBHOOK_ATTEMPTS) {
         const delaySeconds = nextRetryDelaySeconds(attemptCount);

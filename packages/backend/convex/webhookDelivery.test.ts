@@ -103,7 +103,7 @@ test("webhook delivery retry and backoff lifecycle", async () => {
     expect(deliveries.length).toBe(1);
     expect(deliveries[0].status).toBe("pending");
     expect(deliveries[0].attemptCount).toBe(1);
-    expect(deliveries[0].errorMessage).toBe("Connection failed");
+    expect(deliveries[0].errorMessage).toBe("webhook_network_error");
 
     const deliveryId = deliveries[0]._id;
 

@@ -137,13 +137,13 @@ export const reconcileDue = internalAction({
               resultJson: JSON.stringify(transaction),
             });
             if (observation !== "pending") resolved++;
-          } catch (error) {
+          } catch {
             await ctx.runMutation(finishRef, {
               operationId: operation._id,
               leaseToken,
               leaseGeneration: operation.leaseGeneration,
               observation: "not_found",
-              errorMessage: error instanceof Error ? error.message : String(error),
+              errorMessage: "dependency_unavailable",
             });
           }
         }),

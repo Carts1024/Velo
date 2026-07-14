@@ -72,8 +72,10 @@ export const ingestPdax = internalMutation({
     eventId: v.string(),
     identifier: v.string(),
     type: v.union(v.literal("DEPOSIT"), v.literal("WITHDRAWAL"), v.literal("TRADE")),
-    rawEvent: v.string(),
     payloadDigest: v.string(),
+    status: v.optional(v.string()),
+    requestCorrelationId: v.string(),
+    traceparent: v.string(),
   },
   handler: async (ctx, args) => {
     const byId = await ctx.db
@@ -98,14 +100,39 @@ export const ingestPdax = internalMutation({
       )
       .unique();
     const projectId = transaction?.projectId ?? operation?.projectId;
+    let relatedPaymentIntentId = transaction?.paymentIntentId;
+    if (!relatedPaymentIntentId && operation?.requestJson) {
+      try {
+        const candidate = (JSON.parse(operation.requestJson) as { paymentIntentId?: string })
+          .paymentIntentId;
+        if (candidate) {
+          relatedPaymentIntentId = ctx.db.normalizeId("paymentIntents", candidate) ?? undefined;
+        }
+      } catch {
+        // Legacy operational request JSON may be malformed; keep the hint quarantined.
+      }
+    }
+    const relatedIntent = relatedPaymentIntentId ? await ctx.db.get(relatedPaymentIntentId) : null;
+    const journeyCorrelationId = relatedIntent?.correlationId;
+    const continuationTraceparent = relatedIntent?.traceparent ?? args.traceparent;
     const now = Date.now();
     const id = await ctx.db.insert("providerEvents", {
       ...(projectId ? { projectId } : {}),
       provider: "pdax",
       eventId: args.eventId,
       type: args.type,
-      rawEvent: args.rawEvent,
       payloadDigest: args.payloadDigest,
+      eventSummary: {
+        eventType: args.type,
+        eventId: args.eventId,
+        identifier: args.identifier,
+        ...(args.status ? { status: args.status.slice(0, 32) } : {}),
+        payloadDigest: args.payloadDigest,
+      },
+      requestCorrelationId: args.requestCorrelationId,
+      ...(journeyCorrelationId ? { journeyCorrelationId } : {}),
+      traceparent: continuationTraceparent,
+      requestTraceparent: args.traceparent,
       processed: false,
       // Unsigned PDAX callbacks are hints. A worker/provider lookup must corroborate terminal state.
       processingState: projectId ? "pending" : "quarantined",
@@ -115,8 +142,22 @@ export const ingestPdax = internalMutation({
       leaseGeneration: 0,
       createdAt: now,
     });
+    if (projectId && journeyCorrelationId) {
+      await ctx.db.insert("journeyStages", {
+        journeyCorrelationId,
+        name: "provider.ingested",
+        source: "provider",
+        outcome: "pending",
+        at: now,
+        expiresAt: now + 14 * 24 * 60 * 60 * 1_000,
+      });
+    }
     if (projectId) {
-      await ctx.scheduler.runAfter(0, processOneRef, { eventId: id });
+      await ctx.scheduler.runAfter(0, processOneRef, {
+        eventId: id,
+        requestCorrelationId: args.requestCorrelationId,
+        traceparent: continuationTraceparent,
+      });
     }
     return { status: projectId ? ("accepted" as const) : ("quarantined" as const), id };
   },

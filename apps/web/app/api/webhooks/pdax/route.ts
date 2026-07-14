@@ -1,6 +1,7 @@
+import { withRouteTelemetry } from "@/core/observability";
 import { NextResponse } from "next/server";
 
-export async function POST() {
+export const POST = withRouteTelemetry("pdax.webhook.retired", async () => {
   return NextResponse.json(
     {
       error:
@@ -8,4 +9,4 @@ export async function POST() {
     },
     { status: 410 },
   );
-}
+});

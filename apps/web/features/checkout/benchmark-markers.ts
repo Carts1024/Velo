@@ -11,6 +11,7 @@ export type CheckoutBenchmarkMarkerDetail = {
   epochMs: number;
   monotonicMs: number;
   serverEventAt?: number;
+  correlationId?: string;
 };
 
 export function createCheckoutBenchmarkMarkerDetail(args: {
@@ -18,6 +19,7 @@ export function createCheckoutBenchmarkMarkerDetail(args: {
   state: string;
   version: number;
   serverEventAt?: number;
+  correlationId?: string;
   now?: () => number;
   monotonicNow?: () => number;
 }): CheckoutBenchmarkMarkerDetail {
@@ -28,6 +30,7 @@ export function createCheckoutBenchmarkMarkerDetail(args: {
     epochMs: (args.now ?? Date.now)(),
     monotonicMs: (args.monotonicNow ?? (() => performance.now()))(),
     ...(args.serverEventAt !== undefined ? { serverEventAt: args.serverEventAt } : {}),
+    ...(args.correlationId !== undefined ? { correlationId: args.correlationId } : {}),
   };
 }
 
@@ -37,10 +40,17 @@ export function emitCheckoutBenchmarkMarker(
   args: Omit<Parameters<typeof createCheckoutBenchmarkMarkerDetail>[0], "now" | "monotonicNow">,
   clocks?: Pick<Parameters<typeof createCheckoutBenchmarkMarkerDetail>[0], "now" | "monotonicNow">,
 ) {
-  if (!enabled || typeof window === "undefined") return;
-  window.dispatchEvent(
-    new CustomEvent<CheckoutBenchmarkMarkerDetail>(name, {
-      detail: createCheckoutBenchmarkMarkerDetail({ ...args, ...clocks }),
+  if (typeof window === "undefined") return;
+  const detail = createCheckoutBenchmarkMarkerDetail({ ...args, ...clocks });
+  if (enabled) {
+    window.dispatchEvent(new CustomEvent<CheckoutBenchmarkMarkerDetail>(name, { detail }));
+  }
+  const marker = name.replace(/^velo:/, "").replaceAll("-", "_");
+  const durationMs = Math.max(0, detail.epochMs - (detail.serverEventAt ?? detail.epochMs));
+  navigator.sendBeacon?.(
+    "/api/telemetry/ui",
+    new Blob([JSON.stringify({ paymentIntentId: detail.entityId, marker, durationMs })], {
+      type: "application/json",
     }),
   );
 }
