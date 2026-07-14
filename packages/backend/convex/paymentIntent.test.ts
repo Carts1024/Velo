@@ -653,9 +653,9 @@ test("payment.created webhook scheduling is demand-driven", async () => {
   const scheduledWebhookCount = async () =>
     await t.run(
       async (ctx) =>
-        (
-          await ctx.db.system.query("_scheduled_functions").collect()
-        ).filter((row) => row.name.includes("webhookDelivery:trigger")).length,
+        (await ctx.db.system.query("_scheduled_functions").collect()).filter((row) =>
+          row.name.includes("webhookDelivery:trigger"),
+        ).length,
     );
 
   const beforeNoEndpoint = await scheduledWebhookCount();
@@ -675,15 +675,12 @@ test("payment.created webhook scheduling is demand-driven", async () => {
     eventTypes: ["payment.created"],
   });
   const beforeSubscribed = await scheduledWebhookCount();
-  const subscribed = await t.mutation(
-    api.payment_intents.mutations.createPublicPaymentIntentV2,
-    {
-      apiKeyHash,
-      amount: "2.00",
-      asset: "native",
-      idempotencyKey: "with-webhook",
-    },
-  );
+  const subscribed = await t.mutation(api.payment_intents.mutations.createPublicPaymentIntentV2, {
+    apiKeyHash,
+    amount: "2.00",
+    asset: "native",
+    idempotencyKey: "with-webhook",
+  });
   expect(subscribed.status).toBe("success");
   expect(await scheduledWebhookCount()).toBe(beforeSubscribed + 1);
 });
