@@ -14,6 +14,35 @@ function generateTestSignatureHeader(payload: string, secret: string, timestamp:
   return `t=${timestamp},v1=${hash}`;
 }
 
+const webhookSecret = "whsec_testsecret12345";
+
+function baseEvent(type: string, extra: Record<string, unknown> = {}) {
+  return {
+    version: "1",
+    id: "evt_sprint8",
+    type,
+    test: true,
+    sentAt: new Date().toISOString(),
+    project: {
+      id: "proj_123",
+      registryProjectId: "reg_123",
+      name: "Test Project",
+      slug: "test-project",
+    },
+    ...extra,
+  };
+}
+
+async function verifyObject(event: Record<string, unknown>) {
+  const payload = JSON.stringify(event);
+  const timestamp = Math.floor(Date.now() / 1000);
+  return verifyWebhookSignature({
+    payload,
+    signature: generateTestSignatureHeader(payload, webhookSecret, timestamp),
+    secret: webhookSecret,
+  });
+}
+
 test("verifyWebhookSignature parses valid signature and payload", async () => {
   const secret = "whsec_testsecret12345";
   const payload = JSON.stringify({
@@ -50,6 +79,7 @@ test("verifyWebhookSignature parses valid signature and payload", async () => {
   });
 
   assert.equal(event.id, "evt_123");
+  assert.equal(event.version, "1");
   assert.equal(event.type, "payment.succeeded");
   assert.equal(event.test, true);
   if (event.type === "payment.succeeded") {
@@ -75,6 +105,94 @@ test("verifyWebhookSignature parses valid signature and payload", async () => {
     secret,
   });
   assert.equal(instanceEvent.id, "evt_123");
+});
+
+test("verifyWebhookSignature normalizes a signed legacy event to version 1", async () => {
+  const legacy = baseEvent("settlement.trade.executed", {
+    trade: { orderId: 42, quoteId: "quote_42", status: "successful" },
+  });
+  delete (legacy as { version?: string }).version;
+
+  const event = await verifyObject(legacy);
+  assert.equal(event.version, "1");
+  assert.equal(event.type, "settlement.trade.executed");
+  if (event.type === "settlement.trade.executed") assert.equal(event.trade.orderId, 42);
+});
+
+test("verifyWebhookSignature accepts settlement and provider event payloads", async () => {
+  const withdrawal = await verifyObject(
+    baseEvent("settlement.withdrawal.pending", {
+      withdrawal: {
+        withdrawalId: "withdrawal_123",
+        referenceNumber: "ref_123",
+        amount: 5_820,
+        status: "PENDING",
+      },
+    }),
+  );
+  assert.equal(withdrawal.type, "settlement.withdrawal.pending");
+  if (withdrawal.type === "settlement.withdrawal.pending") {
+    assert.equal(withdrawal.withdrawal.withdrawalId, "withdrawal_123");
+  }
+
+  const provider = await verifyObject(
+    baseEvent("provider.pdax.event.received", {
+      provider: "pdax",
+      eventId: "pdax_evt_123",
+      eventType: "WITHDRAWAL",
+      rawEvent: { status: "COMPLETED" },
+    }),
+  );
+  assert.equal(provider.type, "provider.pdax.event.received");
+  if (provider.type === "provider.pdax.event.received") {
+    assert.equal(provider.eventId, "pdax_evt_123");
+  }
+});
+
+test("verifyWebhookSignature rejects signed malformed events", async () => {
+  await assert.rejects(
+    () => verifyObject(baseEvent("settlement.trade.executed", { trade: { quoteId: "q_1" } })),
+    (err: unknown) => {
+      assert.equal(err instanceof VeloWebhookSignatureVerificationError, true);
+      assert.match((err as Error).message, /trade fields are invalid/);
+      return true;
+    },
+  );
+});
+
+test("verifyWebhookSignature verifies HMAC before rejecting unsupported versions", async () => {
+  const unsupported = baseEvent("settlement.trade.executed", {
+    version: "2",
+    trade: { orderId: 42, quoteId: "quote_42" },
+  });
+  const payload = JSON.stringify(unsupported);
+  const timestamp = Math.floor(Date.now() / 1000);
+
+  await assert.rejects(
+    () =>
+      verifyWebhookSignature({
+        payload,
+        signature: generateTestSignatureHeader(payload, "wrong-secret", timestamp),
+        secret: webhookSecret,
+      }),
+    (err: unknown) => {
+      assert.equal((err as Error).message, "Signature mismatch");
+      return true;
+    },
+  );
+
+  await assert.rejects(
+    () =>
+      verifyWebhookSignature({
+        payload,
+        signature: generateTestSignatureHeader(payload, webhookSecret, timestamp),
+        secret: webhookSecret,
+      }),
+    (err: unknown) => {
+      assert.match((err as Error).message, /unsupported version 2/);
+      return true;
+    },
+  );
 });
 
 test("verifyWebhookSignature rejects missing signature header", async () => {

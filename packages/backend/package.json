@@ -4,14 +4,19 @@
   "license": "MIT",
   "main": "index.js",
   "scripts": {
+    "benchmark:rate-limit-baseline": "node scripts/rate-limit-baseline.mjs",
     "dashboard": "convex dashboard",
     "dev": "convex dev",
     "lint:fix": "oxlint --fix convex && oxfmt --write convex && cd convex && tsc --noEmit",
     "test": "vitest run"
   },
   "dependencies": {
+    "@convex-dev/migrations": "^0.3.5",
+    "@repo/observability": "workspace:*",
+    "@repo/pdax": "workspace:*",
     "@repo/stellar": "workspace:*",
-    "convex": "^1.31.7"
+    "@upstash/redis": "^1.38.0",
+    "convex": "^1.41.0"
   },
   "devDependencies": {
     "@edge-runtime/vm": "^5.0.0",

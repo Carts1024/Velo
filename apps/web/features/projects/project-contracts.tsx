@@ -304,7 +304,7 @@ export function ProjectContracts({ projectId }: ProjectContractsProps) {
           </p>
         </div>
         <Button variant="outline" asChild>
-          <Link href={`/projects/${currentProject._id}`}>Project overview</Link>
+          <Link href="/dashboard">Dashboard</Link>
         </Button>
       </div>
 

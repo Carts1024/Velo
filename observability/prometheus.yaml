@@ -1,0 +1,7 @@
+global:
+  scrape_interval: 15s
+rule_files: [/etc/prometheus/alerts.yaml]
+scrape_configs:
+  - job_name: velo-otel-collector
+    static_configs:
+      - targets: [collector:8889]

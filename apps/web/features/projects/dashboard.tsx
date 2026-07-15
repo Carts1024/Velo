@@ -1,10 +1,19 @@
 "use client";
 
 import { useSelectedProject } from "@/core/app-shell";
+import { stellarConfig } from "@/core/config/stellar";
 import { shortenAddress } from "@/core/wallet/format";
 import { useWallet } from "@/core/wallet/wallet-provider";
 import { api } from "@repo/backend/convex/_generated/api";
+import {
+  buildRegisterProjectTransaction,
+  buildActivatePaymentsTransaction,
+  confirmRegistration,
+  confirmActivatePayments,
+  submitSignedTransaction,
+} from "@repo/stellar";
 import { Badge } from "@repo/ui/components/ui-customs/badge";
+import { Alert, AlertDescription, AlertTitle } from "@repo/ui/components/ui/alert";
 import { Button } from "@repo/ui/components/ui/button";
 import {
   Empty,
@@ -16,7 +25,7 @@ import {
 } from "@repo/ui/components/ui/empty";
 import { Progress } from "@repo/ui/components/ui/progress";
 import { Skeleton } from "@repo/ui/components/ui/skeleton";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import {
   ActivityIcon,
   CheckCircle2Icon,
@@ -26,10 +35,12 @@ import {
   RadioTowerIcon,
   WalletIcon,
   WebhookIcon,
+  AlertCircleIcon,
+  Loader2Icon,
 } from "lucide-react";
+import { useState, useEffect, type ElementType } from "react";
 
 import type { Id } from "@repo/backend/convex/_generated/dataModel";
-import type { ElementType } from "react";
 
 import { getDemoReadiness } from "./demo-readiness";
 import { EventActivityTable } from "./event-activity";
@@ -109,6 +120,201 @@ export function ProjectDashboard() {
     api.payment_intents.queries.getProjectStats,
     wallet.address && projectsLoaded && typedProjectId ? { projectId: typedProjectId } : "skip",
   );
+
+  const markRegistrationPending = useMutation(api.projects.mutation.markRegistrationPending);
+  const markRegistrationSynced = useMutation(api.projects.mutation.markRegistrationSynced);
+  const markPaymentAccessActive = useMutation(api.projects.mutation.markPaymentAccessActive);
+
+  const [isRegistering, setIsRegistering] = useState(false);
+  const [isActivating, setIsActivating] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [txHash, setTxHash] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (
+      project &&
+      project.status === "pending_registration" &&
+      project.registrationTxHash &&
+      !isRegistering
+    ) {
+      let active = true;
+      const hash = project.registrationTxHash;
+      const projectId = project._id;
+
+      async function poll() {
+        try {
+          let confirmation = await confirmRegistration({
+            rpcUrl: stellarConfig.rpcUrl,
+            networkPassphrase: stellarConfig.networkPassphrase,
+            registryContractId: stellarConfig.registryContractId!,
+            transactionHash: hash,
+          });
+
+          while (active && confirmation.status === "pending") {
+            await wait(2000);
+            confirmation = await confirmRegistration({
+              rpcUrl: stellarConfig.rpcUrl,
+              networkPassphrase: stellarConfig.networkPassphrase,
+              registryContractId: stellarConfig.registryContractId!,
+              transactionHash: hash,
+            });
+          }
+
+          if (!active) return;
+
+          if (confirmation.status === "registered") {
+            await markRegistrationSynced({
+              id: projectId,
+              registryProjectId: confirmation.registryProjectId ?? undefined,
+              createdLedger: confirmation.createdLedger ?? undefined,
+            });
+          }
+        } catch (err) {
+          console.error("Auto-sync registration failed:", err);
+        }
+      }
+
+      poll();
+
+      return () => {
+        active = false;
+      };
+    }
+  }, [project?.status, project?.registrationTxHash]);
+
+  const wait = (milliseconds: number) => {
+    return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+  };
+
+  async function handleRegister() {
+    if (!wallet.address || !project) return;
+    setIsRegistering(true);
+    setActionError(null);
+    setTxHash(null);
+
+    try {
+      const transactionXdr = await buildRegisterProjectTransaction({
+        rpcUrl: stellarConfig.rpcUrl,
+        networkPassphrase: stellarConfig.networkPassphrase,
+        registryContractId: stellarConfig.registryContractId!,
+        sourcePublicKey: wallet.address,
+        ownerPublicKey: wallet.address,
+        projectName: project.name,
+        metadataHash: project.metadataHash,
+      });
+
+      const signedXdr = await wallet.signTransaction(transactionXdr);
+      const hash = await submitSignedTransaction({
+        rpcUrl: stellarConfig.rpcUrl,
+        networkPassphrase: stellarConfig.networkPassphrase,
+        signedXdr,
+      });
+      setTxHash(hash);
+
+      await markRegistrationPending({
+        id: project._id,
+        registrationTxHash: hash,
+      });
+
+      let confirmation = await confirmRegistration({
+        rpcUrl: stellarConfig.rpcUrl,
+        networkPassphrase: stellarConfig.networkPassphrase,
+        registryContractId: stellarConfig.registryContractId!,
+        transactionHash: hash,
+      });
+
+      for (let attempt = 0; confirmation.status === "pending" && attempt < 8; attempt += 1) {
+        await wait(1500);
+        confirmation = await confirmRegistration({
+          rpcUrl: stellarConfig.rpcUrl,
+          networkPassphrase: stellarConfig.networkPassphrase,
+          registryContractId: stellarConfig.registryContractId!,
+          transactionHash: hash,
+        });
+      }
+
+      if (confirmation.status === "pending") {
+        throw new Error(
+          "Registration transaction took too long to confirm. Check again in a few minutes.",
+        );
+      }
+
+      if (confirmation.status === "error") {
+        throw new Error(confirmation.message || "Registration transaction failed.");
+      }
+
+      if (confirmation.status === "registered") {
+        await markRegistrationSynced({
+          id: project._id,
+          registryProjectId: confirmation.registryProjectId ?? undefined,
+          createdLedger: confirmation.createdLedger ?? undefined,
+        });
+      }
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Registration failed");
+    } finally {
+      setIsRegistering(false);
+    }
+  }
+
+  async function handleActivate() {
+    if (!wallet.address || !project || project.registryProjectId === undefined) return;
+    setIsActivating(true);
+    setActionError(null);
+    setTxHash(null);
+
+    try {
+      const transactionXdr = await buildActivatePaymentsTransaction({
+        rpcUrl: stellarConfig.rpcUrl,
+        networkPassphrase: stellarConfig.networkPassphrase,
+        payAccessContractId: stellarConfig.payAccessContractId!,
+        sourcePublicKey: wallet.address,
+        registryProjectId: project.registryProjectId,
+      });
+
+      const signedXdr = await wallet.signTransaction(transactionXdr);
+      const hash = await submitSignedTransaction({
+        rpcUrl: stellarConfig.rpcUrl,
+        networkPassphrase: stellarConfig.networkPassphrase,
+        signedXdr,
+      });
+      setTxHash(hash);
+
+      let confirmation = await confirmActivatePayments({
+        rpcUrl: stellarConfig.rpcUrl,
+        transactionHash: hash,
+      });
+
+      for (let attempt = 0; confirmation.status === "pending" && attempt < 8; attempt += 1) {
+        await wait(1500);
+        confirmation = await confirmActivatePayments({
+          rpcUrl: stellarConfig.rpcUrl,
+          transactionHash: hash,
+        });
+      }
+
+      if (confirmation.status === "pending") {
+        throw new Error(
+          "Activation transaction took too long to confirm. Check again in a few minutes.",
+        );
+      }
+
+      if (confirmation.status === "error") {
+        throw new Error(confirmation.message || "Activation transaction failed.");
+      }
+
+      if (confirmation.status === "confirmed") {
+        await markPaymentAccessActive({
+          id: project._id,
+          checkoutCredits: 100,
+        });
+      }
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Activation failed");
+    } finally {
+      setIsActivating(false);
+    }
+  }
 
   if (!wallet.address) {
     return (
@@ -290,6 +496,83 @@ export function ProjectDashboard() {
           </Badge>
         ) : null}
       </div>
+
+      {project.status !== "registered" && (
+        <div className="rounded-lg border border-amber-200/60 bg-amber-50/40 dark:border-amber-900/40 dark:bg-amber-950/20 p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="space-y-1">
+            <h2 className="text-lg font-semibold tracking-normal text-amber-900 dark:text-amber-300">
+              Project registration required
+            </h2>
+            <p className="text-sm text-amber-800 dark:text-amber-400">
+              {project.status === "pending_registration"
+                ? "On-chain registration is pending. Awaiting network confirmation..."
+                : "Register this project on-chain to link official smart contracts and enable payments functionality."}
+            </p>
+          </div>
+          <Button
+            onClick={handleRegister}
+            disabled={isRegistering || project.status === "pending_registration"}
+            className="w-full sm:w-auto shrink-0 bg-amber-600 hover:bg-amber-700 text-white dark:bg-amber-700 dark:hover:bg-amber-600"
+          >
+            {isRegistering ? (
+              <>
+                <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
+                Registering...
+              </>
+            ) : project.status === "pending_registration" ? (
+              "Awaiting sync"
+            ) : (
+              "Register Project On-Chain"
+            )}
+          </Button>
+        </div>
+      )}
+
+      {project.status === "registered" && !project.paymentAccessActive && (
+        <div className="rounded-lg border border-emerald-200/60 bg-emerald-50/40 dark:border-emerald-900/40 dark:bg-emerald-950/20 p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="space-y-1">
+            <h2 className="text-lg font-semibold tracking-normal text-emerald-900 dark:text-emerald-300">
+              Activate Velo Pay payments
+            </h2>
+            <p className="text-sm text-emerald-800 dark:text-emerald-400">
+              Submit a transaction to fund and activate payments functionality on the Velo PayAccess
+              contract.
+            </p>
+          </div>
+          <Button
+            onClick={handleActivate}
+            disabled={isActivating}
+            className="w-full sm:w-auto shrink-0 bg-emerald-600 hover:bg-emerald-700 text-white dark:bg-emerald-700 dark:hover:bg-emerald-600"
+          >
+            {isActivating ? (
+              <>
+                <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
+                Activating...
+              </>
+            ) : (
+              "Activate Velo Pay"
+            )}
+          </Button>
+        </div>
+      )}
+
+      {actionError && (
+        <Alert variant="destructive">
+          <AlertCircleIcon className="h-4 w-4" />
+          <AlertTitle>Action Failed</AlertTitle>
+          <AlertDescription>{actionError}</AlertDescription>
+        </Alert>
+      )}
+
+      {txHash && (
+        <Alert>
+          <CheckCircle2Icon className="h-4 w-4 text-emerald-600" />
+          <AlertTitle>Transaction Submitted</AlertTitle>
+          <AlertDescription>
+            Hash: <code className="break-all font-mono text-xs">{txHash}</code>
+          </AlertDescription>
+        </Alert>
+      )}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <MetricCard

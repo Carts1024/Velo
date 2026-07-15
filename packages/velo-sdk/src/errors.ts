@@ -3,10 +3,17 @@ export class VeloError extends Error {
   readonly code?: string;
   readonly param?: string;
   readonly requestId?: string;
+  retryAfterMs?: number;
 
   constructor(
     message: string,
-    options?: { status?: number; code?: string; param?: string; requestId?: string },
+    options?: {
+      status?: number;
+      code?: string;
+      param?: string;
+      requestId?: string;
+      retryAfterMs?: number;
+    },
   ) {
     super(message);
     this.name = this.constructor.name;
@@ -14,10 +21,31 @@ export class VeloError extends Error {
     this.code = options?.code;
     this.param = options?.param;
     this.requestId = options?.requestId;
+    this.retryAfterMs = options?.retryAfterMs;
 
     if (Error.captureStackTrace) {
       Error.captureStackTrace(this, this.constructor);
     }
+  }
+}
+
+export class VeloRequestCancelledError extends VeloError {
+  constructor(message = "Request was cancelled") {
+    super(message, { code: "cancelled" });
+  }
+}
+
+export class VeloProviderError extends VeloError {
+  constructor(message: string, options?: { status?: number; code?: string; requestId?: string }) {
+    super(message, options);
+  }
+}
+
+export class VeloSubmissionUnknownError extends VeloError {
+  constructor(
+    message = "Transaction submission outcome is unknown; reconcile by transaction hash",
+  ) {
+    super(message, { code: "submission_unknown" });
   }
 }
 
@@ -45,6 +73,12 @@ export class VeloRateLimitError extends VeloError {
 export class VeloAPIError extends VeloError {
   constructor(message: string, options?: { status?: number; code?: string; requestId?: string }) {
     super(message, options);
+  }
+}
+
+export class VeloTimeoutError extends VeloAPIError {
+  constructor(message: string, options?: { requestId?: string }) {
+    super(message, { ...options, status: 408, code: "timeout" });
   }
 }
 
@@ -79,6 +113,9 @@ export function mapErrorResponse(status: number, payload: unknown, requestId?: s
   }
   if (status === 429 || errorType === "rate_limit_error") {
     return new VeloRateLimitError(message, options);
+  }
+  if (status === 502 || status === 503 || status === 504 || errorType === "provider_error") {
+    return new VeloProviderError(message, options);
   }
   if (
     status === 400 ||

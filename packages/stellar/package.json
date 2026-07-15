@@ -11,6 +11,7 @@
     "test": "node --experimental-strip-types --test src/*.test.ts"
   },
   "dependencies": {
+    "@repo/observability": "workspace:*",
     "@stellar/stellar-sdk": "14.2.0"
   },
   "devDependencies": {

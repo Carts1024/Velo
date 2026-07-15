@@ -1,4 +1,5 @@
 export type PaymentIntentStatus =
+  | "awaiting_route"
   | "created"
   | "pending"
   | "paid"
@@ -10,6 +11,8 @@ export type PaymentIntent = {
   id: string;
   object: "payment_intent";
   paymentIntentId: string;
+  /** Durable journey identifier returned by Velo. */
+  correlationId?: string | null;
   status: PaymentIntentStatus;
   amount: string;
   asset: string;
@@ -17,6 +20,11 @@ export type PaymentIntent = {
   checkoutUrl: string | null;
   successUrl: string | null;
   cancelUrl: string | null;
+  anchor?: "inhouse" | "pdax";
+  receiverAddress?: string | null;
+  receiverMemo?: string | null;
+  anchorDepositCurrency?: string | null;
+  payerAddress?: string | null;
   expiresAt: string;
   createdAt: string;
   updatedAt: string;
@@ -26,7 +34,11 @@ export type VeloConfig = {
   apiKey: string;
   baseUrl?: string;
   environment?: "production" | "testnet" | "development" | string;
+  /** Total wall-clock deadline for one SDK request, including retries. Defaults to 30 seconds. */
   timeoutMs?: number;
+  maxRetries?: number;
+  retryBaseDelayMs?: number;
+  retryMaxDelayMs?: number;
 };
 
 export type CreateCheckoutSessionParams = {
@@ -35,10 +47,21 @@ export type CreateCheckoutSessionParams = {
   description?: string;
   successUrl?: string;
   cancelUrl?: string;
+  anchor?: "inhouse" | "pdax";
 };
 
 export type RequestOptions = {
   idempotencyKey?: string;
+  correlationId?: string;
+  /** W3C trace context propagated to Velo and downstream dependencies. */
+  traceparent?: string;
+  signal?: AbortSignal;
+  /** Overrides the client default total wall-clock deadline for this request. */
+  timeoutMs?: number;
+  /** Overrides the client default retry count for this request. */
+  maxRetries?: number;
+  /** Set for transaction submission calls whose network outcome must be reconciled, never retried. */
+  submission?: boolean;
 };
 
 export type ListPaymentIntentsQuery = {
@@ -55,18 +78,30 @@ export type ListResponse<T> = {
 };
 
 export type WebhookEventType =
+  | "project.registered"
+  | "project.updated"
+  | "transaction.succeeded"
+  | "transaction.failed"
   | "payment.created"
   | "payment.succeeded"
   | "payment.failed"
   | "payment_access.activated"
   | "payment.access_activated"
-  | "contract.event";
+  | "contract.event"
+  | "settlement.quote.created"
+  | "settlement.trade.executed"
+  | "settlement.withdrawal.pending"
+  | "settlement.withdrawal.succeeded"
+  | "settlement.withdrawal.failed"
+  | "provider.pdax.event.received";
 
 export type WebhookEventBase = {
+  version: "1";
   id: string;
   type: WebhookEventType;
   test: boolean;
   sentAt: string;
+  correlationId?: string;
   project: {
     id: string;
     registryProjectId: string;
@@ -79,7 +114,7 @@ export type WebhookPaymentIntentData = {
   id: string;
   amount: string;
   asset: string;
-  receiverAddress: string;
+  receiverAddress?: string;
   merchantName: string;
   description: string | null;
   status: PaymentIntentStatus;
@@ -113,7 +148,81 @@ export type WebhookContractEvent = WebhookEventBase & {
   };
 };
 
-export type WebhookEvent = WebhookPaymentEvent | WebhookContractEvent;
+export type WebhookProjectEvent = WebhookEventBase & {
+  type: "project.registered" | "project.updated";
+  ledger: number;
+  metadataHash: string;
+  status: string;
+};
+
+export type WebhookTransactionEvent = WebhookEventBase & {
+  type: "transaction.succeeded" | "transaction.failed";
+  transactionHash: string;
+  ledger: number;
+  status: "success" | "failed";
+};
+
+export type WebhookSettlementQuoteEvent = WebhookEventBase & {
+  type: "settlement.quote.created";
+  quote: {
+    id: string;
+    side: string;
+    quoteCurrency: string;
+    baseCurrency: string;
+    quantity: string;
+    price: number;
+    totalAmount: number;
+    expiresAt: string;
+    status: string;
+  };
+};
+
+export type WebhookSettlementTradeEvent = WebhookEventBase & {
+  type: "settlement.trade.executed";
+  trade: {
+    orderId: number;
+    quoteId: string;
+    price?: number;
+    amount?: number;
+    quantity?: number;
+    status?: string;
+  };
+};
+
+export type WebhookSettlementWithdrawalEvent = WebhookEventBase & {
+  type:
+    | "settlement.withdrawal.pending"
+    | "settlement.withdrawal.succeeded"
+    | "settlement.withdrawal.failed";
+  withdrawal: {
+    withdrawalId: string;
+    referenceNumber?: string;
+    amount?: number;
+    fee?: number;
+    status?: string;
+    bankCode?: string;
+    accountName?: string;
+    accountNumber?: string;
+  };
+};
+
+export type WebhookProviderPdaxEvent = WebhookEventBase & {
+  type: "provider.pdax.event.received";
+  provider: "pdax";
+  eventId: string;
+  eventType: string;
+  rawEvent: unknown;
+};
+
+export type WebhookEvent =
+  | WebhookPaymentEvent
+  | WebhookContractEvent
+  | WebhookProjectEvent
+  | WebhookTransactionEvent
+  | WebhookSettlementQuoteEvent
+  | WebhookSettlementTradeEvent
+  | WebhookSettlementWithdrawalEvent
+  | WebhookProviderPdaxEvent;
 
 export type VerifyWebhookParams = {
   payload: string;

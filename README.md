@@ -1,13 +1,12 @@
-
 # Velo
 
 <p align="center">
   <img src="apps/web/public/iconv2.png" alt="Velo logo" width="500" height="500" />
 </p>
 
-**Developer-first stablecoin payment infrastructure and verification tooling for Stellar builders.**
+**Developer-first stablecoin payment infrastructure, settlement tooling, and verification for Stellar builders.**
 
-Velo helps Stellar and Soroban teams register verified projects, link official contracts, debug transactions, monitor contract events, and accept stablecoin payments through hosted checkout on Stellar Testnet.
+Velo helps Stellar and Soroban teams register verified projects, link official contracts, debug transactions, monitor contract events, accept stablecoin payments through hosted checkout on Stellar Testnet, and run a PDAX UAT settlement demo from stablecoin conversion through PHP bank payout.
 
 ![Next.js](https://img.shields.io/badge/Next.js-16-black?style=flat-square)
 ![React](https://img.shields.io/badge/React-19-149eca?style=flat-square)
@@ -29,11 +28,14 @@ Velo packages the trust, payment, and observability workflows Stellar developers
 - Submit Stellar Testnet payments through connected wallets.
 - Confirm payment settlement through backend ledger verification.
 - Send signed webhooks with retry/backoff.
+- Convert paid stablecoin flows through PDAX UAT quotes and trades.
+- Initiate InstaPay UAT bank withdrawals and track payout status.
+- Receive, normalize, and forward provider settlement events.
 - Inspect payment, transaction, contract event, and webhook logs.
 
 ## Current Status
 
-As of `2026-07-01`, Velo Pay Alpha is **feature-complete at code level** and covered by focused tests. Live Testnet deployment and full end-to-end demo validation remain the main readiness gate.
+As of `2026-07-08`, Velo Pay Alpha is **feature-complete at code level** for Testnet checkout and includes a PDAX UAT settlement layer for demo conversion and payout workflows. Live Testnet deployment, PDAX UAT credential validation, and full end-to-end demo rehearsal remain the main readiness gates.
 
 Implemented:
 
@@ -46,18 +48,24 @@ Implemented:
 - Public verification page at `/verify/[slug]`.
 - API key generation with hashed storage, labels, revocation, request count, and last-used tracking.
 - `POST /api/v1/payment-intents` with API-key auth and rate-limit headers.
+- `GET /api/v1/payment-intents` and `GET /api/v1/payment-intents/[id]` for paginated status reads.
 - Hosted checkout pages with `created`, `pending`, `paid`, `failed`, `expired`, and `cancelled` flows.
 - Backend payment scanner that marks payments paid only after ledger verification.
-- Checkout SDK helper and integration snippet page.
+- Official alpha SDK package, integration snippet page, and runnable Express / Next.js examples.
 - Signed webhooks with HMAC-SHA256, delivery logs, secret rotation, and retry/backoff.
 - Contract event monitor and bounded event polling.
 - Transaction debugger backed by Stellar RPC and Convex cache.
+- PDAX UAT provider connection management with cached token refresh.
+- Searchable/sortable PDAX sandbox balances.
+- Indicative and 15-second firm quote requests for `USDCXLM` to `PHP`.
+- PDAX trade execution, InstaPay UAT withdrawal initiation, provider webhook ingestion, payout status polling, and signed merchant settlement webhooks.
 - Public API rate limiting for current API routes.
 
 Still needs validation/hardening:
 
 - Hosted Registry and PayAccess contract IDs in Vercel/Convex envs.
 - Live Testnet dry run: register project, activate PayAccess, create PaymentIntent, pay, confirm webhook.
+- PDAX UAT dry run: connect provider, lock quote, execute trade, initiate withdrawal, confirm webhook/polling status.
 - Browser wallet QA on target demo devices.
 - Distributed rate limiting across serverless instances.
 - Optional webhook dual-secret grace window after rotation.
@@ -115,6 +123,11 @@ flowchart TD
   Pollers --> RPC
   Convex --> Webhooks[Signed webhook delivery]
   Webhooks --> MerchantEndpoint[Developer endpoint]
+  Settlement[Velo Settlement dashboard] --> Convex
+  Convex --> PDAX[@repo/pdax client]
+  PDAX --> PDAXUAT[PDAX UAT API]
+  PDAXUAT --> ProviderWebhook[PDAX callback: /api/webhooks/pdax]
+  ProviderWebhook --> Convex
 ```
 
 ## Product Areas
@@ -138,10 +151,16 @@ flowchart TD
 Current API routes:
 
 ```txt
-POST /api/v1/payment-intents
+POST /api/v2/payment-intents      # V2 anchor-aware routing (supports optional 'anchor')
+GET  /api/v2/payment-intents      # V2 list
+GET  /api/v2/payment-intents/[id] # V2 retrieve
+POST /api/v1/payment-intents      # Legacy V1 (defaults to inhouse)
+GET  /api/v1/payment-intents      # Legacy V1 list
+GET  /api/v1/payment-intents/[id] # Legacy V1 retrieve
 GET  /api/v1/events
 GET  /api/v1/transactions/[hash]
 GET  /api/v1/webhooks/deliveries
+POST /api/webhooks/pdax
 ```
 
 API behavior:
@@ -149,6 +168,10 @@ API behavior:
 - API keys accepted from `Authorization: Bearer` or `x-api-key`.
 - Keys are stored as SHA-256 hashes in Convex.
 - Active payment access is required before API-created PaymentIntents are authorized.
+- PaymentIntent creation supports `Idempotency-Key` conflict detection and replay.
+- PaymentIntent list supports status filtering, limits, cursors, and SDK pagination.
+- V2 endpoint supports routing anchor resolution: explicit `anchor` parameter (`"inhouse"` or `"pdax"`), falling back to API key scope, project default, and finally `"inhouse"`.
+- Scoped API keys reject mismatches with client-requested anchors.
 - Current routes use in-memory key/project rate limiting and return `X-RateLimit-*` headers.
 
 ### Webhooks
@@ -165,6 +188,12 @@ payment.created
 payment.succeeded
 payment.failed
 payment_access.activated
+settlement.quote.created
+settlement.trade.executed
+settlement.withdrawal.pending
+settlement.withdrawal.succeeded
+settlement.withdrawal.failed
+provider.pdax.event.received
 ```
 
 Webhook behavior:
@@ -172,14 +201,27 @@ Webhook behavior:
 - Payloads are signed with HMAC-SHA256 in `x-velo-signature`.
 - Deliveries include `x-velo-event` and `x-velo-delivery` headers.
 - Failed automatic deliveries retry with backoff up to five attempts.
+- Endpoint URLs are validated to reject unsafe destinations such as localhost, non-HTTPS URLs, and embedded credentials.
 - Endpoint signing secrets can be rotated from the project webhook UI.
 - Delivery logs track status, HTTP status, error, attempt count, response time, destination host, payload summary, and PaymentIntent ID where relevant.
+- PDAX provider callbacks are ingested at `/api/webhooks/pdax`, deduplicated in Convex, mapped to settlement transaction state, and forwarded as signed merchant events.
+
+### Velo Settlement
+
+- `@repo/pdax` wraps the PDAX UAT programmatic API for login, token refresh, balances, quotes, trades, orders, withdrawals, and callback parsing.
+- Provider connections cache access, ID, and refresh tokens per project to avoid unnecessary login cycles.
+- Settlement quotes store firm executable rates, expiry, provider quote IDs, and optional PaymentIntent linkage.
+- Settlement transactions track `QUOTE_PENDING`, `QUOTE_FIRM`, `TRADE_EXECUTED`, `PAYOUT_PENDING`, `PAYOUT_SUCCEEDED`, and `PAYOUT_FAILED`.
+- The settlement dashboard supports provider connection, balance search/sort, quote locking, trade execution, InstaPay UAT withdrawal, callback simulation, payout status checks, and webhook delivery review.
+- Convex crons poll pending PDAX payouts every two minutes in addition to payment scanner and contract-event polling.
 
 ### Observability
 
 - Transaction debugger accepts 64-character Stellar transaction hashes.
 - Contract event monitor polls active official contract IDs.
 - Dashboard shows payment stats, recent payments, recent events, webhook health, and demo readiness.
+- Sprint 10 adds end-to-end request and journey correlation, vendor-neutral OTLP export, bounded Convex telemetry outbox processing, safe UI markers, and allowlist-only redaction.
+- The checked-in local stack provisions Grafana, Tempo, Loki, Prometheus, and OpenTelemetry Collector. Sprint 10 is **IMPLEMENTED — LIVE EVIDENCE PENDING**; no live reconstruction or `<3%` p95 overhead verdict is claimed.
 
 ## Repository Structure
 
@@ -189,12 +231,15 @@ Webhook behavior:
 |   `-- web                  # Next.js 16 app, routes, features, config, public assets
 |-- packages
 |   |-- backend              # Convex schema, queries, mutations, actions, crons
+|   |-- pdax                 # Server-only PDAX UAT client
 |   |-- stellar              # TypeScript Stellar SDK helpers
 |   |-- ui                   # Shared React UI components and styles
+|   |-- velo-sdk             # Public alpha Node.js SDK and webhook verifier
 |   `-- typescript-config    # Shared TypeScript configs
 |-- contracts
 |   |-- registry             # Rust Soroban VeloRegistry contract and tests
 |   `-- pay_access           # Rust Soroban VeloPayAccess contract and tests
+|-- examples                 # Express and Next.js merchant integration examples
 `-- docs
     `-- prds                 # Product specs, Alpha plans, SDK docs, and status reports
 ```
@@ -205,6 +250,7 @@ Webhook behavior:
 - **UI**: Shared `@repo/ui` package, lucide-react, reusable feature components.
 - **Backend**: Convex queries, mutations, actions, crons, custom JWT auth integrated with core SEP-10 challenge-response transaction validation.
 - **Blockchain**: Stellar Testnet, Soroban, Stellar RPC, Horizon, `@stellar/stellar-sdk`.
+- **Settlement**: PDAX UAT client package, Convex settlement actions, provider webhook ingestion, signed merchant settlement events.
 - **Wallets**: Stellar Wallets Kit with Freighter-first Testnet flow.
 - **Smart contracts**: Rust, `soroban-sdk`, Stellar CLI.
 - **Tooling**: pnpm workspaces, Turborepo, oxlint, oxfmt, Husky.
@@ -255,6 +301,15 @@ VELO_AUTH_CHALLENGE_SECRET=<random 32+ byte secret>
 VELO_PAY_ACCESS_CONTRACT_ID=<deployed_pay_access_contract_id>
 RATE_LIMIT_KEY_MAX=60
 RATE_LIMIT_PROJECT_MAX=100
+```
+
+Optional PDAX UAT settlement environment:
+
+```bash
+PDAX_UAT_BASE_URL=https://uat.services.sandbox.pdax.ph/api/pdax-api
+PDAX_UAT_USERNAME=<provided_uat_username>
+PDAX_UAT_PASSWORD=<provided_uat_password>
+PDAX_CALLBACK_URL=<public_callback_url_for_/api/webhooks/pdax>
 ```
 
 Contract IDs are validated and normalized. Hosted builds require both public contract IDs when `VELO_REQUIRE_CONTRACT_IDS=true` or `VERCEL_ENV=production`.
@@ -327,6 +382,9 @@ Run package tests:
 pnpm --filter web test
 pnpm --filter @repo/backend test
 pnpm --filter @repo/stellar test
+pnpm --filter @repo/pdax test
+pnpm --filter @carts1024/velo-sdk test
+pnpm --filter @repo/observability test
 ```
 
 Run contract tests:
@@ -350,7 +408,25 @@ pnpm build
 
 ## Key Documentation
 
-- [Project status report](docs/prds/talakit-project-status-report-2026-06-29.md)
+- [Sprint 11 comparative throughput certification architecture](docs/architecture/sprint-11-comparative-throughput-certification.md)
+- [Sprint 11 qualification operator runbook](docs/operations/sprint-11-comparative-throughput-qualification-runbook.md)
+- [Sprint 11 qualification report](docs/references/sprint-11-comparative-throughput-qualification-report.md)
+- [Sprint 11 compact evidence manifest](benchmarks/evidence/sprint-11/evidence-manifest.json)
+- [Sprint 11 qualification summary](benchmarks/evidence/sprint-11/qualification-summary.json)
+- [Sprint 11 qualification report metadata](benchmarks/evidence/sprint-11/qualification-report.json)
+- [Sprint 11 release decision metadata](benchmarks/evidence/sprint-11/release-decision.json)
+- [Sprint 10 observability architecture](docs/architecture/sprint-10-end-to-end-observability-and-redaction.md)
+- [Sprint 10 operator runbook](docs/operations/sprint-10-observability-and-redaction-runbook.md)
+- [Sprint 10 observability, redaction, and overhead report](docs/references/sprint-10-observability-redaction-and-overhead-report.md)
+- [Velo master context for AI agents](docs/velo-master-context.md)
+- [Velo Pay checkout guide](docs/velo-pay-checkout.md)
+- [Demo setup guide](docs/demo-setup.md)
+- [PDAX settlement workflow](docs/prds/prd-velo-pdax/pdax-settlement-workflow.md)
+- [Velo SDK README](packages/velo-sdk/README.md)
+- [PDAX package README](packages/pdax/README.md)
+- [Express merchant example](examples/express/README.md)
+- [Next.js App Router merchant example](examples/nextjs-app-router/README.md)
+- [Project status report](docs/prds/talakit-project-status-report-2026-07-06.md)
 - [Pay-prioritized Alpha spec](docs/prds/prd-talakit02026-06-26/talakit-alpha-spec-pay-prioritized.md)
 - [Original Alpha spec](docs/prds/prd-talakit02026-06-26/talakit-alpha-spec.md)
 - [SDK phase docs](docs/prds/prd-velo-sdk/sdk-phase.md)
@@ -378,6 +454,7 @@ Alpha is demo-ready when this live Testnet path is verified:
 13. Velo sends signed payment.succeeded webhook.
 14. Developer sees payment status, metrics, and webhook delivery logs.
 15. Public verify page shows project and official contracts.
+16. Developer optionally opens Settlement, connects PDAX UAT, locks a firm quote, executes a trade, initiates an InstaPay UAT withdrawal, and receives signed settlement webhooks.
 ```
 
 ## License

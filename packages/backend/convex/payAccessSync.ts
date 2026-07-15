@@ -5,6 +5,7 @@ import { internal } from "./_generated/api";
 import { internalAction, internalMutation, internalQuery } from "./_generated/server";
 
 const DEFAULT_TESTNET_RPC_URL = "https://soroban-testnet.stellar.org";
+type PayAccessEventResult = Awaited<ReturnType<typeof fetchRecentContractEvents>>;
 
 function rpcUrl() {
   return (
@@ -27,13 +28,22 @@ export const syncPayAccessEvents = internalAction({
     // 1. Get the current poller state for 'global:pay_access'
     const pollerState = await ctx.runQuery(internal.payAccessSync.getPollerState);
     const lastLedger = pollerState?.lastLedger;
+    const contractId = payAccessContractIdFromEnv(process.env);
 
-    // 2. Fetch events from the VeloPayAccess contract
-    const result = await fetchRecentContractEvents({
-      rpcUrl: rpcUrl(),
-      contractIds: [payAccessContractIdFromEnv(process.env)],
-      afterLedger: lastLedger,
-    });
+    // 2. Fetch events from the VeloPayAccess contract. A provider outage should
+    // leave the cursor untouched so the next cron run retries, without making
+    // the scheduled action itself fail noisily.
+    let result: PayAccessEventResult;
+    try {
+      result = await fetchRecentContractEvents({
+        rpcUrl: rpcUrl(),
+        contractIds: [contractId],
+        afterLedger: lastLedger,
+      });
+    } catch (error) {
+      console.warn("pay_access_event_poll_failed", error instanceof Error ? error.message : error);
+      return { eventCount: 0, processedCount: 0, retryable: true };
+    }
 
     if (result.events.length === 0) {
       if (result.latestLedger !== undefined) {

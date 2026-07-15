@@ -1,0 +1,66 @@
+{
+  "uid": "velo-sprint-10",
+  "title": "Velo Sprint 10 Observability",
+  "tags": [
+    "journey",
+    "dependency",
+    "slo",
+    "queue-backlog",
+    "provider",
+    "webhook",
+    "ui",
+    "exporter-health",
+    "cardinality"
+  ],
+  "schemaVersion": 41,
+  "panels": [
+    {
+      "id": 1,
+      "title": "Journey p95",
+      "type": "timeseries",
+      "targets": [{ "expr": "velo_journey_p95_seconds" }]
+    },
+    {
+      "id": 2,
+      "title": "Dependency errors",
+      "type": "timeseries",
+      "targets": [{ "expr": "sum by (dependency) (rate(velo_error_total[5m]))" }]
+    },
+    {
+      "id": 3,
+      "title": "Queue and backlog",
+      "type": "timeseries",
+      "targets": [{ "expr": "velo_queue_depth or velo_scanner_backlog" }]
+    },
+    {
+      "id": 4,
+      "title": "Provider health",
+      "type": "stat",
+      "targets": [{ "expr": "velo_provider_healthy" }]
+    },
+    {
+      "id": 5,
+      "title": "Webhook lag",
+      "type": "timeseries",
+      "targets": [{ "expr": "velo_webhook_lag_seconds" }]
+    },
+    {
+      "id": 6,
+      "title": "UI propagation",
+      "type": "timeseries",
+      "targets": [{ "expr": "velo_ui_propagation_seconds" }]
+    },
+    {
+      "id": 7,
+      "title": "Exporter dead letters",
+      "type": "stat",
+      "targets": [{ "expr": "velo_telemetry_dead_letters" }]
+    },
+    {
+      "id": 8,
+      "title": "Metric cardinality",
+      "type": "timeseries",
+      "targets": [{ "expr": "count by (__name__) ({__name__=~\"velo_.*\"})" }]
+    }
+  ]
+}

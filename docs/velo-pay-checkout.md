@@ -1,6 +1,6 @@
 # Velo Pay Checkout Guide
 
-This guide explains how to create a Velo Pay payment intent and send a buyer to the hosted checkout page.
+This guide explains how to create a Velo Pay payment intent, send a buyer to the hosted checkout page, and use the paid intent as the starting point for optional PDAX UAT settlement.
 
 ## Overview
 
@@ -96,6 +96,51 @@ Successful response:
 
 Send the buyer to `checkoutUrl`.
 
+## Payment Anchors and Routing (V2)
+
+Velo Pay V2 (`/api/v2/payment-intents`) introduces anchor-aware payment routing with support for `inhouse` (default) and `pdax` anchors.
+
+### Anchor Scoping and Precedence Rules
+
+When creating a payment intent, the routing anchor is resolved deterministically based on the following precedence hierarchy:
+
+1. **Explicit Request Parameter**: If a request explicitly specifies `anchor: "inhouse"` or `anchor: "pdax"`, that value is used.
+   * *Security check*: If the API key used for the request is scoped to a specific anchor, the requested `anchor` **must** match the API key's scoped `paymentAnchor`, otherwise the request will fail with an anchor mismatch validation error.
+2. **API Key Scope**: If the request omits the `anchor` parameter, the payment routing falls back to the API key's scoped `paymentAnchor` value (`"inhouse"` or `"pdax"`), if one is configured for the key.
+3. **Project Default**: If the API key is not scoped, the routing falls back to the Project's `defaultPaymentAnchor` settings (`"inhouse"` or `"pdax"`), configured in the project settings.
+4. **System Default**: If no explicit request, API key scope, or project default is configured, Velo defaults to `"inhouse"`.
+
+### Database Configuration (Sprint 1: Foundation)
+The database schema has been updated to support anchor resolution:
+* `projects.defaultPaymentAnchor`: `"inhouse" | "pdax"` (defaults to `"inhouse"`).
+* `apiKeys.paymentAnchor`: `"inhouse" | "pdax"` (allows API keys to be scoped to a single anchor path).
+* `paymentIntents.anchor`: `"inhouse" | "pdax"` (stores the resolved anchor on the intent).
+* `paymentIntents.receiverMemo`: `string` (stores the memo tag, required for PDAX deposit validation).
+* `paymentIntents.anchorDepositCurrency`: `string` (stores the currency code mapped for deposit lookups).
+
+### API V1 Backward Compatibility
+`/api/v1/payment-intents` continues to function exactly as before, with all creations defaulting to the `inhouse` flow.
+
+
+## Read Payment Intents
+
+The API also supports server-side reads with the same API key authentication:
+
+```http
+GET /api/v1/payment-intents?status=paid&limit=10
+GET /api/v1/payment-intents/{id}
+Authorization: Bearer tk_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+Use these endpoints directly or through `@carts1024/velo-sdk`:
+
+```ts
+const intent = await velo.paymentIntents.retrieve("pi_12345");
+const paidPage = await velo.paymentIntents.list({ status: "paid", limit: 10 });
+```
+
+List responses include `data`, `hasMore`, and `nextCursor` for pagination.
+
 ## Request Body
 
 | Field | Required | Example | Notes |
@@ -115,19 +160,27 @@ Send the buyer to `checkoutUrl`.
 
 For simple Testnet testing, send `"asset": "native"` explicitly. This creates an XLM payment and avoids USDC trustline setup.
 
-## Receiver Address
+## Receiver Address and Memo
 
-The API request does not accept `receiverAddress`.
+For `inhouse` routing:
+* The API request does not accept `receiverAddress`.
+* Velo always sets `receiverAddress` to the `project.ownerAddress` for security.
+* This prevents a leaked API key or bad client request from redirecting funds to a different wallet. To change the receiver, create or use a project whose `ownerAddress` is the desired receiver.
 
-Velo always sets:
+For `pdax` routing:
+* **PDAX Connection Check**: The project must have a connected and active PDAX provider connection configured in the dashboard (stored in `providerConnections`). If not connected, the V2 creation fails with a validation error indicating that the PDAX provider is not connected.
+* **Asset Mapping**: Assets are mapped automatically for the PDAX deposit lookup:
+  - `native` and `XLM` -> `XLM`
+  - `USDC` (and its trustlines `USDC:*`) -> `USDCXLM`
+* **Asynchronous Deposit Destination Lookup**: Creation atomically returns an `awaiting_route` intent, then durable scheduled work performs the bounded PDAX lookup outside the HTTP critical path.
+* **Storage & Routing**:
+  - The resolved deposit address is stored as `receiverAddress`.
+  - The returned destination tag is stored as `receiverMemo` (a Stellar memo ID or text), ensuring proper merchant mapping and preventing lost funds.
+  - The mapped currency code is stored as `anchorDepositCurrency`.
+* **Outage Resiliency**: The checkout cannot become payable without a complete route. Bounded retries, a project-scoped single-flight lease, a five-minute route cache, and a circuit breaker transition the intent to `created` or terminal `failed`; the initial request never waits on PDAX.
 
-```ts
-receiverAddress: project.ownerAddress
-```
+---
 
-This is intentional. It prevents a leaked API key or bad client request from redirecting funds to a different wallet.
-
-To change the receiver, create or use a project whose `ownerAddress` is the desired receiver.
 
 ## Checkout Flow
 
@@ -139,26 +192,32 @@ Hosted checkout page:
 
 Buyer flow:
 
-1. Opens checkout URL.
-2. Connects Stellar wallet.
-3. Reviews amount, asset, network, receiver, and wallet address.
-4. Clicks pay.
-5. App preflights:
-   - payer and receiver are different
-   - amount is positive
-   - receiver account exists
-   - trustlines exist for non-native asset
-   - payer has enough asset balance
-6. Wallet signs transaction.
-7. App marks payment intent `pending`.
-8. App submits transaction to Horizon.
-9. App keeps the intent `pending` while Velo verifies the transaction.
-10. The backend scanner confirms the transaction over RPC and marks the intent `paid` or `failed`.
+1. **Opens checkout URL**: The checkout page loads the payment intent from the backend.
+2. **Connects Stellar wallet**: The user connects their Stellar wallet (e.g., Freighter).
+3. **Reviews Payment Details (V2 Enhancements)**:
+   * **Receiver Address Labeling**: The interface dynamically adapts based on the payment intent's anchor:
+     - For `inhouse`, it shows the **Recipient Address** (the merchant/project owner's address).
+     - For `pdax`, it shows the **PDAX Deposit Address** (the temporary address retrieved from the PDAX deposit lookup).
+   * **Memo Display**: If the payment intent has a `receiverMemo` (such as a PDAX destination tag), it is displayed as **Memo / Destination Tag**. This is critical for PDAX routing to ensure the deposit is mapped correctly.
+   * **Payer Address**: Displays the connected buyer's wallet address.
+4. **Clicks pay**.
+5. **App preflights**:
+   - Payer and receiver are different.
+   - Amount is positive.
+   - Receiver account exists on the network.
+   - Trustlines exist for non-native assets.
+   - Payer has enough asset balance.
+6. **Wallet signs transaction**: The transaction is constructed by the app with the optional memo (if present) and sent to the wallet for signing.
+7. **App marks payment intent `pending`**: At this stage, the connected wallet address is stored in the database as `payerAddress`, along with the deterministic transaction hash `txHash`.
+8. **App submits transaction to Horizon**.
+9. **App keeps the intent `pending` while Velo verifies the transaction**.
+10. **The backend scanner confirms the transaction over RPC and marks the intent `paid` or `failed`**.
 
 ## Payment Statuses
 
 | Status | Meaning |
 | --- | --- |
+| `awaiting_route` | PDAX intent is accepted, but its destination is still being resolved. Checkout payment controls remain disabled. |
 | `created` | Intent exists, checkout available. |
 | `pending` | Buyer signed, a transaction hash was recorded, and Velo is verifying settlement. |
 | `paid` | Backend scanner confirmed the Stellar transaction succeeded. |
@@ -167,6 +226,21 @@ Buyer flow:
 | `expired` | Intent passed expiry time. |
 
 Default expiry is 30 minutes.
+
+## Optional Settlement After Payment
+
+After a PaymentIntent reaches `paid`, Velo Settlement can use it as evidence for a PDAX UAT settlement demo:
+
+1. Open the project Settlement page.
+2. Connect the PDAX UAT provider.
+3. Review searchable/sortable sandbox balances.
+4. Request an indicative or firm quote for `USDCXLM` to `PHP`. Firm quotes are executable for about 15 seconds.
+5. Execute the trade while the quote is active.
+6. Initiate an InstaPay UAT withdrawal to a supported sandbox bank.
+7. Let the provider callback or payout polling update the settlement transaction.
+8. Verify signed merchant webhook deliveries such as `settlement.quote.created`, `settlement.trade.executed`, `settlement.withdrawal.pending`, and `settlement.withdrawal.succeeded`.
+
+PDAX callbacks enter Velo through `POST /api/webhooks/pdax`, are deduplicated in Convex provider event records, and are normalized before merchant webhooks are sent.
 
 ## Local Development Checklist
 

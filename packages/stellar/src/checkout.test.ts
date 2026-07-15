@@ -1,13 +1,20 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createCheckoutSession } from "./checkout.ts";
+import { Keypair, Horizon, Transaction } from "@stellar/stellar-sdk";
+
+import {
+  createCheckoutSession,
+  buildCheckoutPaymentTransaction,
+  horizonOptions,
+} from "./checkout.ts";
 
 test("createCheckoutSession calls fetch with correct headers and payload", async () => {
   const mockResponse = {
     paymentIntentId: "test-intent-id",
     checkoutUrl: "http://localhost:3000/pay/test-intent-id",
     expiresIn: 1800,
+    correlationId: "journey-00000001",
   };
 
   const originalFetch = globalThis.fetch;
@@ -34,15 +41,22 @@ test("createCheckoutSession calls fetch with correct headers and payload", async
       successUrl: "https://example.com/success",
       cancelUrl: "https://example.com/cancel",
       baseUrl: "http://localhost:3000",
+      correlationId: "sdk-2026-0001",
+      telemetryContext: {
+        requestCorrelationId: "sdk-2026-0001",
+        traceparent: "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+      },
     });
 
     assert.equal(fetchCalled, true);
-    assert.equal(calledUrl, "http://localhost:3000/api/v1/payment-intents");
+    assert.equal(calledUrl, "http://localhost:3000/api/v2/payment-intents");
     assert.equal(calledOptions?.method, "POST");
 
     const headers = calledOptions?.headers as Record<string, string>;
     assert.equal(headers["Authorization"], "Bearer tk_live_abcdef1234567890abcdef1234567890");
     assert.equal(headers["Content-Type"], "application/json");
+    assert.equal(headers["X-Correlation-Id"], "sdk-2026-0001");
+    assert.equal(headers.traceparent, "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01");
 
     const body = JSON.parse(calledOptions?.body as string);
     assert.equal(body.amount, "5.50");
@@ -52,6 +66,7 @@ test("createCheckoutSession calls fetch with correct headers and payload", async
     assert.equal(body.cancelUrl, "https://example.com/cancel");
 
     assert.deepEqual(result, mockResponse);
+    assert.equal(result.correlationId, "journey-00000001");
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -61,6 +76,23 @@ test("createCheckoutSession rejects missing api key", async () => {
   await assert.rejects(
     () => createCheckoutSession({ apiKey: "", amount: "10.00" }),
     /API key is required/,
+  );
+});
+
+test("Horizon dependency options carry bounded correlation and W3C context", () => {
+  assert.deepEqual(
+    horizonOptions({
+      requestCorrelationId: "request-00000001",
+      journeyCorrelationId: "journey-00000001",
+      traceparent: "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+    }),
+    {
+      headers: {
+        "x-correlation-id": "request-00000001",
+        "x-velo-journey-id": "journey-00000001",
+        traceparent: "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+      },
+    },
   );
 });
 
@@ -81,5 +113,99 @@ test("createCheckoutSession handles request failure gracefully", async () => {
     );
   } finally {
     globalThis.fetch = originalFetch;
+  }
+});
+
+test("buildCheckoutPaymentTransaction without memo", async () => {
+  const payerAddress = Keypair.random().publicKey();
+  const receiverAddress = Keypair.random().publicKey();
+
+  const { Horizon, Account } = await import("@stellar/stellar-sdk");
+  const originalLoadAccount = Horizon.Server.prototype.loadAccount;
+  Horizon.Server.prototype.loadAccount = async function (address: string) {
+    const account = new Account(address, "1");
+    (account as unknown as { balances: Horizon.AccountResponse["balances"] }).balances = [
+      { asset_type: "native", balance: "100.00" },
+    ] as unknown as Horizon.AccountResponse["balances"];
+    return account as unknown as Horizon.AccountResponse;
+  };
+
+  try {
+    const xdr = await buildCheckoutPaymentTransaction({
+      payerAddress,
+      receiverAddress,
+      amount: "10.00",
+      asset: "native",
+    });
+
+    const { TransactionBuilder, Networks } = await import("@stellar/stellar-sdk");
+    const tx = TransactionBuilder.fromXDR(xdr, Networks.TESTNET) as Transaction;
+    assert.equal(tx.memo.type, "none");
+  } finally {
+    Horizon.Server.prototype.loadAccount = originalLoadAccount;
+  }
+});
+
+test("buildCheckoutPaymentTransaction with numeric memo (Memo.id)", async () => {
+  const payerAddress = Keypair.random().publicKey();
+  const receiverAddress = Keypair.random().publicKey();
+
+  const { Horizon, Account } = await import("@stellar/stellar-sdk");
+  const originalLoadAccount = Horizon.Server.prototype.loadAccount;
+  Horizon.Server.prototype.loadAccount = async function (address: string) {
+    const account = new Account(address, "1");
+    (account as unknown as { balances: Horizon.AccountResponse["balances"] }).balances = [
+      { asset_type: "native", balance: "100.00" },
+    ] as unknown as Horizon.AccountResponse["balances"];
+    return account as unknown as Horizon.AccountResponse;
+  };
+
+  try {
+    const xdr = await buildCheckoutPaymentTransaction({
+      payerAddress,
+      receiverAddress,
+      amount: "10.00",
+      asset: "native",
+      memo: "123456789",
+    });
+
+    const { TransactionBuilder, Networks } = await import("@stellar/stellar-sdk");
+    const tx = TransactionBuilder.fromXDR(xdr, Networks.TESTNET) as Transaction;
+    assert.equal(tx.memo.type, "id");
+    assert.equal(tx.memo.value?.toString(), "123456789");
+  } finally {
+    Horizon.Server.prototype.loadAccount = originalLoadAccount;
+  }
+});
+
+test("buildCheckoutPaymentTransaction with text memo (Memo.text)", async () => {
+  const payerAddress = Keypair.random().publicKey();
+  const receiverAddress = Keypair.random().publicKey();
+
+  const { Horizon, Account } = await import("@stellar/stellar-sdk");
+  const originalLoadAccount = Horizon.Server.prototype.loadAccount;
+  Horizon.Server.prototype.loadAccount = async function (address: string) {
+    const account = new Account(address, "1");
+    (account as unknown as { balances: Horizon.AccountResponse["balances"] }).balances = [
+      { asset_type: "native", balance: "100.00" },
+    ] as unknown as Horizon.AccountResponse["balances"];
+    return account as unknown as Horizon.AccountResponse;
+  };
+
+  try {
+    const xdr = await buildCheckoutPaymentTransaction({
+      payerAddress,
+      receiverAddress,
+      amount: "10.00",
+      asset: "native",
+      memo: "hello-pdax",
+    });
+
+    const { TransactionBuilder, Networks } = await import("@stellar/stellar-sdk");
+    const tx = TransactionBuilder.fromXDR(xdr, Networks.TESTNET) as Transaction;
+    assert.equal(tx.memo.type, "text");
+    assert.equal(tx.memo.value?.toString(), "hello-pdax");
+  } finally {
+    Horizon.Server.prototype.loadAccount = originalLoadAccount;
   }
 });

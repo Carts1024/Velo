@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
+import { createCheckoutBenchmarkMarkerDetail } from "./benchmark-markers.ts";
 import { formatAmount, formatAsset } from "./format.ts";
 
 test("formatAsset returns XLM for native asset", () => {
@@ -25,4 +26,55 @@ test("checkout client does not mark Horizon submission success as paid", () => {
 
   assert.doesNotMatch(source, /status:\s*["']paid["']/);
   assert.match(source, /backend scanner confirms settlement/);
+});
+
+test("checkout client renders recipient details and memo based on anchor", () => {
+  const source = readFileSync(new URL("./checkout-client.tsx", import.meta.url), "utf8");
+
+  assert.match(
+    source,
+    /intent\.anchor\s*===\s*["']pdax["']\s*\?\s*["']PDAX Deposit Address["']\s*:\s*["']Recipient Address["']/,
+  );
+  assert.match(source, /intent\.receiverMemo/);
+  assert.match(source, /memo:\s*intent\.receiverMemo/);
+});
+
+test("checkout client blocks payment while PDAX routing is unresolved", () => {
+  const source = readFileSync(new URL("./checkout-client.tsx", import.meta.url), "utf8");
+  assert.match(source, /intent\.status === ["']awaiting_route["']/);
+  assert.match(source, /Preparing Payment Route/);
+  assert.match(source, /!intent\.receiverAddress \|\| intent\.status !== ["']created["']/);
+});
+
+test("benchmark marker preserves entity, version, and separate clock domains", () => {
+  const marker = createCheckoutBenchmarkMarkerDetail({
+    entityId: "intent-123",
+    state: "paid",
+    version: 42,
+    serverEventAt: 1_700_000_000_000,
+    now: () => 1_700_000_000_125,
+    monotonicNow: () => 250.5,
+  });
+
+  assert.deepEqual(marker, {
+    entityId: "intent-123",
+    state: "paid",
+    version: 42,
+    epochMs: 1_700_000_000_125,
+    monotonicMs: 250.5,
+    serverEventAt: 1_700_000_000_000,
+  });
+});
+
+test("checkout navigation marker can preserve the browser navigation origin", () => {
+  const marker = createCheckoutBenchmarkMarkerDetail({
+    entityId: "intent-navigation",
+    state: "loading",
+    version: 0,
+    now: () => 1_700_000_000_000,
+    monotonicNow: () => 0,
+  });
+
+  assert.equal(marker.epochMs, 1_700_000_000_000);
+  assert.equal(marker.monotonicMs, 0);
 });

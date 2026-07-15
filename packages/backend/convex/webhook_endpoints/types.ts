@@ -10,6 +10,12 @@ export const WEBHOOK_EVENT_TYPES = [
   "payment.succeeded",
   "payment.failed",
   "payment_access.activated",
+  "settlement.quote.created",
+  "settlement.trade.executed",
+  "settlement.withdrawal.pending",
+  "settlement.withdrawal.succeeded",
+  "settlement.withdrawal.failed",
+  "provider.pdax.event.received",
 ] as const;
 
 export type WebhookEventType = (typeof WEBHOOK_EVENT_TYPES)[number];

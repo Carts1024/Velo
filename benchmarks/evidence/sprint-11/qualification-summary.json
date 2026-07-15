@@ -1,0 +1,11 @@
+{
+  "qualification": "sprint-11",
+  "manifestVersion": 4,
+  "evidenceSchemaVersion": 3,
+  "machineVerdict": "EVIDENCE_PENDING",
+  "approvalStatus": "PENDING",
+  "deterministicImplementation": "complete",
+  "liveCapacityEvidence": "pending",
+  "comparativeEvidence": "pending",
+  "rawArtifactStorage": "external"
+}

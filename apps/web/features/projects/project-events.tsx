@@ -256,7 +256,7 @@ export function ProjectEvents({ projectId }: ProjectEventsProps) {
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" asChild>
-            <Link href={`/projects/${project._id}`}>Project overview</Link>
+            <Link href="/dashboard">Dashboard</Link>
           </Button>
           <Button
             onClick={() => void refreshEvents()}

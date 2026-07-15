@@ -1,0 +1,180 @@
+{
+  "status": "suite_completed",
+  "captureId": "861f97b5-a96c-423e-ab44-66923e40f969",
+  "cohortId": "local-cohort-001",
+  "revision": "eeea64b23a8f469d0ae20065be8e0af0dfe3dee8",
+  "manifestVersion": 3,
+  "evidenceSchemaVersion": 2,
+  "startedAt": "2026-07-14T17:20:04.603Z",
+  "completedAt": "2026-07-14T17:20:55.924Z",
+  "capturedAt": "2026-07-14T17:20:55.924Z",
+  "baseline": {
+    "id": "local-development-baseline",
+    "revision": "local",
+    "capturedAt": "2026-07-14T00:00:00.000Z",
+    "artifact": "local-development",
+    "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "scenarios": {
+      "payment-intent-create": {
+        "p95": 100
+      },
+      "payment-intent-list": {
+        "p95": 100
+      },
+      "checkout-preparation": {
+        "p95": 100
+      },
+      "transaction-submission": {
+        "p95": 100
+      },
+      "confirmation-detection": {
+        "p95": 100
+      },
+      "ui-propagation": {
+        "p95": 100
+      },
+      "webhook-delivery": {
+        "p95": 100
+      }
+    }
+  },
+  "contributors": [],
+  "sampleArtifact": {
+    "format": "ndjson",
+    "path": "morning.ndjson",
+    "sha256": "2575e284f3866d250e09ed3767174ffcf12ac1d7e6083d92ee2ad0203b315b57",
+    "records": 500
+  },
+  "runs": [
+    {
+      "status": "captured",
+      "evidenceMode": "real",
+      "manifestVersion": 3,
+      "evidenceSchemaVersion": 2,
+      "captureId": "861f97b5-a96c-423e-ab44-66923e40f969",
+      "runId": "ff09cbf3-28b2-4177-9e16-a040a4167a39",
+      "scenario": "payment-intent-create",
+      "scenarioVersion": 3,
+      "adapter": "http",
+      "profile": "normal",
+      "temperature": "warm",
+      "window": "morning",
+      "mode": "capture",
+      "capturedAt": "2026-07-14T17:20:55.912Z",
+      "revision": "eeea64b23a8f469d0ae20065be8e0af0dfe3dee8",
+      "region": "local",
+      "runtime": "v22.22.0",
+      "network": "local-development",
+      "dependencyVersions": "node@v22.22.0, pnpm@10.25.0",
+      "dependencyEndpoints": "web=http://127.0.0.1:3000;controller=http://127.0.0.1:4000",
+      "payloadIdentity": "local-payload-v1",
+      "datasetIdentity": "local-dataset-v1",
+      "cohortId": "local-cohort-001",
+      "clockProvenance": [
+        {
+          "id": "runner-monotonic",
+          "source": "node-benchmark-runner",
+          "kind": "monotonic",
+          "unit": "ms",
+          "synchronization": "same-process",
+          "resolutionMs": 0.01
+        }
+      ],
+      "fixtureControl": {
+        "authorized": true,
+        "cohortId": "local-cohort-001",
+        "setupReceiptId": "dev-setup-3555b77e-235e-430e-a968-4c91439b8095",
+        "cleanup": {
+          "controlled": true,
+          "captureId": "861f97b5-a96c-423e-ab44-66923e40f969",
+          "cohortId": "local-cohort-001",
+          "receiptId": "dev-cleanup-fb91a1f2-e5f6-4b77-a16f-eb1d27d75ed7",
+          "cleanedAt": "2026-07-14T17:20:55.904Z"
+        }
+      },
+      "coldReset": {
+        "required": false,
+        "verifiedSamples": 0,
+        "methods": []
+      },
+      "workload": {
+        "requestedSamples": 500,
+        "attemptedSamples": 500,
+        "successfulSamples": 500,
+        "concurrency": 25,
+        "timeoutMs": 10000,
+        "targetRequestsPerSecond": 10,
+        "durationSeconds": 300
+      },
+      "pacing": {
+        "targetRequestsPerSecond": 10,
+        "achievedRequestsPerSecond": 10
+      },
+      "saturation": {
+        "saturatedArrivals": 0,
+        "droppedArrivals": 0,
+        "maxInFlight": 11
+      },
+      "attemptedSamples": 500,
+      "successfulSamples": 500,
+      "errorSamples": 0,
+      "droppedSamples": 0,
+      "throughput": {
+        "attemptedPerSecond": 9.9,
+        "successfulPerSecond": 9.9
+      },
+      "errorTaxonomy": {
+        "timeout": 0,
+        "http_4xx": 0,
+        "http_5xx": 0,
+        "http_5xx_503": 0,
+        "network": 0,
+        "lifecycle": 0,
+        "authorization": 0,
+        "dropped": 0,
+        "unknown": 0
+      },
+      "http503": {
+        "count": 0,
+        "attributedCount": 0,
+        "unattributedCount": 0,
+        "byDependency": {}
+      },
+      "latencyMs": {
+        "unit": "ms",
+        "count": 500,
+        "p50": 620.53,
+        "p95": 689.45,
+        "p99": 1222.48,
+        "max": 1340.6
+      },
+      "lifecycleMetrics": {
+        "http_request_ms": {
+          "unit": "ms",
+          "count": 500,
+          "p50": 620.53,
+          "p95": 689.45,
+          "p99": 1222.48,
+          "max": 1340.6
+        }
+      },
+      "dependencyTimingMs": {},
+      "queueDepth": {
+        "unit": "ms",
+        "count": 500,
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "max": 0
+      },
+      "eventLagMs": {
+        "unit": "ms",
+        "count": 500,
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "max": 0
+      }
+    }
+  ]
+}

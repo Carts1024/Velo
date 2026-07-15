@@ -5,6 +5,7 @@ import { useWallet } from "@/core/wallet/wallet-provider";
 import { useUserProfile } from "@/features/onboarding/use-user-profile";
 import { Alert, AlertDescription, AlertTitle } from "@repo/ui/components/ui/alert";
 import { Button } from "@repo/ui/components/ui/button";
+import { useConvexAuth } from "convex/react";
 import { AlertCircleIcon, Loader2Icon, WalletIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -13,18 +14,19 @@ import { useEffect } from "react";
 export default function LoginPage() {
   const wallet = useWallet();
   const { isNewUser, isLoading } = useUserProfile(wallet.address);
+  const { isAuthenticated: isConvexAuthenticated, isLoading: isConvexLoading } = useConvexAuth();
   const router = useRouter();
 
   // Redirect to dashboard or signup once authenticated
   useEffect(() => {
-    if (wallet.status === "connected" && !isLoading) {
+    if (wallet.status === "connected" && isConvexAuthenticated && !isConvexLoading && !isLoading) {
       if (isNewUser) {
         router.push("/signup");
       } else {
         router.push("/dashboard");
       }
     }
-  }, [wallet.status, isNewUser, isLoading, router]);
+  }, [wallet.status, isConvexAuthenticated, isConvexLoading, isNewUser, isLoading, router]);
 
   const handleConnect = async () => {
     try {
@@ -66,11 +68,15 @@ export default function LoginPage() {
                 wallet.status === "connecting" ||
                 wallet.status === "connected" ||
                 wallet.status === "initializing" ||
+                isConvexLoading ||
                 isLoading
               }
               className="w-full flex items-center justify-center gap-2"
             >
-              {wallet.status === "connecting" || wallet.status === "initializing" || isLoading ? (
+              {wallet.status === "connecting" ||
+              wallet.status === "initializing" ||
+              isConvexLoading ||
+              isLoading ? (
                 <>
                   <Loader2Icon className="h-4 w-4 animate-spin" />
                   <span>Connecting...</span>

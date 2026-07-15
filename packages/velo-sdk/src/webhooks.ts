@@ -2,6 +2,152 @@ import type { WebhookEvent, VerifyWebhookParams } from "./types.ts";
 
 import { VeloWebhookSignatureVerificationError } from "./errors.ts";
 
+const EVENT_TYPES = new Set([
+  "project.registered",
+  "project.updated",
+  "transaction.succeeded",
+  "transaction.failed",
+  "payment.created",
+  "payment.succeeded",
+  "payment.failed",
+  "payment_access.activated",
+  "payment.access_activated",
+  "contract.event",
+  "settlement.quote.created",
+  "settlement.trade.executed",
+  "settlement.withdrawal.pending",
+  "settlement.withdrawal.succeeded",
+  "settlement.withdrawal.failed",
+  "provider.pdax.event.received",
+]);
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function hasString(value: Record<string, unknown>, key: string): boolean {
+  return typeof value[key] === "string";
+}
+
+function hasNumber(value: Record<string, unknown>, key: string): boolean {
+  return typeof value[key] === "number" && Number.isFinite(value[key]);
+}
+
+function requireShape(condition: boolean, message: string): asserts condition {
+  if (!condition) {
+    throw new VeloWebhookSignatureVerificationError(`Invalid webhook event: ${message}`);
+  }
+}
+
+function parseWebhookEvent(payload: string): WebhookEvent {
+  const parsed: unknown = JSON.parse(payload);
+  requireShape(isRecord(parsed), "payload must be an object");
+
+  if (parsed.version === undefined) parsed.version = "1";
+  requireShape(parsed.version === "1", `unsupported version ${String(parsed.version)}`);
+  requireShape(hasString(parsed, "id"), "id must be a string");
+  requireShape(
+    hasString(parsed, "type") && EVENT_TYPES.has(parsed.type as string),
+    "unsupported type",
+  );
+  requireShape(typeof parsed.test === "boolean", "test must be a boolean");
+  requireShape(hasString(parsed, "sentAt"), "sentAt must be a string");
+  requireShape(isRecord(parsed.project), "project must be an object");
+  requireShape(
+    hasString(parsed.project, "id") &&
+      hasString(parsed.project, "registryProjectId") &&
+      hasString(parsed.project, "name") &&
+      hasString(parsed.project, "slug"),
+    "project fields must be strings",
+  );
+
+  const type = parsed.type as string;
+  if (type.startsWith("payment.") || type === "payment_access.activated") {
+    requireShape(isRecord(parsed.paymentIntent), "paymentIntent must be an object");
+    for (const key of [
+      "id",
+      "amount",
+      "asset",
+      "merchantName",
+      "status",
+      "createdAt",
+      "updatedAt",
+    ]) {
+      requireShape(hasString(parsed.paymentIntent, key), `paymentIntent.${key} must be a string`);
+    }
+  } else if (type === "contract.event") {
+    requireShape(
+      hasString(parsed, "contractId") && hasString(parsed, "transactionHash"),
+      "contract identifiers must be strings",
+    );
+    requireShape(
+      hasNumber(parsed, "ledger") && isRecord(parsed.event),
+      "contract event fields are invalid",
+    );
+    requireShape(
+      hasString(parsed.event, "id") &&
+        hasString(parsed.event, "topic") &&
+        hasString(parsed.event, "type") &&
+        hasString(parsed.event, "observedAt"),
+      "contract event metadata is invalid",
+    );
+  } else if (type.startsWith("transaction.")) {
+    requireShape(
+      hasString(parsed, "transactionHash") && hasNumber(parsed, "ledger"),
+      "transaction fields are invalid",
+    );
+    requireShape(
+      parsed.status === "success" || parsed.status === "failed",
+      "transaction status is invalid",
+    );
+  } else if (type.startsWith("project.")) {
+    requireShape(
+      hasNumber(parsed, "ledger") &&
+        hasString(parsed, "metadataHash") &&
+        hasString(parsed, "status"),
+      "project fields are invalid",
+    );
+  } else if (type === "settlement.quote.created") {
+    requireShape(isRecord(parsed.quote), "quote must be an object");
+    for (const key of [
+      "id",
+      "side",
+      "quoteCurrency",
+      "baseCurrency",
+      "quantity",
+      "expiresAt",
+      "status",
+    ])
+      requireShape(hasString(parsed.quote, key), `quote.${key} must be a string`);
+    requireShape(
+      hasNumber(parsed.quote, "price") && hasNumber(parsed.quote, "totalAmount"),
+      "quote amounts must be numbers",
+    );
+  } else if (type === "settlement.trade.executed") {
+    requireShape(
+      isRecord(parsed.trade) &&
+        hasNumber(parsed.trade, "orderId") &&
+        hasString(parsed.trade, "quoteId"),
+      "trade fields are invalid",
+    );
+  } else if (type.startsWith("settlement.withdrawal.")) {
+    requireShape(
+      isRecord(parsed.withdrawal) && hasString(parsed.withdrawal, "withdrawalId"),
+      "withdrawal fields are invalid",
+    );
+  } else if (type === "provider.pdax.event.received") {
+    requireShape(
+      parsed.provider === "pdax" &&
+        hasString(parsed, "eventId") &&
+        hasString(parsed, "eventType") &&
+        "rawEvent" in parsed,
+      "provider event fields are invalid",
+    );
+  }
+
+  return parsed as WebhookEvent;
+}
+
 /**
  * Verifies a Velo webhook signature using the Web Crypto API.
  * This is fully compatible with both browser/Edge and Node.js environments.
@@ -84,9 +230,7 @@ export async function verifyWebhookSignature(params: VerifyWebhookParams): Promi
       throw new VeloWebhookSignatureVerificationError("Signature mismatch");
     }
 
-    const event = JSON.parse(payload) as WebhookEvent;
-
-    return event;
+    return parseWebhookEvent(payload);
   } catch (err: unknown) {
     if (err instanceof VeloWebhookSignatureVerificationError) {
       throw err;

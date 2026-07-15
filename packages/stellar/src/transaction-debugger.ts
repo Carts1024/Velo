@@ -1,3 +1,4 @@
+import { telemetryHeaders, type TelemetryContext } from "@repo/observability";
 import {
   Address,
   humanizeEvents,
@@ -14,6 +15,9 @@ export type DebugOperation = {
   index: number;
   type: string;
   source?: string;
+  destination?: string;
+  amount?: string;
+  asset?: string;
 };
 
 export type DebugContractCall = {
@@ -135,6 +139,48 @@ function parseContractCalls(
   });
 }
 
+function transactionSource(transaction: ReturnType<typeof TransactionBuilder.fromXDR>) {
+  if ("source" in transaction && typeof transaction.source === "string") {
+    return transaction.source;
+  }
+
+  if (
+    "innerTransaction" in transaction &&
+    transaction.innerTransaction &&
+    typeof transaction.innerTransaction.source === "string"
+  ) {
+    return transaction.innerTransaction.source;
+  }
+
+  return undefined;
+}
+
+function parseOperations(
+  transaction: ReturnType<typeof TransactionBuilder.fromXDR>,
+): DebugOperation[] {
+  const defaultSource = transactionSource(transaction);
+  return transaction.operations.map((operation, index) => {
+    const base = {
+      index,
+      type: operation.type,
+      source: operation.source ?? defaultSource,
+    };
+
+    if (operation.type !== "payment") {
+      return base;
+    }
+
+    return {
+      ...base,
+      destination: operation.destination,
+      amount: operation.amount,
+      asset: operation.asset.isNative()
+        ? "native"
+        : `${operation.asset.getCode()}:${operation.asset.getIssuer()}`,
+    };
+  });
+}
+
 function failureHint(resultCode?: string) {
   if (!resultCode) {
     return "Inspect the raw response and diagnostic events for the failure source.";
@@ -180,11 +226,7 @@ export function parseTransactionResponse(
       response.envelopeXdr,
       TESTNET_NETWORK_PASSPHRASE,
     );
-    const operations = transaction.operations.map((operation, index) => ({
-      index,
-      type: operation.type,
-      source: operation.source,
-    }));
+    const operations = parseOperations(transaction);
     const contractCalls = parseContractCalls(transaction.operations);
     const events = humanizeEvents(response.events.contractEventsXdr.flat()).map((event) => ({
       type: event.type,
@@ -226,8 +268,16 @@ export function parseTransactionResponse(
   }
 }
 
-export async function lookupTestnetTransaction(rpcUrl: string, hash: string) {
+export async function lookupTestnetTransaction(
+  rpcUrl: string,
+  hash: string,
+  options: { timeoutMs?: number; telemetryContext?: TelemetryContext; allowHttp?: boolean } = {},
+) {
   const normalizedHash = assertValidTransactionHash(hash);
-  const response = await new rpc.Server(rpcUrl).getTransaction(normalizedHash);
+  const response = await new rpc.Server(rpcUrl, {
+    timeout: options.timeoutMs ?? 5_000,
+    ...(options.allowHttp !== undefined ? { allowHttp: options.allowHttp } : {}),
+    ...(options.telemetryContext ? { headers: telemetryHeaders(options.telemetryContext) } : {}),
+  }).getTransaction(normalizedHash);
   return parseTransactionResponse(normalizedHash, response);
 }

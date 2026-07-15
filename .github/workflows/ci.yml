@@ -43,6 +43,9 @@ jobs:
       - name: Run Tests
         run: pnpm test
 
+      - name: Benchmark Harness Smoke Test
+        run: pnpm benchmark:smoke
+
   test-rust:
     name: Smart Contract Tests
     runs-on: ubuntu-latest
@@ -93,7 +96,7 @@ jobs:
         if: env.HAS_CONVEX_DEPLOY_KEY == 'true'
         env:
           CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
-        run: pnpm --filter @repo/backend convex deploy --cmd 'pnpm build'
+        run: pnpm --filter @repo/backend exec convex deploy --typecheck enable --codegen enable
 
       - name: Skip Convex Deploy
         if: env.HAS_CONVEX_DEPLOY_KEY != 'true'

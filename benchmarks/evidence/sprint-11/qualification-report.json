@@ -1,0 +1,13 @@
+{
+  "status": "qualification_completed",
+  "version": 4,
+  "manifestVersion": 4,
+  "evidenceSchemaVersion": 3,
+  "cohortId": "pending-authorization",
+  "baseline": { "revision": "unresolved", "infrastructureDigest": "external" },
+  "candidate": { "revision": "unresolved", "infrastructureDigest": "external" },
+  "runs": [],
+  "machineVerdict": "EVIDENCE_PENDING",
+  "approvalStatus": "PENDING",
+  "publicClaim": null
+}

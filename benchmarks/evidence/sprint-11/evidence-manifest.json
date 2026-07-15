@@ -1,0 +1,9 @@
+{
+  "qualification": "sprint-11",
+  "manifestVersion": 4,
+  "evidenceSchemaVersion": 3,
+  "status": "EVIDENCE_PENDING",
+  "rawArtifacts": "external",
+  "trackedArtifacts": ["qualification-report.json", "qualification-summary.json", "release-decision.json"],
+  "reason": "No authorized staging capture, immutable baseline, candidate, or approval packet is present in this repository."
+}

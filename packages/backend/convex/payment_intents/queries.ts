@@ -1,11 +1,18 @@
 import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
 
-import { query } from "../_generated/server";
+import type { Doc } from "../_generated/dataModel";
+
+import { internalQuery, query } from "../_generated/server";
 import { projectOwnerOrNull } from "../projects/helpers";
-import { verifyApiKeyForPayments } from "./helpers";
+import {
+  verifyApiKeyForPayments,
+  resolvePaymentAnchor,
+  createPaymentIntentFingerprint,
+} from "./helpers";
 
 const paymentIntentStatusValidator = v.union(
+  v.literal("awaiting_route"),
   v.literal("created"),
   v.literal("pending"),
   v.literal("paid"),
@@ -14,7 +21,7 @@ const paymentIntentStatusValidator = v.union(
   v.literal("cancelled"),
 );
 
-export const getPublicPaymentIntent = query({
+export const getPublicPaymentIntent = internalQuery({
   args: {
     apiKeyHash: v.string(),
     paymentIntentId: v.string(),
@@ -39,7 +46,7 @@ export const getPublicPaymentIntent = query({
   },
 });
 
-export const listPublicPaymentIntents = query({
+export const listPublicPaymentIntents = internalQuery({
   args: {
     apiKeyHash: v.string(),
     status: v.optional(paymentIntentStatusValidator),
@@ -82,10 +89,16 @@ export const getPaymentIntent = query({
     }
 
     // Check if the intent has expired and update status inline if needed
-    if (intent.status === "created" && Date.now() > intent.expiresAt) {
+    if (
+      (intent.status === "created" || intent.status === "awaiting_route") &&
+      Date.now() > intent.expiresAt
+    ) {
       return {
         ...intent,
         status: "expired" as const,
+        stageTimestamps: intent.stageTimestamps
+          ? { ...intent.stageTimestamps, expired: intent.expiresAt }
+          : { created: intent.createdAt, expired: intent.expiresAt },
       };
     }
 
@@ -123,7 +136,16 @@ function formatAsset(asset: string) {
 }
 
 /**
+ * Count rows returned by an indexed range without loading full documents.
+ * Uses a per-query cap to stay well under the 16 MB read limit.
+ */
+const STATUS_CAP = 5_000;
+
+/**
  * Aggregated telemetry and analytics metrics for a project dashboard.
+ *
+ * Uses per-status indexed queries with bounded `.take()` instead of a single
+ * unbounded `.collect()` to avoid hitting the Convex 16 MB read limit.
  */
 export const getProjectStats = query({
   args: {
@@ -134,38 +156,86 @@ export const getProjectStats = query({
       return null;
     }
 
-    // 1. Fetch all payment intents for this project
-    const intents = await ctx.db
+    // 1. Count payment intents per status using the composite index.
+    //    Only "paid" needs full document reads (for volume aggregation);
+    //    the other statuses just need a length count.
+    const paidIntents = await ctx.db
       .query("paymentIntents")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
-      .collect();
+      .withIndex("by_project_status_created_at", (q) =>
+        q.eq("projectId", args.projectId).eq("status", "paid"),
+      )
+      .take(STATUS_CAP);
 
+    const pendingIntents = await ctx.db
+      .query("paymentIntents")
+      .withIndex("by_project_status_created_at", (q) =>
+        q.eq("projectId", args.projectId).eq("status", "pending"),
+      )
+      .take(STATUS_CAP);
+
+    const failedIntents = await ctx.db
+      .query("paymentIntents")
+      .withIndex("by_project_status_created_at", (q) =>
+        q.eq("projectId", args.projectId).eq("status", "failed"),
+      )
+      .take(STATUS_CAP);
+
+    const createdIntents = await ctx.db
+      .query("paymentIntents")
+      .withIndex("by_project_status_created_at", (q) =>
+        q.eq("projectId", args.projectId).eq("status", "created"),
+      )
+      .take(STATUS_CAP);
+
+    const awaitingRouteIntents = await ctx.db
+      .query("paymentIntents")
+      .withIndex("by_project_status_created_at", (q) =>
+        q.eq("projectId", args.projectId).eq("status", "awaiting_route"),
+      )
+      .take(STATUS_CAP);
+
+    const expiredIntents = await ctx.db
+      .query("paymentIntents")
+      .withIndex("by_project_status_created_at", (q) =>
+        q.eq("projectId", args.projectId).eq("status", "expired"),
+      )
+      .take(STATUS_CAP);
+
+    const cancelledIntents = await ctx.db
+      .query("paymentIntents")
+      .withIndex("by_project_status_created_at", (q) =>
+        q.eq("projectId", args.projectId).eq("status", "cancelled"),
+      )
+      .take(STATUS_CAP);
+
+    // Aggregate paid volumes
     const volumes: Record<string, number> = {};
-    let paidCount = 0;
-    let pendingCount = 0;
-    let failedCount = 0;
-    let createdCount = 0;
-
-    for (const intent of intents) {
-      if (intent.status === "paid") {
-        paidCount++;
-        const assetLabel = formatAsset(intent.asset);
-        const amountNum = parseFloat(intent.amount) || 0;
-        volumes[assetLabel] = (volumes[assetLabel] || 0) + amountNum;
-      } else if (intent.status === "pending") {
-        pendingCount++;
-      } else if (intent.status === "failed") {
-        failedCount++;
-      } else if (intent.status === "created") {
-        createdCount++;
-      }
+    for (const intent of paidIntents) {
+      const assetLabel = formatAsset(intent.asset);
+      const amountNum = parseFloat(intent.amount) || 0;
+      volumes[assetLabel] = (volumes[assetLabel] || 0) + amountNum;
     }
 
-    // 2. Fetch all webhook deliveries for this project
+    const paidCount = paidIntents.length;
+    const pendingCount = pendingIntents.length;
+    const failedCount = failedIntents.length;
+    const createdCount = createdIntents.length;
+    const totalCount =
+      paidCount +
+      pendingCount +
+      failedCount +
+      createdCount +
+      awaitingRouteIntents.length +
+      expiredIntents.length +
+      cancelledIntents.length;
+
+    // 2. Webhook health — bounded read of recent deliveries
+    const WEBHOOK_CAP = 1_000;
     const webhookDeliveries = await ctx.db
       .query("webhookDeliveries")
       .withIndex("by_project_created_at", (q) => q.eq("projectId", args.projectId))
-      .collect();
+      .order("desc")
+      .take(WEBHOOK_CAP);
 
     let successCount = 0;
     let totalLatency = 0;
@@ -185,13 +255,10 @@ export const getProjectStats = query({
     const successRate = totalDeliveries > 0 ? (successCount / totalDeliveries) * 100 : 100;
     const averageLatency = latencyCount > 0 ? totalLatency / latencyCount : 0;
 
-    // 3. Take the 10 most recent payment intents for logging
-    const recentPayments = intents.sort((a, b) => b.createdAt - a.createdAt).slice(0, 10);
-
     return {
       volumes: Object.entries(volumes).map(([asset, volume]) => ({ asset, volume })),
       counts: {
-        total: intents.length,
+        total: totalCount,
         paid: paidCount,
         pending: pendingCount,
         failed: failedCount,
@@ -202,7 +269,244 @@ export const getProjectStats = query({
         successRate,
         averageLatency,
       },
-      recentPayments,
     };
+  },
+});
+
+export const resolveIntentRequest = internalQuery({
+  args: {
+    apiKeyHash: v.string(),
+    amount: v.string(),
+    asset: v.string(),
+    description: v.optional(v.string()),
+    successUrl: v.optional(v.string()),
+    cancelUrl: v.optional(v.string()),
+    idempotencyKey: v.optional(v.string()),
+    anchor: v.optional(v.union(v.literal("inhouse"), v.literal("pdax"))),
+  },
+  handler: async (ctx, args) => {
+    const auth = await verifyApiKeyForPayments(ctx, args.apiKeyHash);
+    if (!auth.authorized) {
+      return { authorized: false as const, reason: auth.reason };
+    }
+
+    const resolvedAnchor = resolvePaymentAnchor({
+      requestedAnchor: args.anchor,
+      apiKeyAnchor: auth.apiKey.paymentAnchor,
+      projectDefaultAnchor: auth.project.defaultPaymentAnchor,
+    });
+
+    const connection = await ctx.db
+      .query("providerConnections")
+      .withIndex("by_project_provider", (q) =>
+        q.eq("projectId", auth.project._id).eq("provider", "pdax"),
+      )
+      .unique();
+
+    const hasPdaxConnection = connection ? connection.status === "connected" : false;
+
+    if (args.idempotencyKey !== undefined) {
+      const existing = await ctx.db
+        .query("paymentIntentIdempotencyKeys")
+        .withIndex("by_project_and_key", (q) =>
+          q.eq("projectId", auth.project._id).eq("key", args.idempotencyKey!),
+        )
+        .unique();
+
+      if (existing) {
+        const requestFingerprint = createPaymentIntentFingerprint(args);
+        if (existing.requestFingerprint !== requestFingerprint) {
+          return {
+            authorized: true as const,
+            status: "idempotency_conflict" as const,
+            projectId: auth.project._id,
+          };
+        }
+
+        const intent = await ctx.db.get(existing.paymentIntentId);
+        if (intent && intent.projectId === auth.project._id) {
+          return {
+            authorized: true as const,
+            status: "idempotency_replay" as const,
+            projectId: auth.project._id,
+            intent,
+          };
+        }
+      }
+    }
+
+    return {
+      authorized: true as const,
+      status: "proceed" as const,
+      resolvedAnchor,
+      projectId: auth.project._id,
+      ownerAddress: auth.project.ownerAddress,
+      hasPdaxConnection,
+    };
+  },
+});
+
+/**
+ * Internal query to fetch all paid PDAX payment intents for a given project.
+ */
+export const getPaidPdaxIntents = internalQuery({
+  args: { projectId: v.id("projects") },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("paymentIntents")
+      .withIndex("by_project_status_created_at", (q) =>
+        q.eq("projectId", args.projectId).eq("status", "paid"),
+      )
+      .collect();
+  },
+});
+
+function lifecycleProjection(
+  correlationId: string,
+  intents: Doc<"paymentIntents">[],
+  deliveries: Doc<"webhookDeliveries">[],
+  journeyStages: Doc<"journeyStages">[] = [],
+) {
+  const paymentIntents = intents.map((intent) => ({
+    id: intent._id,
+    status: intent.status,
+    transactionHash: intent.txHash ?? null,
+    createdAt: intent.createdAt,
+    updatedAt: intent.updatedAt,
+    stageTimestamps: intent.stageTimestamps ?? null,
+    traceparent: intent.traceparent ?? null,
+  }));
+  const webhookDeliveries = deliveries.map((delivery) => ({
+    id: delivery._id,
+    paymentIntentId: delivery.paymentIntentId ?? null,
+    eventType: delivery.eventType,
+    status: delivery.status,
+    attemptCount: delivery.attemptCount,
+    createdAt: delivery.createdAt,
+    enqueuedAt: delivery.enqueuedAt ?? delivery.createdAt,
+    attemptStartedAt: delivery.attemptStartedAt ?? null,
+    responseReceivedAt: delivery.responseReceivedAt ?? null,
+    acknowledgedAt: delivery.acknowledgedAt ?? null,
+    lastAttemptAt: delivery.lastAttemptAt,
+    httpStatus: delivery.httpStatus ?? null,
+    responseTimeMs: delivery.responseTimeMs ?? null,
+  }));
+
+  const stages = [
+    ...paymentIntents.flatMap((intent) => {
+      const intentStages = intent.stageTimestamps ?? { created: intent.createdAt };
+      return Object.entries(intentStages)
+        .filter((entry): entry is [string, number] => typeof entry[1] === "number")
+        .flatMap(([name, at]) => [
+          { name: `payment_intent.${name}`, at, paymentIntentId: intent.id },
+          ...(name === "confirmed"
+            ? [{ name: "payment_intent.paid", at, paymentIntentId: intent.id }]
+            : []),
+        ]);
+    }),
+    ...webhookDeliveries.flatMap((delivery) => [
+      { name: "webhook.enqueued", at: delivery.enqueuedAt, deliveryId: delivery.id },
+      ...(delivery.attemptStartedAt === null
+        ? []
+        : [
+            {
+              name: "webhook.attempt_started",
+              at: delivery.attemptStartedAt,
+              deliveryId: delivery.id,
+            },
+          ]),
+      ...(delivery.responseReceivedAt === null
+        ? []
+        : [
+            {
+              name: "webhook.response_received",
+              at: delivery.responseReceivedAt,
+              deliveryId: delivery.id,
+            },
+          ]),
+      ...(delivery.acknowledgedAt === null
+        ? []
+        : [
+            { name: "webhook.acknowledged", at: delivery.acknowledgedAt, deliveryId: delivery.id },
+            { name: "webhook.success", at: delivery.acknowledgedAt, deliveryId: delivery.id },
+          ]),
+    ]),
+    ...journeyStages.map((event) => ({
+      name: event.name,
+      at: event.at,
+      journeyStageId: event._id,
+      source: event.source,
+      outcome: event.outcome,
+    })),
+  ].sort((left, right) => left.at - right.at);
+  const observed = new Set(stages.map((stage) => stage.name));
+  const required = [
+    "payment_intent.created",
+    "payment_intent.submitted",
+    "payment_intent.observed",
+    "payment_intent.confirmed",
+    "webhook.acknowledged",
+    "ui.rendered",
+  ];
+
+  return {
+    correlationId,
+    traceIdentifiers: {
+      journeyCorrelationId: correlationId,
+      traceparents: paymentIntents.flatMap((intent) =>
+        intent.traceparent === null ? [] : [intent.traceparent],
+      ),
+    },
+    paymentIntents,
+    webhookDeliveries,
+    stages,
+    missingStages: required.filter((stage) => !observed.has(stage)),
+  };
+}
+
+/**
+ * Project-operator trace lookup. Ownership is verified before either indexed
+ * read, so a correlation ID cannot enumerate another project's activity.
+ */
+export const getProjectPaymentLifecycleByCorrelation = query({
+  args: {
+    projectId: v.id("projects"),
+    correlationId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    if (!(await projectOwnerOrNull(ctx, args.projectId))) {
+      return null;
+    }
+
+    const intents = await ctx.db
+      .query("paymentIntents")
+      .withIndex("by_project_and_correlation_id", (q) =>
+        q.eq("projectId", args.projectId).eq("correlationId", args.correlationId),
+      )
+      .take(10);
+    const deliveries = await ctx.db
+      .query("webhookDeliveries")
+      .withIndex("by_project_and_correlation_id_created_at", (q) =>
+        q.eq("projectId", args.projectId).eq("correlationId", args.correlationId),
+      )
+      .order("asc")
+      .take(100);
+
+    const journeyStages = await ctx.db
+      .query("journeyStages")
+      .withIndex("by_journey_correlation_id_and_at", (q) =>
+        q.eq("journeyCorrelationId", args.correlationId),
+      )
+      .order("asc")
+      .take(100);
+
+    return lifecycleProjection(args.correlationId, intents, deliveries, journeyStages);
+  },
+});
+
+export const getPaymentIntentInternal = internalQuery({
+  args: { paymentIntentId: v.id("paymentIntents") },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.paymentIntentId);
   },
 });

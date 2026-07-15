@@ -75,3 +75,15 @@ export async function requireOwnerProjectByToken(
 export async function ownerProjectOrNull(ctx: QueryCtx | MutationCtx, projectId: ProjectId) {
   return await projectOwnerOrNull(ctx, projectId);
 }
+
+export async function hasEnabledWebhookForEvent(
+  ctx: QueryCtx | MutationCtx,
+  projectId: ProjectId,
+  eventType: string,
+) {
+  const endpoint = await ctx.db
+    .query("webhookEndpoints")
+    .withIndex("by_project", (q) => q.eq("projectId", projectId))
+    .unique();
+  return endpoint?.enabled === true && endpoint.eventTypes.includes(eventType);
+}

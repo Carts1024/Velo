@@ -21,7 +21,10 @@ export const lookup = action({
       hash,
     });
 
-    if (!args.forceRefresh && cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS) {
+    const isTerminal = cached && (cached.status === "success" || cached.status === "failed");
+    const ttl = isTerminal ? CACHE_TTL_MS : 0;
+
+    if (!args.forceRefresh && cached && Date.now() - cached.fetchedAt < ttl) {
       return {
         hash: cached.hash,
         network: cached.network,
@@ -64,20 +67,16 @@ export const lookup = action({
 
       await ctx.runMutation(internal.transactions.mutation.store, storeResult);
       return { ...normalizedResult, network: "testnet", fetchedAt: Date.now(), source: "rpc" };
-    } catch (error) {
+    } catch {
       const failure = {
         hash,
         status: "unavailable" as const,
         operations: [],
         contractCalls: [],
         events: [],
-        failureReason: error instanceof Error ? error.message : "Stellar RPC lookup failed",
+        failureReason: "stellar_rpc_unavailable",
         hint: "Retry the lookup. If it persists, confirm the Testnet RPC endpoint is available.",
-        rawResponse: JSON.stringify(
-          { error: error instanceof Error ? error.message : "Stellar RPC lookup failed" },
-          null,
-          2,
-        ),
+        rawResponse: JSON.stringify({ errorCode: "dependency_unavailable" }),
       };
 
       await ctx.runMutation(internal.transactions.mutation.store, failure);

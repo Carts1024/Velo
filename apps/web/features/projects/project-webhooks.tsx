@@ -50,6 +50,7 @@ import {
   SendIcon,
   WalletIcon,
   WebhookIcon,
+  WifiOffIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
@@ -66,6 +67,12 @@ const eventTypes = [
   "payment.succeeded",
   "payment.failed",
   "payment_access.activated",
+  "settlement.quote.created",
+  "settlement.trade.executed",
+  "settlement.withdrawal.pending",
+  "settlement.withdrawal.succeeded",
+  "settlement.withdrawal.failed",
+  "provider.pdax.event.received",
 ] as const;
 
 type EventType = (typeof eventTypes)[number];
@@ -160,6 +167,11 @@ export function ProjectWebhooks({ projectId }: { projectId: string }) {
   const saveSettings = useMutation(api.webhook_endpoints.mutation.saveSettings);
   const rotateSecret = useMutation(api.webhook_endpoints.mutation.rotateSecret);
   const sendTest = useAction(api.webhookDelivery.sendTest);
+  const connection = useQuery(
+    api.provider_connections.query.getByProject,
+    wallet.address ? { projectId: typedProjectId } : "skip",
+  );
+  const registerWebhookAction = useAction(api.settlement.actions.registerWebhook);
   const loadedSettingsId = useRef<string | null>(null);
   const [url, setUrl] = useState("");
   const [enabled, setEnabled] = useState(true);
@@ -173,6 +185,18 @@ export function ProjectWebhooks({ projectId }: { projectId: string }) {
   const [notice, setNotice] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [showSecret, setShowSecret] = useState(false);
   const [copiedSecret, setCopiedSecret] = useState(false);
+  const [isOffline, setIsOffline] = useState(false);
+
+  useEffect(() => {
+    const update = () => setIsOffline(!window.navigator.onLine);
+    update();
+    window.addEventListener("online", update);
+    window.addEventListener("offline", update);
+    return () => {
+      window.removeEventListener("online", update);
+      window.removeEventListener("offline", update);
+    };
+  }, []);
 
   useEffect(() => {
     if (!settings || loadedSettingsId.current === settings._id) {
@@ -286,6 +310,21 @@ export function ProjectWebhooks({ projectId }: { projectId: string }) {
         enabled,
         eventTypes: selectedTypes,
       });
+
+      // Auto-register PDAX webhook if PDAX is connected
+      if (connection && connection.status === "connected") {
+        try {
+          const isLocalhost = ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
+          if (!isLocalhost) {
+            await registerWebhookAction({ projectId: typedProjectId });
+          } else {
+            console.log("Localhost detected. Skipping PDAX webhook registration.");
+          }
+        } catch (pdaxErr) {
+          console.error("Auto-registering PDAX webhook failed on save:", pdaxErr);
+        }
+      }
+
       setNotice({ type: "success", message: "Webhook settings saved." });
     } catch (error) {
       setNotice({
@@ -366,7 +405,7 @@ export function ProjectWebhooks({ projectId }: { projectId: string }) {
           </p>
         </div>
         <Button variant="outline" asChild>
-          <Link href={`/projects/${project._id}`}>Project overview</Link>
+          <Link href="/dashboard">Dashboard</Link>
         </Button>
       </div>
 
@@ -393,6 +432,17 @@ export function ProjectWebhooks({ projectId }: { projectId: string }) {
           Webhook URLs and delivery logs are never returned by public project queries or pages.
         </AlertDescription>
       </Alert>
+
+      {isOffline ? (
+        <Alert className="border-amber-500/30 bg-amber-50">
+          <WifiOffIcon />
+          <AlertTitle>Live delivery view paused</AlertTitle>
+          <AlertDescription>
+            Convex will reconcile this narrow delivery subscription after reconnect. The last
+            rendered delivery remains visible until the authoritative update arrives.
+          </AlertDescription>
+        </Alert>
+      ) : null}
 
       {notice ? (
         <Alert variant={notice.type === "error" ? "destructive" : "default"} aria-live="polite">

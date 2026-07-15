@@ -1,0 +1,8 @@
+{
+  "qualification": "sprint-11",
+  "machineVerdict": "EVIDENCE_PENDING",
+  "approvalStatus": "PENDING",
+  "publicClaim": null,
+  "requiredApprovals": ["Product", "Architecture"],
+  "evidenceDigest": null
+}

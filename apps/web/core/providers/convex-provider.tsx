@@ -5,6 +5,7 @@ import { ConvexProviderWithAuth, ConvexReactClient } from "convex/react";
 import { usePathname } from "next/navigation";
 import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { isPublicRoute, shouldReportWalletAuthenticated } from "../auth/convex-auth";
 import { env } from "../config/env";
 
 const convex = new ConvexReactClient(env.NEXT_PUBLIC_CONVEX_URL!);
@@ -67,15 +68,6 @@ function validTokenForWallet(
   }
 
   return jwtExpiresAt(token.token) - Date.now() > TOKEN_REFRESH_MARGIN_MS;
-}
-
-function isPublicRoute(path: string) {
-  return (
-    path === "/" ||
-    path.startsWith("/docs") ||
-    path.startsWith("/verify") ||
-    path.startsWith("/pay")
-  );
 }
 
 function useWalletConvexAuth() {
@@ -181,16 +173,38 @@ function useWalletConvexAuth() {
     [wallet, tokenState],
   );
 
+  const hasValidToken = validTokenForWallet(tokenState, wallet.address);
+
+  // Convex only calls fetchAccessToken after the auth provider reports an
+  // authenticated user. Bootstrap the wallet JWT separately so that the
+  // provider can safely remain unauthenticated until a token exists.
+  useEffect(() => {
+    if (
+      wallet.status !== "connected" ||
+      !wallet.address ||
+      isPublicRoute(pathname) ||
+      hasValidToken
+    ) {
+      return;
+    }
+
+    void fetchAccessToken({ forceRefreshToken: false });
+  }, [fetchAccessToken, hasValidToken, pathname, wallet.address, wallet.status]);
+
   return useMemo(
     () => ({
-      isLoading: wallet.status === "initializing" || wallet.status === "connecting",
-      isAuthenticated:
-        wallet.status === "connected" &&
-        Boolean(wallet.address) &&
-        (!isPublicRoute(pathname) || validTokenForWallet(tokenState, wallet.address)),
+      isLoading:
+        wallet.status === "initializing" ||
+        wallet.status === "connecting" ||
+        (wallet.status === "connected" && !isPublicRoute(pathname) && !hasValidToken),
+      isAuthenticated: shouldReportWalletAuthenticated({
+        walletStatus: wallet.status,
+        walletAddress: wallet.address,
+        hasValidToken,
+      }),
       fetchAccessToken,
     }),
-    [fetchAccessToken, wallet.address, wallet.status, pathname, tokenState],
+    [fetchAccessToken, hasValidToken, wallet.address, wallet.status, pathname],
   );
 }
 

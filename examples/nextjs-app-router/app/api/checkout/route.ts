@@ -10,12 +10,13 @@ const velo = new Velo({
 
 export async function POST(request: Request) {
   try {
-    const { asset = "USDC" } = await request.json().catch(() => ({}));
+    const { asset = "USDC", anchor } = await request.json().catch(() => ({}));
 
     const session = await velo.checkout.sessions.create(
       {
         amount: "10.00",
         asset,
+        anchor, // optional: "inhouse" | "pdax"
         description: `Order #1001 (${asset === "native" ? "XLM" : asset})`,
         successUrl: "http://localhost:3000/success",
         cancelUrl: "http://localhost:3000/cancel",

@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "asOf": "2026-07-13",
+  "status": "CAPTURE PENDING — AUTHORIZED STAGING RESOURCES/WINDOWS REQUIRED",
+  "runnerAndGateEngineering": "implemented",
+  "liveQualification": "not_evaluated",
+  "p0_1": "not_qualified",
+  "contract": {
+    "scenarios": 7,
+    "profiles": ["normal", "growth"],
+    "temperatures": ["cold", "warm"],
+    "windows": ["morning", "afternoon", "evening"],
+    "cellsPerWindow": 28,
+    "requiredQualificationCells": 84,
+    "minimumSuccessfulSamplesPerCell": 1000
+  },
+  "blockers": [
+    "written staging capture authorization and approved windows",
+    "operator controller implementation and conformance for all seven scenario paths, including the two HTTP fixture lifecycles and five control journeys",
+    "authorized API and controller credentials",
+    "funded Stellar signer, required assets and trustlines, and controlled receiver",
+    "approved baseline artifact and controller emission of measured Velo-controlled dependency timings",
+    "pre-capture disposition of documented Convex read-limit and OCC-contention risks"
+  ],
+  "observedEvidence": null,
+  "evidenceManifest": "evidence-manifest.json"
+}

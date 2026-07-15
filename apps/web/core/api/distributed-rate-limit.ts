@@ -1,0 +1,59 @@
+import { api } from "@repo/backend/convex/_generated/api.js";
+import { ConvexHttpClient } from "convex/browser";
+
+export type DistributedRateLimit = {
+  allowed: boolean;
+  limit: number;
+  remaining: number;
+  retryAfterMs: number;
+};
+
+export function distributedRateLimitHeaders(result: DistributedRateLimit) {
+  return {
+    "X-RateLimit-Limit": String(result.limit),
+    "X-RateLimit-Remaining": String(Math.max(0, result.remaining)),
+    ...(result.retryAfterMs > 0
+      ? { "Retry-After": String(Math.max(1, Math.ceil(result.retryAfterMs / 1_000))) }
+      : {}),
+  };
+}
+
+const MAX_OCC_RETRIES = 6;
+const BASE_DELAY_MS = 50;
+
+function isOccError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  return error.message.includes("OptimisticConcurrencyControlFailure");
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+export async function consumeDistributedRateLimit(
+  convex: ConvexHttpClient,
+  apiKeyHash: string,
+): Promise<{ authorized: false } | ({ authorized: true } & DistributedRateLimit)> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt <= MAX_OCC_RETRIES; attempt++) {
+    try {
+      // This module-level HTTP client is shared by every route request in the
+      // server process. Its default mutation queue is strictly serial, so it
+      // becomes an unbounded process-local bottleneck under concurrent load.
+      // Convex remains the source of truth for bucket serialization; the OCC
+      // retry loop below handles conflicting reservations.
+      return await convex.mutation(
+        api.rate_limits.mutations.consume,
+        { apiKeyHash },
+        { skipQueue: true },
+      );
+    } catch (error) {
+      if (!isOccError(error) || attempt === MAX_OCC_RETRIES) throw error;
+      lastError = error;
+      // Exponential backoff + random jitter
+      const delay = BASE_DELAY_MS * 2 ** attempt + Math.random() * BASE_DELAY_MS;
+      await sleep(delay);
+    }
+  }
+  throw lastError;
+}

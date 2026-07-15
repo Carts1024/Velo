@@ -21,10 +21,12 @@ app.use(express.json());
 app.post("/api/checkout", async (req, res) => {
   try {
     const asset = req.body?.asset || "USDC";
+    const anchor = req.body?.anchor; // optional: "inhouse" | "pdax"
     const session = await velo.checkout.sessions.create(
       {
         amount: "10.00",
         asset,
+        anchor,
         description: `Order #1001 (${asset === "native" ? "XLM" : asset})`,
         successUrl: "http://localhost:3001/success",
         cancelUrl: "http://localhost:3001/cancel",
