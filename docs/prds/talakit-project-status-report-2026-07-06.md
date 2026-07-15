@@ -94,11 +94,11 @@ Coverage artifacts found:
   - `apps/web/features/api/payment-intents-contract.test.ts`
   - `apps/web/features/config/env.test.ts`
 - Backend tests:
-  - `packages/backend/convex/apiKey.test.ts`
-  - `packages/backend/convex/paymentIntent.test.ts`
-  - `packages/backend/convex/projectSettings.test.ts`
+  - `packages/backend/convex/tests/apiKey.test.ts`
+  - `packages/backend/convex/tests/paymentIntent.test.ts`
+  - `packages/backend/convex/tests/projectSettings.test.ts`
   - `packages/backend/convex/tasks.test.ts`
-  - `packages/backend/convex/webhookDelivery.test.ts`
+  - `packages/backend/convex/tests/webhookDelivery.test.ts`
 - SDK tests:
   - `packages/velo-sdk/src/client.test.ts`
   - `packages/velo-sdk/src/webhooks.test.ts`
@@ -396,7 +396,7 @@ Current behavior:
 
 Coverage:
 
-- `packages/backend/convex/apiKey.test.ts` covers generating multiple keys, hashing, prefixes, labels, valid/invalid authorization, revocation, and active-key behavior after revocation.
+- `packages/backend/convex/tests/apiKey.test.ts` covers generating multiple keys, hashing, prefixes, labels, valid/invalid authorization, revocation, and active-key behavior after revocation.
 
 Known limitation:
 
@@ -433,7 +433,7 @@ Current behavior:
 
 Coverage:
 
-- `packages/backend/convex/paymentIntent.test.ts` covers activation prerequisite, API key verification, PaymentIntent creation, optional redirect URLs, state transitions, project listing, stats aggregation, and scanner execution path.
+- `packages/backend/convex/tests/paymentIntent.test.ts` covers activation prerequisite, API key verification, PaymentIntent creation, optional redirect URLs, state transitions, project listing, stats aggregation, and scanner execution path.
 - `packages/stellar/src/checkout.test.ts` covers `createCheckoutSession` request shape, missing API key, and API failure handling.
 - `apps/web/features/checkout/checkout-client.test.ts` covers checkout formatting helpers.
 
@@ -473,7 +473,7 @@ Current behavior:
 Coverage:
 
 - `apps/web/features/api/payment-intents-contract.test.ts` covers public contract helpers, validation, and query parsing.
-- `packages/backend/convex/paymentIntent.test.ts` covers idempotency replay/conflict and API-key project isolation.
+- `packages/backend/convex/tests/paymentIntent.test.ts` covers idempotency replay/conflict and API-key project isolation.
 
 Known limitation:
 
@@ -578,7 +578,7 @@ Supported webhook event types:
 Coverage:
 
 - `packages/stellar/src/webhook.test.ts` covers valid signatures, expired timestamps, signature mismatch, payload mismatch, and malformed headers.
-- `packages/backend/convex/webhookDelivery.test.ts` covers signing secret rotation and retry/backoff lifecycle.
+- `packages/backend/convex/tests/webhookDelivery.test.ts` covers signing secret rotation and retry/backoff lifecycle.
 
 Known limitation:
 
@@ -749,7 +749,7 @@ Current behavior:
 
 Coverage:
 
-- `packages/backend/convex/projectSettings.test.ts` covers settings authorization, metadata preservation, and logo storage lifecycle.
+- `packages/backend/convex/tests/projectSettings.test.ts` covers settings authorization, metadata preservation, and logo storage lifecycle.
 - `apps/web/features/projects/project-settings.test.ts` covers source-level UI wiring for logo upload, settings route shell integration, sidebar settings nav, and sidebar hydration persistence.
 - `apps/web/features/projects/dashboard-selection.test.ts` covers selected-project persistence and localStorage hydration behavior.
 

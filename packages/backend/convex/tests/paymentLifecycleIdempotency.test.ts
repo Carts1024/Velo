@@ -2,11 +2,11 @@
 import { convexTest } from "convex-test";
 import { beforeEach, expect, test, vi } from "vitest";
 
-import { api, internal } from "./_generated/api";
-import { findVerifiedPayment } from "./payment_intents/verification";
-import schema from "./schema";
+import { api, internal } from "../_generated/api";
+import { findVerifiedPayment } from "../payment_intents/verification";
+import schema from "../schema";
 
-const modules = import.meta.glob("./**/*.ts");
+const modules = import.meta.glob("../**/*.ts");
 
 vi.mock("@repo/stellar", () => ({
   lookupTestnetTransaction: vi.fn(),

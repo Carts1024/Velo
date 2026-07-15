@@ -127,4 +127,4 @@ pnpm --filter @repo/backend test
 pnpm --filter web test
 ```
 
-The CI workflow runs the smoke command in [`ci.yml`](../../.github/workflows/ci.yml). Correlation propagation, authorization, and webhook payload/header behavior are covered in [`paymentIntent.test.ts`](../../packages/backend/convex/paymentIntent.test.ts) and [`webhookDelivery.test.ts`](../../packages/backend/convex/webhookDelivery.test.ts).
+The CI workflow runs the smoke command in [`ci.yml`](../../.github/workflows/ci.yml). Correlation propagation, authorization, and webhook payload/header behavior are covered in [`paymentIntent.test.ts`](../../packages/backend/convex/tests/paymentIntent.test.ts) and [`webhookDelivery.test.ts`](../../packages/backend/convex/tests/webhookDelivery.test.ts).

@@ -16,7 +16,7 @@ live SLO qualification and no production availability evidence.
 logical identity is `(projectId, provider, operation, clientKey)`. The row stores a canonical
 SHA-256 request fingerprint and a server-generated PDAX UUID before provider dispatch. A replay
 with the same fingerprint observes the existing row; a changed request fails as a conflict. This
-is covered for both operation types by [`100 concurrent %s reservations produce one operation and one submission claim`](../../packages/backend/convex/durableReliability.test.ts).
+is covered for both operation types by [`100 concurrent %s reservations produce one operation and one submission claim`](../../packages/backend/convex/tests/durableReliability.test.ts).
 
 ```mermaid
 stateDiagram-v2
@@ -38,19 +38,19 @@ stateDiagram-v2
 ```
 
 Every completion checks the expected state, lease token, and generation. Stale completions are
-ignored, as demonstrated by [`lease fencing rejects stale completion and ambiguous trades cannot resubmit`](../../packages/backend/convex/durableReliability.test.ts).
+ignored, as demonstrated by [`lease fencing rejects stale completion and ambiguous trades cannot resubmit`](../../packages/backend/convex/tests/durableReliability.test.ts).
 
 PDAX withdrawals reconcile by the persisted provider UUID. Work is claimed in pages of at most 100
 and processed with concurrency 10. Ambiguous trades are never resubmitted because PDAX exposes no
 safe lookup by the trade idempotency UUID; they remain reconciliation/operator-recovery work. The
-no-resubmission invariant is covered by [`lease fencing rejects stale completion and ambiguous trades cannot resubmit`](../../packages/backend/convex/durableReliability.test.ts).
+no-resubmission invariant is covered by [`lease fencing rejects stale completion and ambiguous trades cannot resubmit`](../../packages/backend/convex/tests/durableReliability.test.ts).
 
 ## Payment and event reliability
 
 Pending Stellar payments receive `paymentReconciliationJobs`. RPC `not_found`, missing hashes, and
 transport errors enqueue or retain reconciliation instead of immediately failing the payment. Jobs
 use leases, generations, bounded retries, and visible dead letters. The page-size capacity contract
-is covered by [`10,000 reconciliation jobs drain in exactly 100 bounded pages`](../../packages/backend/convex/durableReliability.test.ts); fast confirmation remains covered by [`watchTransaction handles fast confirmation successfully`](../../packages/backend/convex/paymentIntentFastPath.test.ts).
+is covered by [`10,000 reconciliation jobs drain in exactly 100 bounded pages`](../../packages/backend/convex/tests/durableReliability.test.ts); fast confirmation remains covered by [`watchTransaction handles fast confirmation successfully`](../../packages/backend/convex/tests/paymentIntentFastPath.test.ts).
 
 PDAX callbacks enter Convex directly at `POST /api/webhooks/pdax/v1?token=…`. The ingress requires
 the configured token, `application/json`, a body no larger than 64 KiB, and the strict shared PDAX
@@ -64,7 +64,7 @@ covered by [`normalizes an allowlisted crypto webhook`](../../packages/pdax/src/
 
 Each merchant event has an immutable `webhookDomainEvents` identity. A delivery is unique by
 `(event, endpoint, schemaVersion)`, and attempts are fenced by lease token and generation. The
-deduplication and stale-worker behavior is covered by [`duplicate delivery triggers share one fenced delivery`](../../packages/backend/convex/durableReliability.test.ts); retry/dead-letter behavior is covered by [`webhook delivery retry and backoff lifecycle`](../../packages/backend/convex/webhookDelivery.test.ts) and [`webhook retry scheduling honors Retry-After for retryable endpoint failures`](../../packages/backend/convex/webhookDelivery.test.ts).
+deduplication and stale-worker behavior is covered by [`duplicate delivery triggers share one fenced delivery`](../../packages/backend/convex/tests/durableReliability.test.ts); retry/dead-letter behavior is covered by [`webhook delivery retry and backoff lifecycle`](../../packages/backend/convex/tests/webhookDelivery.test.ts) and [`webhook retry scheduling honors Retry-After for retryable endpoint failures`](../../packages/backend/convex/tests/webhookDelivery.test.ts).
 
 Outbound envelopes carry `version: "1"`. The SDK treats an omitted legacy version as v1, verifies
 the HMAC before reporting an unsupported explicit version, and validates settlement/provider event
@@ -72,7 +72,7 @@ shapes. Evidence: [`verifyWebhookSignature normalizes a signed legacy event to v
 
 Payment REST routes consume transactional token buckets before their backend operation: API-key
 capacity 200/refill 60 per second and project capacity 300/refill 100 per second. Shared enforcement
-is covered by [`distributed rate limits are shared by concurrent callers`](../../packages/backend/convex/durableReliability.test.ts).
+is covered by [`distributed rate limits are shared by concurrent callers`](../../packages/backend/convex/tests/durableReliability.test.ts).
 
 ## Public interfaces
 

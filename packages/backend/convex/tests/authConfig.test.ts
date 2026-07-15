@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { resolveWalletAuthProvider } from "./authConfig";
+import { resolveWalletAuthProvider } from "../authConfig";
 
 describe("wallet auth configuration", () => {
   test("rejects an implicit localhost JWKS endpoint", () => {

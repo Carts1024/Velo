@@ -1,7 +1,7 @@
 /// <reference types="vite/client" />
 import { expect, test } from "vitest";
 
-import { payAccessContractIdFromEnv } from "./payAccessSync";
+import { payAccessContractIdFromEnv } from "../payAccessSync";
 
 const BACKEND_PAY_ACCESS_CONTRACT_ID = "CBHDLZYSYWETHPC6KDGH35S4SNBU5P7QWLNNDWYXJRHZMZDTQSKYVOXJ";
 const PUBLIC_FALLBACK_CONTRACT_ID = "CBSR5LFHR5Q2X3PO3HSMGXI43YEUYGFTHUPGNVGW6XH2VNOQUEUHIEJR";

@@ -3,9 +3,9 @@ import { convexTest } from "convex-test";
 import { makeFunctionReference } from "convex/server";
 import { expect, test, vi } from "vitest";
 
-import schema from "./schema";
+import schema from "../schema";
 
-const modules = import.meta.glob("./**/*.ts");
+const modules = import.meta.glob("../**/*.ts");
 const reserve = makeFunctionReference<"mutation">("provider_operations/mutations:reserve");
 const claim = makeFunctionReference<"mutation">("provider_operations/mutations:claim");
 const complete = makeFunctionReference<"mutation">("provider_operations/mutations:complete");

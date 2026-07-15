@@ -2,10 +2,10 @@
 import { convexTest } from "convex-test";
 import { expect, test } from "vitest";
 
-import { api, internal } from "./_generated/api";
-import schema from "./schema";
+import { api, internal } from "../_generated/api";
+import schema from "../schema";
 
-const modules = import.meta.glob("./**/*.ts");
+const modules = import.meta.glob("../**/*.ts");
 
 function asWallet(t: ReturnType<typeof convexTest>, ownerAddress: string) {
   return t.withIdentity({

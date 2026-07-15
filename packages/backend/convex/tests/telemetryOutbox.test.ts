@@ -3,14 +3,14 @@ import { convexTest } from "convex-test";
 import { makeFunctionReference } from "convex/server";
 import { expect, test } from "vitest";
 
-import type { Doc } from "./_generated/dataModel";
+import type { Doc } from "../_generated/dataModel";
 
-import schema from "./schema";
-import { buildMetricPayload, buildTracePayload, type OutboxRow } from "./telemetry_outbox/actions";
-import { boundedScenarioDurations } from "./telemetry_outbox/gauges";
-import { recordMetric, recordSpan } from "./telemetry_outbox/helpers";
+import schema from "../schema";
+import { buildMetricPayload, buildTracePayload, type OutboxRow } from "../telemetry_outbox/actions";
+import { boundedScenarioDurations } from "../telemetry_outbox/gauges";
+import { recordMetric, recordSpan } from "../telemetry_outbox/helpers";
 
-const modules = import.meta.glob("./**/*.ts");
+const modules = import.meta.glob("../**/*.ts");
 const enqueue = makeFunctionReference<"mutation">("telemetry_outbox/mutations:enqueue");
 const claim = makeFunctionReference<"mutation">("telemetry_outbox/mutations:claim");
 const complete = makeFunctionReference<"mutation">("telemetry_outbox/mutations:complete");
