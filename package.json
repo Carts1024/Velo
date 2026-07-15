@@ -21,6 +21,8 @@
     "benchmark:smoke": "node scripts/benchmark.mjs --dry-run --suite",
     "benchmark:test": "node --test scripts/benchmark.test.mjs scripts/benchmark-sprint9.test.mjs scripts/payment-api-smoke.test.mjs",
     "build": "turbo run build",
+    "contracts:deploy": "node scripts/deploy-contracts.mjs",
+    "contracts:deploy:test": "node --test scripts/deploy-contracts.test.mjs",
     "dev": "turbo run dev",
     "lint:fix": "turbo run lint:fix",
     "prepare": "husky",
