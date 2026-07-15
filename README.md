@@ -92,6 +92,16 @@ flowchart LR
 
 The browser can submit a payment, but it cannot declare success. Velo verifies the transaction from the backend before updating the PaymentIntent and dispatching `payment.succeeded`.
 
+## 🔗 Current Testnet Contracts
+
+| Contract | Address | Explorer |
+| --- | --- | --- |
+| `VeloRegistry` | `CBSR5LFHR5Q2X3PO3HSMGXI43YEUYGFTHUPGNVGW6XH2VNOQUEUHIEJR` | [View on Stellar Expert](https://stellar.expert/explorer/testnet/contract/CBSR5LFHR5Q2X3PO3HSMGXI43YEUYGFTHUPGNVGW6XH2VNOQUEUHIEJR) |
+| `VeloPayAccess` | `CBHDLZYSYWETHPC6KDGH35S4SNBU5P7QWLNNDWYXJRHZMZDTQSKYVOXJ` | [View on Stellar Expert](https://stellar.expert/explorer/testnet/contract/CBHDLZYSYWETHPC6KDGH35S4SNBU5P7QWLNNDWYXJRHZMZDTQSKYVOXJ) |
+
+These are alpha Testnet deployments and may be replaced as Velo evolves. After a redeployment,
+update this table, the application environment, and the contract-specific READMEs together.
+
 ## 🛠️ Tech Stack
 
 - **Web:** Next.js 16, React 19, TypeScript 5.9, App Router, Tailwind CSS.
@@ -129,8 +139,8 @@ NEXT_PUBLIC_CONVEX_URL=<convex_deployment_url>
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 NEXT_PUBLIC_STELLAR_NETWORK=testnet
 NEXT_PUBLIC_STELLAR_RPC_URL=https://soroban-testnet.stellar.org
-NEXT_PUBLIC_VELO_REGISTRY_CONTRACT_ID=<deployed_registry_contract_id>
-NEXT_PUBLIC_VELO_PAY_ACCESS_CONTRACT_ID=<deployed_pay_access_contract_id>
+NEXT_PUBLIC_VELO_REGISTRY_CONTRACT_ID=CBSR5LFHR5Q2X3PO3HSMGXI43YEUYGFTHUPGNVGW6XH2VNOQUEUHIEJR
+NEXT_PUBLIC_VELO_PAY_ACCESS_CONTRACT_ID=CBHDLZYSYWETHPC6KDGH35S4SNBU5P7QWLNNDWYXJRHZMZDTQSKYVOXJ
 ```
 
 Authentication, backend, hosted deployment, and PDAX UAT flows require additional server-side configuration. See the [full environment reference](docs/velo-master-context.md#environment-variables) and [demo setup guide](docs/demo-setup.md).
@@ -312,7 +322,7 @@ manifest details.
 Before evaluating Velo, keep these constraints in view:
 
 - Payment flows target Stellar Testnet.
-- Hosted Registry and PayAccess contract IDs still require deployment validation in target environments.
+- The Testnet contract IDs above still require explicit configuration and validation in each hosted environment.
 - Checkout code is implemented, but the full wallet-to-webhook path still needs live rehearsal on target devices.
 - PDAX support uses UAT credentials, sandbox balances, simulated pricing/liquidity, and demo payout flows.
 - Mainnet settlement, production compliance workflows, and production custody are not implemented.
