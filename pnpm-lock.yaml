@@ -169,7 +169,7 @@ importers:
     dependencies:
       '@convex-dev/migrations':
         specifier: ^0.3.5
-        version: 0.3.5(convex-helpers@0.1.120(@standard-schema/spec@1.1.0)(convex@1.42.1(bufferutil@4.1.0)(react@19.2.6)(utf-8-validate@6.0.6))(react@19.2.6)(typescript@5.9.2)(zod@4.4.3))(convex@1.42.1(bufferutil@4.1.0)(react@19.2.6)(utf-8-validate@6.0.6))
+        version: 0.3.5(convex-helpers@0.1.120(@standard-schema/spec@1.1.0)(convex@1.42.2(bufferutil@4.1.0)(react@19.2.6)(utf-8-validate@6.0.6))(react@19.2.6)(typescript@5.9.2)(zod@4.4.3))(convex@1.42.2(bufferutil@4.1.0)(react@19.2.6)(utf-8-validate@6.0.6))
       '@repo/observability':
         specifier: workspace:*
         version: link:../observability
@@ -183,15 +183,15 @@ importers:
         specifier: ^1.38.0
         version: 1.38.0
       convex:
-        specifier: ^1.41.0
-        version: 1.42.1(bufferutil@4.1.0)(react@19.2.6)(utf-8-validate@6.0.6)
+        specifier: ^1.42.2
+        version: 1.42.2(bufferutil@4.1.0)(react@19.2.6)(utf-8-validate@6.0.6)
     devDependencies:
       '@edge-runtime/vm':
         specifier: ^5.0.0
         version: 5.0.0
       convex-test:
         specifier: ^0.0.53
-        version: 0.0.53(convex@1.42.1(bufferutil@4.1.0)(react@19.2.6)(utf-8-validate@6.0.6))
+        version: 0.0.53(convex@1.42.2(bufferutil@4.1.0)(react@19.2.6)(utf-8-validate@6.0.6))
       vite:
         specifier: ^8.1.0
         version: 8.1.0(@types/node@22.19.19)(esbuild@0.27.0)(jiti@2.7.0)
@@ -3723,6 +3723,25 @@ packages:
       react:
         optional: true
 
+  convex@1.42.2:
+    resolution: {integrity: sha512-5Mo9EZQ45bG2nbhO7NhTTw5GF9g4RA/kgRQviUQrOI+wFCyfdeNw3PjgOZc2eOM4ruum+0QmUcvVCX5mT2v4rg==}
+    engines: {node: '>=18.0.0', npm: '>=7.0.0'}
+    hasBin: true
+    peerDependencies:
+      '@auth0/auth0-react': ^2.0.1
+      '@clerk/clerk-react': ^4.12.8 || ^5.0.0
+      '@clerk/react': ^6.4.3
+      react: ^18.0.0 || ^19.0.0-0 || ^19.0.0
+    peerDependenciesMeta:
+      '@auth0/auth0-react':
+        optional: true
+      '@clerk/clerk-react':
+        optional: true
+      '@clerk/react':
+        optional: true
+      react:
+        optional: true
+
   cookie-es@1.2.3:
     resolution: {integrity: sha512-lXVyvUvrNXblMqzIRrxHb57UUVmqsSWlxqt3XIjCkUP0wDAf6uicO6KMbEgYrMNtEvWgWHwe42CKxPu9MYAnWw==}
 
@@ -5691,10 +5710,10 @@ snapshots:
       - utf-8-validate
     optional: true
 
-  '@convex-dev/migrations@0.3.5(convex-helpers@0.1.120(@standard-schema/spec@1.1.0)(convex@1.42.1(bufferutil@4.1.0)(react@19.2.6)(utf-8-validate@6.0.6))(react@19.2.6)(typescript@5.9.2)(zod@4.4.3))(convex@1.42.1(bufferutil@4.1.0)(react@19.2.6)(utf-8-validate@6.0.6))':
+  '@convex-dev/migrations@0.3.5(convex-helpers@0.1.120(@standard-schema/spec@1.1.0)(convex@1.42.2(bufferutil@4.1.0)(react@19.2.6)(utf-8-validate@6.0.6))(react@19.2.6)(typescript@5.9.2)(zod@4.4.3))(convex@1.42.2(bufferutil@4.1.0)(react@19.2.6)(utf-8-validate@6.0.6))':
     dependencies:
-      convex: 1.42.1(bufferutil@4.1.0)(react@19.2.6)(utf-8-validate@6.0.6)
-      convex-helpers: 0.1.120(@standard-schema/spec@1.1.0)(convex@1.42.1(bufferutil@4.1.0)(react@19.2.6)(utf-8-validate@6.0.6))(react@19.2.6)(typescript@5.9.2)(zod@4.4.3)
+      convex: 1.42.2(bufferutil@4.1.0)(react@19.2.6)(utf-8-validate@6.0.6)
+      convex-helpers: 0.1.120(@standard-schema/spec@1.1.0)(convex@1.42.2(bufferutil@4.1.0)(react@19.2.6)(utf-8-validate@6.0.6))(react@19.2.6)(typescript@5.9.2)(zod@4.4.3)
 
   '@creit.tech/xbull-wallet-connect@0.4.0':
     dependencies:
@@ -9972,20 +9991,31 @@ snapshots:
 
   convert-source-map@2.0.0: {}
 
-  convex-helpers@0.1.120(@standard-schema/spec@1.1.0)(convex@1.42.1(bufferutil@4.1.0)(react@19.2.6)(utf-8-validate@6.0.6))(react@19.2.6)(typescript@5.9.2)(zod@4.4.3):
+  convex-helpers@0.1.120(@standard-schema/spec@1.1.0)(convex@1.42.2(bufferutil@4.1.0)(react@19.2.6)(utf-8-validate@6.0.6))(react@19.2.6)(typescript@5.9.2)(zod@4.4.3):
     dependencies:
-      convex: 1.42.1(bufferutil@4.1.0)(react@19.2.6)(utf-8-validate@6.0.6)
+      convex: 1.42.2(bufferutil@4.1.0)(react@19.2.6)(utf-8-validate@6.0.6)
     optionalDependencies:
       '@standard-schema/spec': 1.1.0
       react: 19.2.6
       typescript: 5.9.2
       zod: 4.4.3
 
-  convex-test@0.0.53(convex@1.42.1(bufferutil@4.1.0)(react@19.2.6)(utf-8-validate@6.0.6)):
+  convex-test@0.0.53(convex@1.42.2(bufferutil@4.1.0)(react@19.2.6)(utf-8-validate@6.0.6)):
     dependencies:
-      convex: 1.42.1(bufferutil@4.1.0)(react@19.2.6)(utf-8-validate@6.0.6)
+      convex: 1.42.2(bufferutil@4.1.0)(react@19.2.6)(utf-8-validate@6.0.6)
 
   convex@1.42.1(bufferutil@4.1.0)(react@19.2.6)(utf-8-validate@6.0.6):
+    dependencies:
+      esbuild: 0.27.0
+      prettier: 3.8.3
+      ws: 8.21.0(bufferutil@4.1.0)(utf-8-validate@6.0.6)
+    optionalDependencies:
+      react: 19.2.6
+    transitivePeerDependencies:
+      - bufferutil
+      - utf-8-validate
+
+  convex@1.42.2(bufferutil@4.1.0)(react@19.2.6)(utf-8-validate@6.0.6):
     dependencies:
       esbuild: 0.27.0
       prettier: 3.8.3

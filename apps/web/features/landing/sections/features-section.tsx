@@ -1,81 +1,51 @@
 "use client";
 
-import {
-  Activity,
-  Bell,
-  Code2,
-  CreditCard,
-  Fingerprint,
-  LayoutDashboard,
-  Network,
-  WalletCards,
-} from "lucide-react";
+import { Activity, Code2, Fingerprint, Network, WalletCards } from "lucide-react";
 
 const features = [
   {
-    icon: Fingerprint,
-    title: "Project Infrastructure",
-    description:
-      "Register projects, verify official contracts, and keep Stellar app metadata organized from one workspace.",
-    badge: "Active",
-  },
-  {
     icon: Code2,
-    title: "Developer Tooling",
+    title: "Build",
     description:
-      "Use typed helpers, integration snippets, and repeatable workflows instead of stitching every primitive together manually.",
-    badge: "Active",
+      "Integrate supported Stellar operations through developer-facing APIs, SDKs, project workspaces, and reusable application workflows.",
+    badge: "Implemented Alpha",
   },
   {
-    icon: Network,
-    title: "Stellar Operations",
+    icon: Fingerprint,
+    title: "Verify",
     description:
-      "On-chain project registration and wallet challenge authentication (wallet-auth JWT identity) on Stellar Testnet.",
-    badge: "Active",
-  },
-  {
-    icon: CreditCard,
-    title: "Transaction Debugger",
-    description:
-      "Inspect Testnet transactions, ledger results, fees, operation details, and failure reasons while integrating.",
-    badge: "Active",
-  },
-  {
-    icon: Bell,
-    title: "Webhook Infrastructure",
-    description:
-      "HMAC-SHA256 signed event routing with automatic backoff retry policy, delivery logs, and rolling secret keys.",
-    badge: "Active",
+      "Connect wallet authorization and on-chain provenance to the project and contract addresses its owner claims as official.",
+    badge: "Alpha · validation pending",
   },
   {
     icon: Activity,
-    title: "Event Monitor",
+    title: "Observe",
     description:
-      "Watch contract and app activity during demos without building a custom indexer on day one.",
-    badge: "Active",
+      "Inspect Testnet transactions, monitor supported contract events, and deliver signed webhooks with retries and delivery logs.",
+    badge: "Alpha · live qualification pending",
   },
   {
     icon: WalletCards,
-    title: "Velo Pay",
+    title: "Pay",
     description:
-      "Generate stablecoin payment links and hosted checkout sessions with automated ledger settlement scanner confirmation.",
-    badge: "Active",
+      "Create hosted Stellar payment flows and carry ledger-verified payment state back into your application.",
+    badge: "Code-complete Alpha · E2E pending",
   },
   {
-    icon: LayoutDashboard,
-    title: "Infrastructure Console",
+    icon: Network,
+    title: "Settle",
     description:
-      "Bring project status, verification, debugging, webhooks, and payment logs into one developer surface.",
-    badge: "Active",
+      "Demonstrate supported conversion and payout workflows through the PDAX UAT environment.",
+    badge: "UAT · demo only",
   },
 ];
 
 function getBadgeClassName(badge: string) {
-  if (badge === "Active") {
+  if (badge === "Implemented Alpha") {
     return "border-zinc-300 bg-zinc-900 text-zinc-100";
   }
 
-  if (badge === "Alpha" || badge === "Beta") {
+  if (badge.includes("Alpha")) {
     return "border-zinc-700/50 bg-zinc-900 text-zinc-300";
   }
 
@@ -84,7 +54,10 @@ function getBadgeClassName(badge: string) {
 
 export function FeaturesSection() {
   return (
-    <section className="py-24 px-6 bg-zinc-950 text-zinc-50 border-b border-zinc-900 relative">
+    <section
+      id="features"
+      className="py-24 px-6 bg-zinc-950 text-zinc-50 border-b border-zinc-900 relative"
+    >
       {/* Decorative gradient blur */}
       <div className="absolute right-0 top-1/2 -translate-y-1/2 w-96 h-96 bg-zinc-800/10 rounded-full blur-[100px] pointer-events-none" />
 
@@ -92,14 +65,13 @@ export function FeaturesSection() {
         {/* Title Block */}
         <div className="max-w-2xl mb-16">
           <h2 className="text-zinc-500 font-mono text-xs uppercase tracking-widest mb-3">
-            Infrastructure Suite
+            The Velo Platform
           </h2>
           <h3 className="text-3xl md:text-5xl font-bold tracking-tight mb-4">
-            The operating layer for Stellar builders.
+            One application operations layer. Five connected capabilities.
           </h3>
           <p className="text-zinc-400 text-base">
-            Velo combines project registry, developer workflows, debugging, event delivery, and
-            payment infrastructure into one practical workspace.
+            Start with Velo Pay, then use the broader platform as your Stellar application grows.
           </p>
         </div>
 
@@ -139,6 +111,12 @@ export function FeaturesSection() {
             );
           })}
         </div>
+
+        <p className="mt-8 max-w-3xl font-mono text-xs leading-relaxed text-zinc-500">
+          Maturity labels describe current implementation and validation status. Verify covers
+          wallet authorization and on-chain provenance—not code audits, legal identity, or project
+          endorsement.
+        </p>
       </div>
     </section>
   );

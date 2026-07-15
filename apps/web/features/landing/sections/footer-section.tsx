@@ -25,17 +25,24 @@ export function FooterSection() {
         </div>
 
         {/* copyright metadata */}
-        <div className="text-xs font-light text-zinc-600">
-          &copy; {currentYear} Velo. All rights reserved. Built for Stellar infrastructure teams.
+        <div className="text-center text-xs font-light text-zinc-600">
+          &copy; {currentYear} Velo. The application operations platform for Stellar.
+          <br />
+          <span className="font-mono text-[10px] uppercase tracking-wider">
+            Alpha · Stellar Testnet
+          </span>
         </div>
 
         {/* minimal resource links */}
         <div className="flex items-center gap-6 font-mono text-xs text-zinc-500">
-          <Link href="/dashboard" className="transition-colors hover:text-zinc-300">
-            Dashboard
+          <Link href="#features" className="transition-colors hover:text-zinc-300">
+            Platform
           </Link>
-          <Link href="/debug" className="transition-colors hover:text-zinc-300">
-            Debug
+          <Link href="#velo-pay" className="transition-colors hover:text-zinc-300">
+            Velo Pay
+          </Link>
+          <Link href="/docs" className="transition-colors hover:text-zinc-300">
+            Docs
           </Link>
           <Link
             href="https://stellar.org"

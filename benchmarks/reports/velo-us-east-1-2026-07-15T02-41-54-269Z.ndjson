@@ -1,0 +1,10 @@
+{"sample":0,"status":"success","httpStatus":201,"latencyMs":88.9,"capturedAt":"2026-07-15T02:41:45.257Z"}
+{"sample":1,"status":"success","httpStatus":201,"latencyMs":95.8,"capturedAt":"2026-07-15T02:41:46.263Z"}
+{"sample":2,"status":"success","httpStatus":201,"latencyMs":95.79,"capturedAt":"2026-07-15T02:41:47.262Z"}
+{"sample":3,"status":"success","httpStatus":201,"latencyMs":95.15,"capturedAt":"2026-07-15T02:41:48.262Z"}
+{"sample":4,"status":"success","httpStatus":201,"latencyMs":99.69,"capturedAt":"2026-07-15T02:41:49.268Z"}
+{"sample":5,"status":"success","httpStatus":201,"latencyMs":99.24,"capturedAt":"2026-07-15T02:41:50.266Z"}
+{"sample":6,"status":"success","httpStatus":201,"latencyMs":101.58,"capturedAt":"2026-07-15T02:41:51.269Z"}
+{"sample":7,"status":"success","httpStatus":201,"latencyMs":107.43,"capturedAt":"2026-07-15T02:41:52.274Z"}
+{"sample":8,"status":"success","httpStatus":201,"latencyMs":109.28,"capturedAt":"2026-07-15T02:41:53.276Z"}
+{"sample":9,"status":"success","httpStatus":201,"latencyMs":102.19,"capturedAt":"2026-07-15T02:41:54.268Z"}

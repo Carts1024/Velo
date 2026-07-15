@@ -1,49 +1,25 @@
 "use client";
 
-import { CheckCircle2, FileCode, Rocket, Settings2, Store, Wallet } from "lucide-react";
+import { Activity, FileCode, Wallet } from "lucide-react";
 
 const steps = [
   {
     number: "01",
-    icon: Store,
-    title: "Create",
-    description:
-      "Start with a Stellar project workspace that can hold app metadata, official contracts, and demo-ready configuration.",
+    icon: FileCode,
+    title: "Build the workflow",
+    description: "Connect your application to a supported Velo API or server-side SDK workflow.",
   },
   {
     number: "02",
-    icon: Settings2,
-    title: "Configure",
-    description:
-      "Set networks, wallets, assets, webhook endpoints, and verification details as your infrastructure baseline.",
+    icon: Wallet,
+    title: "Request authorization",
+    description: "Let the user authorize the supported Stellar operation through their wallet.",
   },
   {
     number: "03",
-    icon: FileCode,
-    title: "Integrate",
-    description:
-      "Use snippets, helpers, and dashboard workflows to connect your app without rebuilding every Stellar primitive.",
-  },
-  {
-    number: "04",
-    icon: Wallet,
-    title: "Operate",
-    description:
-      "Debug transactions, observe events, and confirm backend callbacks while your app moves through Testnet.",
-  },
-  {
-    number: "05",
-    icon: Rocket,
-    title: "Launch",
-    description:
-      "Use verified project pages and infrastructure status to make your Stellar app easier to trust and demo.",
-  },
-  {
-    number: "06",
-    icon: CheckCircle2,
-    title: "Velo Pay",
-    description:
-      "Generate checkout sessions, accept stablecoin payments, and route signed webhooks automatically.",
+    icon: Activity,
+    title: "Track the outcome",
+    description: "Carry transaction state and on-chain provenance back into your application.",
   },
 ];
 
@@ -54,14 +30,14 @@ export function HowItWorksSection() {
         {/* Title block */}
         <div className="text-center max-w-2xl mx-auto mb-20">
           <h2 className="text-zinc-500 font-mono text-xs uppercase tracking-widest mb-3">
-            Infrastructure Flow
+            How Velo Works
           </h2>
           <h3 className="text-3xl md:text-5xl font-bold tracking-tight mb-4">
-            From Stellar idea to working infrastructure.
+            From application action to on-chain outcome.
           </h3>
           <p className="text-zinc-400 text-sm font-light">
-            Velo helps teams create, configure, integrate, operate, launch, and accept payments
-            without stitching together every tool from scratch.
+            Keep the operational steps around a supported Stellar transaction connected to your
+            application.
           </p>
         </div>
 
@@ -92,6 +68,11 @@ export function HowItWorksSection() {
             );
           })}
         </div>
+
+        <p className="mt-16 text-center text-sm font-light text-zinc-500">
+          Velo handles the surrounding application workflow while Stellar remains the system of
+          record.
+        </p>
       </div>
     </section>
   );
