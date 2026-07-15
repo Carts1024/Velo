@@ -57,6 +57,9 @@ docs/architecture/*
 !docs/architecture/sprint-9-real-lifecycle-benchmark-architecture.md
 !docs/architecture/sprint-10-end-to-end-observability-and-redaction.md
 !docs/architecture/sprint-11-comparative-throughput-certification.md
+!docs/branding/
+docs/branding/*
+!docs/branding/velo-brand-positioning.md
 docs/operations/
 !docs/operations/
 docs/operations/*
@@ -89,3 +92,4 @@ benchmarks/evidence/sprint-9/*.ndjson
 !benchmarks/evidence/sprint-11/qualification-summary.json
 !benchmarks/evidence/sprint-11/evidence-manifest.json
 !benchmarks/evidence/sprint-11/release-decision.json
+docs/branding/velo-brand-positioning.md
