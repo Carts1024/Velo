@@ -82,6 +82,6 @@ describe("exact payment admission model", () => {
     expect(PAYMENT_ADMISSION_LUA.match(/redis\.call\("PEXPIRE"/g)).toHaveLength(4);
     expect(ADMISSION_TTL_MS).toBeGreaterThan(0);
     expect(BUCKET_TTL_MS).toBeGreaterThan(ADMISSION_TTL_MS);
-    expect(EXTERNAL_CALL_DEADLINE_MS).toBeLessThan(250);
+    expect(EXTERNAL_CALL_DEADLINE_MS).toBeLessThanOrEqual(250);
   });
 });

@@ -86,9 +86,13 @@ export function completeRequestTelemetry<T extends Response>(
       .map((stage) => `${stage.name};dur=${formatDuration(stage.durationMs)}`),
   ];
 
+  const serverTiming = entries.join(", ");
   response.headers.set("X-Correlation-Id", telemetry.correlationId);
   response.headers.set("X-Request-Id", telemetry.correlationId);
-  response.headers.set("Server-Timing", entries.join(", "));
+  response.headers.set("Server-Timing", serverTiming);
+  // Some deployment proxies remove the standards-based header. Keep it for
+  // compatible runtimes and mirror the same value for deployed probes.
+  response.headers.set("X-Velo-Server-Timing", serverTiming);
   emitTelemetry({
     spanName: "velo.http.server",
     correlationId: telemetry.correlationId,

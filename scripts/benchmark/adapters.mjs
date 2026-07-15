@@ -40,6 +40,13 @@ export function parseServerTimingHeader(header) {
   return timings;
 }
 
+export function parseResponseServerTimings(headers) {
+  const standard = parseServerTimingHeader(headers.get("server-timing"));
+  if (standard.some((timing) => timing.name === "velo_total")) return standard;
+  const mirror = parseServerTimingHeader(headers.get("x-velo-server-timing"));
+  return mirror.length > 0 ? mirror : standard;
+}
+
 function splitQuotedHeaderValue(value, delimiter) {
   const parts = [];
   let current = "";
@@ -200,7 +207,7 @@ function createHttpAdapter(
             durationMs: round(endedAt - startedAt),
           },
         ],
-        dependencyTimings: parseServerTimingHeader(response.headers.get("server-timing")),
+        dependencyTimings: parseResponseServerTimings(response.headers),
         queueDepth: 0,
         eventLagMs: 0,
         ...(success

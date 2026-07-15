@@ -15,7 +15,11 @@ import {
 } from "./benchmark-gate-lib.mjs";
 import { assembleWindowReports } from "./benchmark-merge-lib.mjs";
 import { generateBenchmarkMarkdown } from "./benchmark-report-lib.mjs";
-import { createScenarioAdapter, parseServerTimingHeader } from "./benchmark/adapters.mjs";
+import {
+  createScenarioAdapter,
+  parseResponseServerTimings,
+  parseServerTimingHeader,
+} from "./benchmark/adapters.mjs";
 import {
   coldResetPayload,
   summarizeLifecycleSamples,
@@ -48,6 +52,27 @@ test("Server-Timing parsing records valid Velo dependency durations", () => {
     ],
   );
   assert.deepEqual(parseServerTimingHeader(null), []);
+});
+
+test("response timing parsing falls back to the Velo mirror when a proxy strips Server-Timing", () => {
+  assert.deepEqual(
+    parseResponseServerTimings(
+      new Headers({
+        "x-velo-server-timing": "velo_total;dur=25, redis;dur=4.5",
+      }),
+    ),
+    [
+      { name: "velo_total", durationMs: 25, controlledBy: "Velo" },
+      { name: "redis", durationMs: 4.5, controlledBy: "Velo" },
+    ],
+  );
+});
+
+test("response timing parsing retains a standard header when no mirror is available", () => {
+  assert.deepEqual(
+    parseResponseServerTimings(new Headers({ "server-timing": "redis;dur=4.5" })),
+    [{ name: "redis", durationMs: 4.5, controlledBy: "Velo" }],
+  );
 });
 
 test("control adapter executes setup, real sample, and scoped cleanup", async () => {

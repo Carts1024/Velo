@@ -34,6 +34,7 @@ test("adds correlation and safe Server-Timing fields", () => {
   assert.equal(response.headers.get("x-correlation-id"), "pay-2026-0002");
   assert.match(response.headers.get("server-timing") ?? "", /velo_total;dur=/);
   assert.match(response.headers.get("server-timing") ?? "", /convex\.action;dur=12\.35/);
+  assert.equal(response.headers.get("x-velo-server-timing"), response.headers.get("server-timing"));
 });
 
 test("route completion exports the inbound trace and replay link", () => {
