@@ -3,9 +3,9 @@ import crypto from "crypto";
 import { assertValidPublicKey, Keypair, WebAuth } from "@repo/stellar";
 
 import { stellarConfig } from "../config/stellar.ts";
+import { WALLET_AUTH_KEY_ID } from "./wallet-auth-constants.ts";
 
 const APPLICATION_ID = "velo-web";
-const KEY_ID = "velo-wallet-auth-v1";
 const TOKEN_TTL_SECONDS = 60 * 60;
 const CHALLENGE_TTL_SECONDS = 5 * 60;
 
@@ -122,7 +122,7 @@ export function verifyWalletChallenge(input: { address: string; challenge: strin
 
 export function createWalletJwt(address: string) {
   const now = Math.floor(Date.now() / 1000);
-  const header = base64Url(JSON.stringify({ alg: "ES256", kid: KEY_ID, typ: "JWT" }));
+  const header = base64Url(JSON.stringify({ alg: "ES256", kid: WALLET_AUTH_KEY_ID, typ: "JWT" }));
   const payload = base64Url(
     JSON.stringify({
       iss: issuer(),
@@ -145,7 +145,7 @@ export function walletJwks() {
     keys: [
       {
         ...key,
-        kid: KEY_ID,
+        kid: WALLET_AUTH_KEY_ID,
         alg: "ES256",
         use: "sig",
       },

@@ -79,6 +79,12 @@ test("wallet JWT signing accepts an environment-provided P-256 private key", () 
   try {
     const token = createWalletJwt(Keypair.random().publicKey());
     assert.equal(token.split(".").length, 3);
+    const [encodedHeader] = token.split(".");
+    const header = JSON.parse(Buffer.from(encodedHeader!, "base64url").toString("utf8")) as {
+      kid?: string;
+    };
+    assert.equal(header.kid, "velo-wallet-auth-v2");
+    assert.equal(walletJwks().keys[0]?.kid, "velo-wallet-auth-v2");
     assert.equal(walletJwks().keys[0]?.crv, "P-256");
   } finally {
     restoreEnv("VELO_AUTH_JWT_PRIVATE_KEY_PEM", previousJwtKey);

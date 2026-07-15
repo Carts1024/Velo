@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as authConfig from "../authConfig.js";
 import type * as contractEventPolling from "../contractEventPolling.js";
 import type * as contract_events_helpers from "../contract_events/helpers.js";
 import type * as contract_events_mutation from "../contract_events/mutation.js";
@@ -91,6 +92,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  authConfig: typeof authConfig;
   contractEventPolling: typeof contractEventPolling;
   "contract_events/helpers": typeof contract_events_helpers;
   "contract_events/mutation": typeof contract_events_mutation;
