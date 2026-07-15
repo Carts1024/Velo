@@ -1,5 +1,4 @@
-import { defineSchema, defineTable } from "convex/server";
-import { v } from "convex/values";
+import { defineSchema } from "convex/server";
 
 import apiKeys from "./api_keys/schema";
 import contractEvents from "./contract_events/schema";
@@ -53,10 +52,4 @@ export default defineSchema({
   providerOperations,
   rateLimitBuckets,
   webhookDomainEvents,
-  tasks: defineTable({
-    todo: v.string(),
-    completed: v.boolean(),
-    createdAt: v.number(), // Unix timestamp
-    updatedAt: v.number(),
-  }).index("by_completed", ["completed"]),
 });

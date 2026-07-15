@@ -1,5 +1,13 @@
 # Velo Convex Backend Operating Notes
 
+## Tests
+
+All backend tests live in [`tests`](tests). Keep new `*.test.ts` files there so deployable Convex
+modules remain separate from test code. Tests using `convex-test` load the backend with
+`import.meta.glob("../**/*.ts")` because the test directory is one level below the Convex root.
+
+Run the suite from the repository root with `pnpm --filter @repo/backend test`.
+
 ## Sprint 8 reliability services
 
 Financial provider calls are owned by `providerOperations`; payment RPC uncertainty is owned by
@@ -8,7 +16,7 @@ merchant notifications use immutable `webhookDomainEvents` plus fenced `webhookD
 Together these provide **exactly-once observable transitions**, not exactly-once transport.
 
 Provider and payment workers use indexed pages of at most 100 and continuation scheduling. The
-capacity contract is covered by [`10,000 reconciliation jobs drain in exactly 100 bounded pages`](durableReliability.test.ts). Provider lease fencing is covered by [`lease fencing rejects stale completion and ambiguous trades cannot resubmit`](durableReliability.test.ts).
+capacity contract is covered by [`10,000 reconciliation jobs drain in exactly 100 bounded pages`](tests/durableReliability.test.ts). Provider lease fencing is covered by [`lease fencing rejects stale completion and ambiguous trades cannot resubmit`](tests/durableReliability.test.ts).
 
 Public payment REST routes call one `payment_intents.public_api` action. The action authorizes,
 admits both the API-key and project quota, then invokes one internal read or write. Projects use the
@@ -29,17 +37,17 @@ re-register active PDAX projects with `settlement.actions.registerWebhook({ proj
 
 Use authenticated provider-operation queries and `provider_operations.mutations.redrive` for
 operator recovery. Redrive preserves the original request fingerprint/provider UUID; an ambiguous
-trade must not become a new submission. This invariant is covered by [`lease fencing rejects stale completion and ambiguous trades cannot resubmit`](durableReliability.test.ts).
+trade must not become a new submission. This invariant is covered by [`lease fencing rejects stale completion and ambiguous trades cannot resubmit`](tests/durableReliability.test.ts).
 
 ## Webhook delivery
 
 Canonical payment and settlement mutations enqueue `internal.webhookDelivery.trigger` after the
 transaction commits. Immutable domain events deduplicate deliveries per endpoint/schema version,
-and lease token/generation fencing rejects stale workers. This is covered by [`duplicate delivery triggers share one fenced delivery`](durableReliability.test.ts).
+and lease token/generation fencing rejects stale workers. This is covered by [`duplicate delivery triggers share one fenced delivery`](tests/durableReliability.test.ts).
 
 Network failures, HTTP 408/429, and 5xx responses retry at most five times with bounded jitter and
 `Retry-After` support. Terminal retryable failure sets `deadLetter: true`; authenticated replay
-reuses the durable record. Evidence: [`webhook delivery retry and backoff lifecycle`](webhookDelivery.test.ts) and [`webhook retry scheduling honors Retry-After for retryable endpoint failures`](webhookDelivery.test.ts).
+reuses the durable record. Evidence: [`webhook delivery retry and backoff lifecycle`](tests/webhookDelivery.test.ts) and [`webhook retry scheduling honors Retry-After for retryable endpoint failures`](tests/webhookDelivery.test.ts).
 
 The dispatcher uses an 8-second total deadline and a conservative 2-second setup abort. Queue
 timing is stored in `nextAttemptAt`/`lastAttemptAt`; endpoint latency is stored in

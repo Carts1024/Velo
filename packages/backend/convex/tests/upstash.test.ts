@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { consumeAtomicPair, refillBucket, type BucketState } from "./model";
+import { consumeAtomicPair, refillBucket, type BucketState } from "../rate_limits/model";
 import {
   ADMISSION_TTL_MS,
   API_KEY_LIMIT,
@@ -8,7 +8,7 @@ import {
   EXTERNAL_CALL_DEADLINE_MS,
   PAYMENT_ADMISSION_LUA,
   PROJECT_LIMIT,
-} from "./upstash";
+} from "../rate_limits/upstash";
 
 describe("exact payment admission model", () => {
   test("admits exactly 200 of 201 simultaneous API-key requests without partial project consumption", () => {

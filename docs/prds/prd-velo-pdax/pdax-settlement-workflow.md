@@ -32,7 +32,7 @@ sequenceDiagram
 ```
 
 Exact replays observe the existing row; changed payloads conflict. Reservation convergence is
-covered by [`100 concurrent reservations produce one durable provider operation`](../../../packages/backend/convex/durableReliability.test.ts). Lease fencing and the rule that ambiguous trades are never automatically resubmitted are covered by [`lease fencing rejects stale completion and ambiguous trades cannot resubmit`](../../../packages/backend/convex/durableReliability.test.ts).
+covered by [`100 concurrent reservations produce one durable provider operation`](../../../packages/backend/convex/tests/durableReliability.test.ts). Lease fencing and the rule that ambiguous trades are never automatically resubmitted are covered by [`lease fencing rejects stale completion and ambiguous trades cannot resubmit`](../../../packages/backend/convex/tests/durableReliability.test.ts).
 
 Action results are `succeeded` with data, `in_progress` with `retryAfterMs`, or
 `recovery_required`, always with `operationId`. The UI must retain its idempotency key until the
@@ -60,7 +60,7 @@ after deploying the Convex endpoint.
 
 Velo emits v1 signed settlement/provider events. Immutable domain-event identity plus a unique
 `(event, endpoint, schemaVersion)` delivery key gives exactly-once observable delivery transitions
-while transport remains at-least-once. Evidence: [`duplicate delivery triggers share one fenced delivery`](../../../packages/backend/convex/durableReliability.test.ts) and [`webhook delivery retry and backoff lifecycle`](../../../packages/backend/convex/webhookDelivery.test.ts).
+while transport remains at-least-once. Evidence: [`duplicate delivery triggers share one fenced delivery`](../../../packages/backend/convex/tests/durableReliability.test.ts) and [`webhook delivery retry and backoff lifecycle`](../../../packages/backend/convex/tests/webhookDelivery.test.ts).
 
 Sprint 8 contains deterministic automated evidence only. It has no live SLO qualification and no
 production availability evidence.

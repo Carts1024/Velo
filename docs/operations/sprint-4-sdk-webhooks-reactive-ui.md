@@ -180,7 +180,7 @@ Relevant tests in the current worktree:
 
 - [`packages/velo-sdk/src/client.test.ts`](../../packages/velo-sdk/src/client.test.ts): SDK timeout typing, caller abort preservation, provider error mapping, correlation header, `Retry-After`, idempotent retry, and submission-unknown behavior.
 - [`packages/velo-sdk/src/webhooks.test.ts`](../../packages/velo-sdk/src/webhooks.test.ts): webhook signature verification.
-- [`packages/backend/convex/webhookDelivery.test.ts`](../../packages/backend/convex/webhookDelivery.test.ts): webhook retry lifecycle, dead-letter marking, `Retry-After`, and correlation ID preservation.
+- [`packages/backend/convex/tests/webhookDelivery.test.ts`](../../packages/backend/convex/tests/webhookDelivery.test.ts): webhook retry lifecycle, dead-letter marking, `Retry-After`, and correlation ID preservation.
 
 Suggested focused verification:
 
@@ -203,4 +203,3 @@ These commands verify functional behavior. They do not produce the SDK overhead,
 | UI updates without manual refresh and meets locked p95 | Checkout and webhook views use Convex reactive subscriptions. | No backend-write-to-render measurement or p95 report is present. |
 | Reconnect restores authoritative state | Convex subscriptions reconcile after reconnect, and browser offline copy tells users to wait for authoritative state. | No subscription reconnect test or backend subscription-health indicator is present. Browser offline status is not backend subscription health. |
 | Signing, durability, idempotency, and compatibility remain intact | Webhook signatures, durable records, stable IDs, and retry/dead-letter tests are present. SDK idempotent retry tests are present. | Replay compatibility and duplicate delivery behavior still need broader regression/load evidence. |
-

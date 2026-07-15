@@ -2,10 +2,10 @@
 import { convexTest } from "convex-test";
 import { expect, test, vi } from "vitest";
 
-import { api, internal } from "./_generated/api";
-import schema from "./schema";
+import { api, internal } from "../_generated/api";
+import schema from "../schema";
 
-const modules = import.meta.glob("./**/*.ts");
+const modules = import.meta.glob("../**/*.ts");
 
 // Mock @repo/stellar functions
 vi.mock("@repo/stellar", () => {

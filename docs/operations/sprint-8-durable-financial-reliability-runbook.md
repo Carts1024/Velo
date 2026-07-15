@@ -41,7 +41,7 @@ depending on the new ingress. Strict callback shape behavior is covered by
 6. Verify the old Next route returns 410 and the Convex route rejects missing tokens.
 
 The bounded-page invariant is covered by
-[`10,000 reconciliation jobs drain in exactly 100 bounded pages`](../../packages/backend/convex/durableReliability.test.ts).
+[`10,000 reconciliation jobs drain in exactly 100 bounded pages`](../../packages/backend/convex/tests/durableReliability.test.ts).
 
 ## Triage and recovery
 
@@ -57,8 +57,8 @@ The bounded-page invariant is covered by
 | REST route returns 429                | Rate-limit headers                                            | Honor `Retry-After`; do not bypass the Convex token bucket.                       |
 
 Trade no-resubmission and stale-lease protection are covered by
-[`lease fencing rejects stale completion and ambiguous trades cannot resubmit`](../../packages/backend/convex/durableReliability.test.ts). Delivery replay/backoff is covered by
-[`webhook delivery retry and backoff lifecycle`](../../packages/backend/convex/webhookDelivery.test.ts).
+[`lease fencing rejects stale completion and ambiguous trades cannot resubmit`](../../packages/backend/convex/tests/durableReliability.test.ts). Delivery replay/backoff is covered by
+[`webhook delivery retry and backoff lifecycle`](../../packages/backend/convex/tests/webhookDelivery.test.ts).
 
 ## Evidence commands
 
@@ -72,11 +72,11 @@ pnpm --filter @repo/backend exec tsc -p convex/tsconfig.json --noEmit
 
 Acceptance evidence names:
 
-- Reservation/idempotency: [`100 concurrent %s reservations produce one operation and one submission claim`](../../packages/backend/convex/durableReliability.test.ts) (Vitest expands `%s` for trade and fiat withdrawal)
-- Lease fencing/no trade resubmit: [`lease fencing rejects stale completion and ambiguous trades cannot resubmit`](../../packages/backend/convex/durableReliability.test.ts)
-- Distributed limiter: [`distributed rate limits are shared by concurrent callers`](../../packages/backend/convex/durableReliability.test.ts)
-- Delivery identity/fencing: [`duplicate delivery triggers share one fenced delivery`](../../packages/backend/convex/durableReliability.test.ts)
-- Backlog capacity: [`10,000 reconciliation jobs drain in exactly 100 bounded pages`](../../packages/backend/convex/durableReliability.test.ts)
+- Reservation/idempotency: [`100 concurrent %s reservations produce one operation and one submission claim`](../../packages/backend/convex/tests/durableReliability.test.ts) (Vitest expands `%s` for trade and fiat withdrawal)
+- Lease fencing/no trade resubmit: [`lease fencing rejects stale completion and ambiguous trades cannot resubmit`](../../packages/backend/convex/tests/durableReliability.test.ts)
+- Distributed limiter: [`distributed rate limits are shared by concurrent callers`](../../packages/backend/convex/tests/durableReliability.test.ts)
+- Delivery identity/fencing: [`duplicate delivery triggers share one fenced delivery`](../../packages/backend/convex/tests/durableReliability.test.ts)
+- Backlog capacity: [`10,000 reconciliation jobs drain in exactly 100 bounded pages`](../../packages/backend/convex/tests/durableReliability.test.ts)
 - PDAX strict parsing: [`rejects malformed and stale webhook shapes`](../../packages/pdax/src/client.test.ts)
 - SDK version/signature ordering: [`verifyWebhookSignature verifies HMAC before rejecting unsupported versions`](../../packages/velo-sdk/src/webhooks.test.ts)
 

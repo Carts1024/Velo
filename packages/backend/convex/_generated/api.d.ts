@@ -8,6 +8,8 @@
  * @module
  */
 
+import type * as authConfig from "../authConfig.js";
+import type * as contractEventPolling from "../contractEventPolling.js";
 import type * as contract_events_helpers from "../contract_events/helpers.js";
 import type * as contract_events_mutation from "../contract_events/mutation.js";
 import type * as contract_events_query from "../contract_events/query.js";
@@ -61,7 +63,6 @@ import type * as settlement_quotes_query from "../settlement_quotes/query.js";
 import type * as settlement_transactions_mutation from "../settlement_transactions/mutation.js";
 import type * as settlement_transactions_query from "../settlement_transactions/query.js";
 import type * as sprint8_migrations from "../sprint8_migrations.js";
-import type * as tasks from "../tasks.js";
 import type * as telemetry_outbox_actions from "../telemetry_outbox/actions.js";
 import type * as telemetry_outbox_gauges from "../telemetry_outbox/gauges.js";
 import type * as telemetry_outbox_helpers from "../telemetry_outbox/helpers.js";
@@ -87,6 +88,7 @@ import type * as webhookDelivery from "../webhookDelivery.js";
 import type { ApiFromModules, FilterApi, FunctionReference } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  authConfig: typeof authConfig;
   contractEventPolling: typeof contractEventPolling;
   "contract_events/helpers": typeof contract_events_helpers;
   "contract_events/mutation": typeof contract_events_mutation;
@@ -140,7 +142,6 @@ declare const fullApi: ApiFromModules<{
   "settlement_transactions/mutation": typeof settlement_transactions_mutation;
   "settlement_transactions/query": typeof settlement_transactions_query;
   sprint8_migrations: typeof sprint8_migrations;
-  tasks: typeof tasks;
   "telemetry_outbox/actions": typeof telemetry_outbox_actions;
   "telemetry_outbox/gauges": typeof telemetry_outbox_gauges;
   "telemetry_outbox/helpers": typeof telemetry_outbox_helpers;

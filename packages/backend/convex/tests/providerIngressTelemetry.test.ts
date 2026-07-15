@@ -3,9 +3,9 @@ import { convexTest } from "convex-test";
 import { makeFunctionReference } from "convex/server";
 import { expect, test } from "vitest";
 
-import schema from "./schema";
+import schema from "../schema";
 
-const modules = import.meta.glob("./**/*.ts");
+const modules = import.meta.glob("../**/*.ts");
 const ingest = makeFunctionReference<"mutation">("provider_events/mutation:ingestPdax");
 
 test("new provider ingress stores only typed summary and safe trace context", async () => {

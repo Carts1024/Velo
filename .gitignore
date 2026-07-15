@@ -79,6 +79,9 @@ docs/references/*
 !docs/references/sprint-11-comparative-throughput-qualification-report.md
 
 # Sprint 9 keeps compact evidence metadata in Git. Raw captures remain ignored/external.
+.stellar/
+benchmarks/local-results/
+benchmarks/reports/*.ndjson
 benchmarks/evidence/
 !benchmarks/evidence/
 benchmarks/evidence/*
