@@ -2,7 +2,11 @@ import { Redis } from "@upstash/redis";
 
 import { env } from "../_generated/server";
 
-export const EXTERNAL_CALL_DEADLINE_MS = 175;
+// Same-region Redis is normally single-digit milliseconds, but the first REST
+// request after an idle period can include connection/serverless wake-up cost.
+// Keep a strict cap while allowing that measured cold path to complete within
+// the 350 ms create p95 budget.
+export const EXTERNAL_CALL_DEADLINE_MS = 250;
 export const ADMISSION_TTL_MS = 2 * 60 * 1_000;
 export const BUCKET_TTL_MS = 10 * 60 * 1_000;
 
