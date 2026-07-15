@@ -20,18 +20,10 @@ function base64Url(input: Buffer | string) {
 function hmacSecret() {
   const secret =
     process.env.VELO_AUTH_CHALLENGE_SECRET || process.env.VELO_AUTH_JWT_PRIVATE_KEY_PEM;
-  if (secret) {
-    return secret;
-  }
-  if (process.env.VERCEL_ENV === "production" || process.env.NODE_ENV === "production") {
+  if (!secret) {
     throw new Error("VELO_AUTH_CHALLENGE_SECRET or VELO_AUTH_JWT_PRIVATE_KEY_PEM is required");
   }
-
-  return (
-    process.env.VELO_AUTH_CHALLENGE_SECRET ??
-    process.env.VELO_AUTH_JWT_PRIVATE_KEY_PEM ??
-    "velo-local-auth-secret"
-  );
+  return secret;
 }
 
 function issuer() {
@@ -40,20 +32,10 @@ function issuer() {
 
 function privateKeyPem() {
   const pem = process.env.VELO_AUTH_JWT_PRIVATE_KEY_PEM?.replace(/\\n/g, "\n");
-  if (pem) {
-    return pem;
-  }
-  if (process.env.VERCEL_ENV === "production" || process.env.NODE_ENV === "production") {
+  if (!pem) {
     throw new Error("VELO_AUTH_JWT_PRIVATE_KEY_PEM is required");
   }
-
-  return [
-    "-----BEGIN EC PRIVATE KEY-----",
-    "MHcCAQEEIMlcs4tEeW4H9KISg5EW4O55+xM3qQTY7Lg2EvHL2WmdoAoGCCqGSM49",
-    "AwEHoUQDQgAEO1B3zpvZVQoCL2xzlHlHSxS+4yhNdFgE4of5Hk+7d5OFMvhrO8Mx",
-    "aBmCAozz9rHMh7JKxRJT4Vd5T8b20VugNg==",
-    "-----END EC PRIVATE KEY-----",
-  ].join("\n");
+  return pem;
 }
 
 function serverKeypair() {

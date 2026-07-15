@@ -61,7 +61,6 @@ import type * as settlement_quotes_query from "../settlement_quotes/query.js";
 import type * as settlement_transactions_mutation from "../settlement_transactions/mutation.js";
 import type * as settlement_transactions_query from "../settlement_transactions/query.js";
 import type * as sprint8_migrations from "../sprint8_migrations.js";
-import type * as tasks from "../tasks.js";
 import type * as telemetry_outbox_actions from "../telemetry_outbox/actions.js";
 import type * as telemetry_outbox_gauges from "../telemetry_outbox/gauges.js";
 import type * as telemetry_outbox_helpers from "../telemetry_outbox/helpers.js";
@@ -145,7 +144,6 @@ declare const fullApi: ApiFromModules<{
   "settlement_transactions/mutation": typeof settlement_transactions_mutation;
   "settlement_transactions/query": typeof settlement_transactions_query;
   sprint8_migrations: typeof sprint8_migrations;
-  tasks: typeof tasks;
   "telemetry_outbox/actions": typeof telemetry_outbox_actions;
   "telemetry_outbox/gauges": typeof telemetry_outbox_gauges;
   "telemetry_outbox/helpers": typeof telemetry_outbox_helpers;
