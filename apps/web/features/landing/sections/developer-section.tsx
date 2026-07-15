@@ -7,15 +7,17 @@ const infrastructureSnippet = [
   'import { Velo } from "@carts1024/velo-sdk";',
   "",
   "const velo = new Velo({",
-  '  apiKey: "tk_live_f382a9d821...",',
+  "  apiKey: process.env.VELO_API_KEY!,",
+  '  environment: "testnet",',
   "});",
   "",
-  "// Create a hosted payment checkout session",
+  "// Create a hosted Velo Pay checkout session",
   "const session = await velo.checkout.sessions.create({",
-  '  amount: "45.00",',
-  '  asset: "USDC", // SEP-41 Stellar Asset Contract',
-  '  description: "Developer Plan Subscription",',
-  '  redirectUrl: "https://yourdomain.com/success",',
+  '  amount: "10.00",',
+  '  asset: "USDC",',
+  '  description: "Order #1001",',
+  '  successUrl: "https://example.com/success",',
+  '  cancelUrl: "https://example.com/cancel",',
   "});",
   "",
   "console.log(`Pay at: ${session.checkoutUrl}`);",
@@ -31,36 +33,43 @@ export function DeveloperSection() {
   };
 
   return (
-    <section className="py-24 px-6 bg-zinc-950 text-zinc-50 border-b border-zinc-900 relative">
+    <section
+      id="velo-pay"
+      className="py-24 px-6 bg-zinc-950 text-zinc-50 border-b border-zinc-900 relative"
+    >
       <div className="max-w-7xl mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
           {/* Text Content */}
           <div className="lg:col-span-5 flex flex-col gap-6">
             <h2 className="text-zinc-500 font-mono text-xs uppercase tracking-widest">
-              Developer Infrastructure
+              Start with Velo Pay
             </h2>
             <h3 className="text-3xl md:text-5xl font-bold tracking-tight mb-2">
-              Tools for the full Stellar app lifecycle.
+              A payment workflow that stays connected to your application.
             </h3>
             <p className="text-zinc-400 text-sm leading-relaxed font-light">
-              Velo is the infrastructure layer around your Stellar app: typed SDK helpers, automated
-              payment workflows, on-chain project verification, and real-time webhook delivery.
+              Use Velo&apos;s server-side SDK to create a hosted checkout, track ledger-verified
+              payment state, and carry the outcome back into your application.
             </p>
 
             <ul className="flex flex-col gap-3 font-light text-zinc-300 text-sm mt-2">
               <li className="flex items-center gap-3">
                 <CheckCircle2 size={16} className="text-zinc-400 shrink-0" />
-                <span>Create and verify Stellar project infrastructure</span>
+                <span>Create hosted payment sessions from your backend</span>
               </li>
               <li className="flex items-center gap-3">
                 <CheckCircle2 size={16} className="text-zinc-400 shrink-0" />
-                <span>Connect event, webhook, and debugger workflows</span>
+                <span>Verify payment state against Stellar ledger data</span>
               </li>
               <li className="flex items-center gap-3">
                 <CheckCircle2 size={16} className="text-zinc-400 shrink-0" />
-                <span>Generate payment links and checkout sessions with the Velo SDK</span>
+                <span>Deliver signed payment events with retries and logs</span>
               </li>
             </ul>
+
+            <p className="font-mono text-xs leading-relaxed text-zinc-500">
+              Code-complete Alpha for Stellar Testnet · End-to-end validation pending
+            </p>
           </div>
 
           {/* Code Window Mock */}
@@ -77,7 +86,7 @@ export function DeveloperSection() {
                   <div className="w-2.5 h-2.5 rounded-full bg-zinc-600 shrink-0" />
                   <span className="text-[10px] text-zinc-500 ml-3 flex items-center gap-1.5 truncate">
                     <Terminal size={12} className="text-zinc-600 shrink-0" />
-                    infrastructure/project-workflow.ts
+                    testnet/velo-pay.ts
                   </span>
                 </div>
                 <button
