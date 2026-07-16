@@ -1,18 +1,21 @@
-import express from "express";
 import { Velo } from "@carts1024/velo-sdk";
 import dotenv from "dotenv";
+import express from "express";
+
+import { isCheckoutAnchor, requireApiKeyForAnchor, type CheckoutAnchor } from "./config.ts";
 
 dotenv.config();
 
 const app = express();
 const port = process.env.PORT || 3001;
 
-// Initialize Velo SDK
-const velo = new Velo({
-  apiKey: process.env.VELO_API_KEY || "tk_test_placeholder_key",
-  environment: (process.env.VELO_ENV as "testnet" | "production" | "development") || "testnet",
-  baseUrl: process.env.VELO_BASE_URL,
-});
+function createVeloClient(anchor: CheckoutAnchor) {
+  return new Velo({
+    apiKey: requireApiKeyForAnchor(anchor),
+    environment: (process.env.VELO_ENV as "testnet" | "production" | "development") || "testnet",
+    baseUrl: process.env.VELO_BASE_URL,
+  });
+}
 
 // JSON body parser for normal routes
 app.use(express.json());
@@ -21,7 +24,13 @@ app.use(express.json());
 app.post("/api/checkout", async (req, res) => {
   try {
     const asset = req.body?.asset || "USDC";
-    const anchor = req.body?.anchor; // optional: "inhouse" | "pdax"
+    const anchor = req.body?.anchor;
+    if (!isCheckoutAnchor(anchor)) {
+      res.status(400).json({ error: 'The checkout anchor must be either "inhouse" or "pdax".' });
+      return;
+    }
+
+    const velo = createVeloClient(anchor);
     const session = await velo.checkout.sessions.create(
       {
         amount: "10.00",
@@ -33,7 +42,7 @@ app.post("/api/checkout", async (req, res) => {
       },
       {
         idempotencyKey: `order-1001-${asset.toLowerCase()}-${Date.now()}`,
-      }
+      },
     );
 
     res.status(201).json({ checkoutUrl: session.checkoutUrl });
