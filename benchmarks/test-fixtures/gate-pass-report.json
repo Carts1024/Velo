@@ -1,0 +1,17 @@
+{
+  "baseline": { "payment-intent-create": { "latencyMs": { "p95": 25 } } },
+  "runs": [
+    {
+      "status": "captured", "manifestVersion": 2, "scenario": "payment-intent-create", "scenarioVersion": 2, "profile": "normal", "window": "morning", "mode": "capture", "runId": "gate-morning", "revision": "fixture-revision", "capturedAt": "2026-07-13T01:00:00.000Z", "region": "fixture", "runtime": "node", "network": "testnet", "dependencyVersions": "fixture", "dependencyEndpoints": "fixture", "payloadIdentity": "fixture", "datasetIdentity": "fixture",
+      "workload": { "requestedSamples": 1000, "attemptedSamples": 1000, "successfulSamples": 1000, "concurrency": 25, "timeoutMs": 1000, "targetRequestsPerSecond": 10 }, "attemptedSamples": 1000, "successfulSamples": 1000, "errorSamples": 0, "throughput": { "attemptedPerSecond": 10, "successfulPerSecond": 10 }, "errorTaxonomy": { "timeout": 0, "http_4xx": 0, "http_5xx": 0, "http_5xx_503": 0, "network": 0, "unknown": 0 }, "http503": { "count": 0, "attributedCount": 0, "unattributedCount": 0, "byDependency": {} }, "latencyMs": { "p50": 10, "p95": 20, "p99": 30 }, "samples": []
+    },
+    {
+      "status": "captured", "manifestVersion": 2, "scenario": "payment-intent-create", "scenarioVersion": 2, "profile": "normal", "window": "afternoon", "mode": "capture", "runId": "gate-afternoon", "revision": "fixture-revision", "capturedAt": "2026-07-13T05:00:00.000Z", "region": "fixture", "runtime": "node", "network": "testnet", "dependencyVersions": "fixture", "dependencyEndpoints": "fixture", "payloadIdentity": "fixture", "datasetIdentity": "fixture",
+      "workload": { "requestedSamples": 1000, "attemptedSamples": 1000, "successfulSamples": 1000, "concurrency": 25, "timeoutMs": 1000, "targetRequestsPerSecond": 10 }, "attemptedSamples": 1000, "successfulSamples": 1000, "errorSamples": 0, "throughput": { "attemptedPerSecond": 10, "successfulPerSecond": 10 }, "errorTaxonomy": { "timeout": 0, "http_4xx": 0, "http_5xx": 0, "http_5xx_503": 0, "network": 0, "unknown": 0 }, "http503": { "count": 0, "attributedCount": 0, "unattributedCount": 0, "byDependency": {} }, "latencyMs": { "p50": 10, "p95": 20, "p99": 30 }, "samples": []
+    },
+    {
+      "status": "captured", "manifestVersion": 2, "scenario": "payment-intent-create", "scenarioVersion": 2, "profile": "normal", "window": "evening", "mode": "capture", "runId": "gate-evening", "revision": "fixture-revision", "capturedAt": "2026-07-13T09:00:00.000Z", "region": "fixture", "runtime": "node", "network": "testnet", "dependencyVersions": "fixture", "dependencyEndpoints": "fixture", "payloadIdentity": "fixture", "datasetIdentity": "fixture",
+      "workload": { "requestedSamples": 1000, "attemptedSamples": 1000, "successfulSamples": 1000, "concurrency": 25, "timeoutMs": 1000, "targetRequestsPerSecond": 10 }, "attemptedSamples": 1000, "successfulSamples": 1000, "errorSamples": 0, "throughput": { "attemptedPerSecond": 10, "successfulPerSecond": 10 }, "errorTaxonomy": { "timeout": 0, "http_4xx": 0, "http_5xx": 0, "http_5xx_503": 0, "network": 0, "unknown": 0 }, "http503": { "count": 0, "attributedCount": 0, "unattributedCount": 0, "byDependency": {} }, "latencyMs": { "p50": 10, "p95": 20, "p99": 30 }, "samples": []
+    }
+  ]
+}

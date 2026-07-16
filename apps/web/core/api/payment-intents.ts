@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 
 const API_KEY_PATTERN = /^tk_live_[a-f0-9]{32}$/;
 export const PAYMENT_INTENT_STATUSES = [
+  "awaiting_route",
   "created",
   "pending",
   "paid",
@@ -39,6 +40,7 @@ type CreatePaymentIntentBody = {
   description?: string;
   successUrl?: string;
   cancelUrl?: string;
+  anchor?: string;
 };
 
 export function getApiKeyHashOrError(request: { headers: Headers }) {
@@ -109,6 +111,93 @@ export function publicPaymentIntentFromDoc(intent: PublicPaymentIntentDoc, appUr
   };
 }
 
+export type PublicPaymentIntentDocV2 = PublicPaymentIntentDoc & {
+  correlationId?: string;
+  traceparent?: string;
+  anchor?: "inhouse" | "pdax";
+  receiverAddress?: string;
+  receiverMemo?: string;
+  anchorDepositCurrency?: string;
+  payerAddress?: string;
+  stageTimestamps?: {
+    created: number;
+    routeReady?: number;
+    routeFailed?: number;
+    awaiting_signature?: number;
+    signed?: number;
+    submitted?: number;
+    submissionReported?: number;
+    observed?: number;
+    confirmed?: number;
+    failed?: number;
+    cancelled?: number;
+    expired?: number;
+  };
+};
+
+export function publicPaymentIntentFromDocV2(intent: PublicPaymentIntentDocV2, appUrl: string) {
+  const paymentIntentId = intent._id;
+  return {
+    id: paymentIntentId,
+    object: "payment_intent" as const,
+    paymentIntentId,
+    correlationId: intent.correlationId ?? null,
+    status: intent.status,
+    amount: intent.amount,
+    asset: intent.asset,
+    description: intent.description ?? null,
+    checkoutUrl: `${appUrl}/pay/${paymentIntentId}`,
+    successUrl: intent.successUrl ?? null,
+    cancelUrl: intent.cancelUrl ?? null,
+    anchor: intent.anchor ?? "inhouse",
+    receiverAddress: intent.receiverAddress ?? null,
+    receiverMemo: intent.receiverMemo ?? null,
+    anchorDepositCurrency: intent.anchorDepositCurrency ?? null,
+    payerAddress: intent.payerAddress ?? null,
+    expiresAt: new Date(intent.expiresAt).toISOString(),
+    createdAt: new Date(intent.createdAt).toISOString(),
+    updatedAt: new Date(intent.updatedAt).toISOString(),
+    stageTimestamps: intent.stageTimestamps
+      ? {
+          created: new Date(intent.stageTimestamps.created).toISOString(),
+          routeReady: intent.stageTimestamps.routeReady
+            ? new Date(intent.stageTimestamps.routeReady).toISOString()
+            : null,
+          routeFailed: intent.stageTimestamps.routeFailed
+            ? new Date(intent.stageTimestamps.routeFailed).toISOString()
+            : null,
+          awaiting_signature: intent.stageTimestamps.awaiting_signature
+            ? new Date(intent.stageTimestamps.awaiting_signature).toISOString()
+            : null,
+          signed: intent.stageTimestamps.signed
+            ? new Date(intent.stageTimestamps.signed).toISOString()
+            : null,
+          submitted: intent.stageTimestamps.submitted
+            ? new Date(intent.stageTimestamps.submitted).toISOString()
+            : null,
+          submissionReported: intent.stageTimestamps.submissionReported
+            ? new Date(intent.stageTimestamps.submissionReported).toISOString()
+            : null,
+          observed: intent.stageTimestamps.observed
+            ? new Date(intent.stageTimestamps.observed).toISOString()
+            : null,
+          confirmed: intent.stageTimestamps.confirmed
+            ? new Date(intent.stageTimestamps.confirmed).toISOString()
+            : null,
+          failed: intent.stageTimestamps.failed
+            ? new Date(intent.stageTimestamps.failed).toISOString()
+            : null,
+          cancelled: intent.stageTimestamps.cancelled
+            ? new Date(intent.stageTimestamps.cancelled).toISOString()
+            : null,
+          expired: intent.stageTimestamps.expired
+            ? new Date(intent.stageTimestamps.expired).toISOString()
+            : null,
+        }
+      : null,
+  };
+}
+
 export async function parseCreatePaymentIntentBody(request: { json: () => Promise<unknown> }) {
   let body: unknown;
   try {
@@ -135,11 +224,14 @@ export async function parseCreatePaymentIntentBody(request: { json: () => Promis
   }
 
   const parsed: CreatePaymentIntentBody = { amount };
-  for (const field of ["asset", "description", "successUrl", "cancelUrl"] as const) {
+  for (const field of ["asset", "description", "successUrl", "cancelUrl", "anchor"] as const) {
     const value = body[field];
     if (value !== undefined) {
       if (typeof value !== "string") {
         return validationError(`${field} must be a string.`, field);
+      }
+      if (field === "anchor" && value !== "inhouse" && value !== "pdax") {
+        return validationError("anchor must be 'inhouse' or 'pdax'.", "anchor");
       }
       parsed[field] = value;
     }

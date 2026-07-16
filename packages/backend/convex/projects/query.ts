@@ -3,7 +3,7 @@ import { v } from "convex/values";
 import type { Doc } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
 
-import { query } from "../_generated/server";
+import { internalQuery, query } from "../_generated/server";
 import { activeContractsForProject } from "../project_contracts/helpers";
 import {
   METADATA_HASH_PATTERN,
@@ -399,5 +399,12 @@ export const verifyApiKeyAndGetProject = query({
         paymentAccessActive: project.paymentAccessActive,
       },
     };
+  },
+});
+
+export const listAll = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.db.query("projects").collect();
   },
 });

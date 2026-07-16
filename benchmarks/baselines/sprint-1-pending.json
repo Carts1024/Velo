@@ -1,0 +1,9 @@
+{
+  "status": "pending_live_capture",
+  "reason": "No reproducible live environment, fixture project, or authorized API key is available in source control. This file intentionally contains no latency claim.",
+  "requiredRuns": 3,
+  "requiredSuccessfulSamplesPerHeadlineScenario": 1000,
+  "requiredProfiles": ["idle", "normal", "growth", "cold-start", "degraded-dependency"],
+  "requiredMetadata": ["revision", "date", "region", "runtime", "network", "dependencyVersions", "payload", "sampleSize", "concurrency"],
+  "resultsPathConvention": "benchmarks/results/<utc-timestamp>-<scenario>.json"
+}

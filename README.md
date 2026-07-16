@@ -1,385 +1,337 @@
+<div align="center">
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="apps/web/public/iconv2.png" />
+  <img src="apps/web/public/iconv2-light.png" alt="Velo dotted arrow logo" width="160" />
+</picture>
 
 # Velo
 
-<p align="center">
-  <img src="apps/web/public/iconv2.png" alt="Velo logo" width="500" height="500" />
-</p>
+### Application operations for Stellar
 
-**Developer-first stablecoin payment infrastructure and verification tooling for Stellar builders.**
+**Build on Stellar. Operate with Velo.**
 
-Velo helps Stellar and Soroban teams register verified projects, link official contracts, debug transactions, monitor contract events, and accept stablecoin payments through hosted checkout on Stellar Testnet.
+Velo connects the workflows teams use to build, verify, observe, pay, and settle—without stitching the surrounding application infrastructure together from scratch.
 
-![Next.js](https://img.shields.io/badge/Next.js-16-black?style=flat-square)
-![React](https://img.shields.io/badge/React-19-149eca?style=flat-square)
-![Convex](https://img.shields.io/badge/Convex-Backend-f3b01c?style=flat-square)
-![Stellar](https://img.shields.io/badge/Stellar-Soroban-7d00ff?style=flat-square)
-![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178c6?style=flat-square)
-![Rust](https://img.shields.io/badge/Rust-Smart_Contracts-b7410e?style=flat-square)
+![Status](https://img.shields.io/badge/Status-Testnet_Alpha-18181b?style=flat-square)
+![Stellar](https://img.shields.io/badge/Stellar-Soroban-7d00ff?style=flat-square&logo=stellar&logoColor=white)
+![Next.js](https://img.shields.io/badge/Next.js-16-000000?style=flat-square&logo=next.js&logoColor=white)
+![Convex](https://img.shields.io/badge/Convex-Backend-ee342f?style=flat-square)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178c6?style=flat-square&logo=typescript&logoColor=white)
+![Rust](https://img.shields.io/badge/Rust-Soroban-dea584?style=flat-square&logo=rust&logoColor=black)
+![License](https://img.shields.io/badge/License-MIT-22c55e?style=flat-square)
 
-## What Velo Does
+[Platform guide](docs/velo-master-context.md) · [Velo Pay guide](docs/velo-pay-checkout.md) · [SDK](packages/velo-sdk/README.md) · [Deploy contracts](#-deploy-smart-contracts) · [Run locally](#-run-velo-locally)
 
-Velo packages the trust, payment, and observability workflows Stellar developers usually rebuild per app:
+</div>
 
-- Prove which contracts are official for a project.
-- Register merchant/project identity on Soroban.
-- Activate payment access through a second Soroban contract that verifies Registry state.
-- Generate hashed API keys for merchant integrations.
-- Create PaymentIntents through a developer API.
-- Send customers to hosted checkout at `/pay/[paymentIntentId]`.
-- Submit Stellar Testnet payments through connected wallets.
-- Confirm payment settlement through backend ledger verification.
-- Send signed webhooks with retry/backoff.
-- Inspect payment, transaction, contract event, and webhook logs.
+> [!IMPORTANT]
+> **Velo is alpha software for Stellar Testnet.** The checkout workflow is implemented, with live end-to-end qualification still in progress. Settlement is limited to PDAX UAT and demo flows. Mainnet readiness and production settlement are not yet claimed.
 
-## Current Status
+---
 
-As of `2026-07-01`, Velo Pay Alpha is **feature-complete at code level** and covered by focused tests. Live Testnet deployment and full end-to-end demo validation remain the main readiness gate.
+## 🧩 Why Velo
 
-Implemented:
+Building a Stellar application is only the beginning. Teams still need to prove which contracts are official, inspect live behavior, accept payments, verify settlement against the ledger, notify merchant systems, and coordinate regional payout workflows.
 
-- Stellar Testnet wallet connection through Stellar Wallets Kit.
-- Wallet-signed challenge authentication using the core SEP-10 Web Authentication cryptographic flow (with transaction envelopes, domain-binding, and timebounds), app-issued JWTs, and Convex `ownerTokenIdentifier` ownership checks.
-- Project/merchant dashboard with on-chain registration status.
-- Soroban `VeloRegistry` contract.
-- Soroban `VeloPayAccess` contract with Registry inter-contract verification.
-- Official contract add/remove management.
-- Public verification page at `/verify/[slug]`.
-- API key generation with hashed storage, labels, revocation, request count, and last-used tracking.
-- `POST /api/v1/payment-intents` with API-key auth and rate-limit headers.
-- Hosted checkout pages with `created`, `pending`, `paid`, `failed`, `expired`, and `cancelled` flows.
-- Backend payment scanner that marks payments paid only after ledger verification.
-- Checkout SDK helper and integration snippet page.
-- Signed webhooks with HMAC-SHA256, delivery logs, secret rotation, and retry/backoff.
-- Contract event monitor and bounded event polling.
-- Transaction debugger backed by Stellar RPC and Convex cache.
-- Public API rate limiting for current API routes.
+Those jobs often end up fragmented across scripts, dashboards, providers, and manual runbooks. Velo brings them into one developer-first operating layer.
 
-Still needs validation/hardening:
+## 🔁 The Velo Operating Loop
 
-- Hosted Registry and PayAccess contract IDs in Vercel/Convex envs.
-- Live Testnet dry run: register project, activate PayAccess, create PaymentIntent, pay, confirm webhook.
-- Browser wallet QA on target demo devices.
-- Distributed rate limiting across serverless instances.
-- Optional webhook dual-secret grace window after rotation.
-- Full RPC gateway and broad developer-ops analytics remain deferred.
+**Build → Verify → Observe → Pay → Settle**
 
-## Alpha Flow
+| Capability | What Velo helps you do | Alpha status |
+| --- | --- | --- |
+| 🛠️ **Build** | Connect supported Stellar operations through APIs, SDKs, project workspaces, and reusable workflows. | Implemented alpha |
+| ✅ **Verify** | Link wallet authorization and on-chain provenance to the project and contracts an owner claims as official. | Live validation pending |
+| 📡 **Observe** | Inspect Testnet transactions, monitor contract events, and review signed webhook delivery. | Live qualification pending |
+| 💳 **Pay** | Create hosted Stellar checkout flows and return ledger-verified payment state to an application. | Code-complete; E2E pending |
+| 🏦 **Settle** | Exercise supported stablecoin conversion and local payout workflows through PDAX UAT. | UAT demo only |
 
-```txt
-Developer connects wallet
-    |
-Creates Velo project / merchant profile
-    |
-Registers project on-chain with VeloRegistry
-    |
-Activates payment access with VeloPayAccess
-    |
-VeloPayAccess calls VeloRegistry.get_project(project_id)
-    |
-Developer generates API key and configures webhook
-    |
-Developer creates PaymentIntent through API or helper
-    |
-Velo returns hosted checkout URL
-    |
-Customer opens checkout and connects wallet
-    |
-Customer signs and submits Stellar Testnet payment
-    |
-Backend scanner verifies ledger status
-    |
-Velo marks PaymentIntent paid and sends payment.succeeded webhook
-```
+Start with Velo Pay, then use the wider platform as your Stellar application grows.
 
-## Architecture
+## ✨ What You Can Do Today
+
+- **Register verifiable projects** with wallet-owned identity and official contract references stored through `VeloRegistry`.
+- **Activate payment access** through `VeloPayAccess`, which checks project state through the Registry contract.
+- **Create PaymentIntents** through the Velo API or the server-side `@carts1024/velo-sdk`, with idempotency and anchor-aware routing.
+- **Send customers to hosted checkout** where they connect a wallet and submit a Stellar Testnet payment.
+- **Trust ledger evidence, not browser callbacks**: only the backend scanner can promote a payment to `paid` after verification.
+- **Deliver signed webhooks** with HMAC-SHA256 signatures, retries, secret rotation, and delivery logs.
+- **Debug transactions and monitor contracts** from the same project workspace.
+- **Demonstrate regional settlement** with PDAX UAT balances, quotes, trades, InstaPay withdrawals, callbacks, and normalized merchant events.
+
+## 👥 Who Velo Is For
+
+- Stellar and Soroban teams that need an operational layer beyond contract deployment.
+- Hackathon and early-stage builders who need a credible payment workflow quickly.
+- Merchant platforms integrating stablecoin checkout and signed payment notifications.
+- Operators validating transaction, webhook, contract, and settlement behavior.
+- Ecosystem reviewers checking project ownership and official contract provenance.
+
+## 🧭 How Velo Fits Together
 
 ```mermaid
-flowchart TD
-  Merchant[Developer / Merchant] --> Web[Next.js app: apps/web]
-  Customer[Customer] --> Checkout[Hosted checkout: /pay/:id]
-  Web --> Wallet[Stellar Wallets Kit / Freighter]
-  Checkout --> Wallet
-  Web --> Convex[Convex backend]
-  Checkout --> Convex
-  API[Next API routes] --> Convex
-  Web --> StellarPkg[packages/stellar helpers]
-  Checkout --> StellarPkg
-  StellarPkg --> Horizon[Stellar Horizon Testnet]
-  StellarPkg --> RPC[Stellar RPC Testnet]
-  Wallet --> Horizon
-  Wallet --> RPC
-  RPC --> Registry[VeloRegistry contract]
-  RPC --> PayAccess[VeloPayAccess contract]
-  PayAccess --> Registry
-  Convex --> Pollers[Convex cron pollers]
-  Pollers --> RPC
-  Convex --> Webhooks[Signed webhook delivery]
-  Webhooks --> MerchantEndpoint[Developer endpoint]
+flowchart LR
+  Merchant[Developer or merchant] --> Console[Velo console]
+  Merchant --> SDK[Velo API and SDK]
+  Customer[Customer wallet] --> Checkout[Hosted checkout]
+
+  Console --> Backend[Convex backend]
+  SDK --> Backend
+  Checkout --> Backend
+
+  Console --> Contracts[VeloRegistry and VeloPayAccess]
+  Checkout --> Stellar[Stellar Testnet]
+  Contracts --> Stellar
+  Backend --> Stellar
+
+  Backend --> Webhooks[Signed merchant webhooks]
+  Backend --> PDAX[PDAX UAT settlement]
 ```
 
-## Product Areas
+The browser can submit a payment, but it cannot declare success. Velo verifies the transaction from the backend before updating the PaymentIntent and dispatching `payment.succeeded`.
 
-### Project Verification
+## 🔗 Current Testnet Contracts
 
-- `VeloRegistry` stores project owner, metadata hash, active status, and official contract IDs.
-- Owner-only mutations use Soroban `require_auth` on-chain.
-- Dashboard syncs registration state into Convex.
-- Public verification pages expose safe project state without API keys, webhook URLs, or private logs.
+| Contract | Address | Explorer |
+| --- | --- | --- |
+| `VeloRegistry` | `CBSR5LFHR5Q2X3PO3HSMGXI43YEUYGFTHUPGNVGW6XH2VNOQUEUHIEJR` | [View on Stellar Expert](https://stellar.expert/explorer/testnet/contract/CBSR5LFHR5Q2X3PO3HSMGXI43YEUYGFTHUPGNVGW6XH2VNOQUEUHIEJR) |
+| `VeloPayAccess` | `CBHDLZYSYWETHPC6KDGH35S4SNBU5P7QWLNNDWYXJRHZMZDTQSKYVOXJ` | [View on Stellar Expert](https://stellar.expert/explorer/testnet/contract/CBHDLZYSYWETHPC6KDGH35S4SNBU5P7QWLNNDWYXJRHZMZDTQSKYVOXJ) |
 
-### Velo Pay
+These are alpha Testnet deployments and may be replaced as Velo evolves. After a redeployment,
+update this table, the application environment, and the contract-specific READMEs together.
 
-- `VeloPayAccess` activates payments only for active Registry projects.
-- PaymentIntents store amount, asset, receiver, merchant name, status, redirect URLs, payer, transaction hash, and expiry.
-- Hosted checkout builds Stellar payment transactions, asks wallet to sign, submits through Horizon, then waits for backend verification.
-- Public checkout code cannot mark an intent paid. Internal scanner marks verified payments paid after RPC lookup.
+## 🛠️ Tech Stack
 
-### Developer API
+- **Web:** Next.js 16, React 19, TypeScript 5.9, App Router, Tailwind CSS.
+- **Backend:** Convex queries, mutations, actions, crons, and wallet-challenge authentication.
+- **Stellar:** Stellar Wallets Kit, `@stellar/stellar-sdk`, Horizon, Stellar RPC, and Testnet.
+- **Smart contracts:** Rust, `soroban-sdk`, `VeloRegistry`, and `VeloPayAccess`.
+- **Developer experience:** `@carts1024/velo-sdk`, REST APIs, signed webhooks, Express and Next.js examples.
+- **Settlement:** Server-only PDAX UAT client for sandbox quotes, trades, withdrawals, and callbacks.
+- **Tooling:** pnpm workspaces, Turborepo, oxlint, oxfmt, Husky, and GitHub Actions.
 
-Current API routes:
-
-```txt
-POST /api/v1/payment-intents
-GET  /api/v1/events
-GET  /api/v1/transactions/[hash]
-GET  /api/v1/webhooks/deliveries
-```
-
-API behavior:
-
-- API keys accepted from `Authorization: Bearer` or `x-api-key`.
-- Keys are stored as SHA-256 hashes in Convex.
-- Active payment access is required before API-created PaymentIntents are authorized.
-- Current routes use in-memory key/project rate limiting and return `X-RateLimit-*` headers.
-
-### Webhooks
-
-Supported event types:
-
-```txt
-contract.event
-transaction.succeeded
-transaction.failed
-project.registered
-project.updated
-payment.created
-payment.succeeded
-payment.failed
-payment_access.activated
-```
-
-Webhook behavior:
-
-- Payloads are signed with HMAC-SHA256 in `x-velo-signature`.
-- Deliveries include `x-velo-event` and `x-velo-delivery` headers.
-- Failed automatic deliveries retry with backoff up to five attempts.
-- Endpoint signing secrets can be rotated from the project webhook UI.
-- Delivery logs track status, HTTP status, error, attempt count, response time, destination host, payload summary, and PaymentIntent ID where relevant.
-
-### Observability
-
-- Transaction debugger accepts 64-character Stellar transaction hashes.
-- Contract event monitor polls active official contract IDs.
-- Dashboard shows payment stats, recent payments, recent events, webhook health, and demo readiness.
-
-## Repository Structure
-
-```txt
-.
-|-- apps
-|   `-- web                  # Next.js 16 app, routes, features, config, public assets
-|-- packages
-|   |-- backend              # Convex schema, queries, mutations, actions, crons
-|   |-- stellar              # TypeScript Stellar SDK helpers
-|   |-- ui                   # Shared React UI components and styles
-|   `-- typescript-config    # Shared TypeScript configs
-|-- contracts
-|   |-- registry             # Rust Soroban VeloRegistry contract and tests
-|   `-- pay_access           # Rust Soroban VeloPayAccess contract and tests
-`-- docs
-    `-- prds                 # Product specs, Alpha plans, SDK docs, and status reports
-```
-
-## Tech Stack
-
-- **Frontend**: Next.js 16, React 19, TypeScript, App Router, Tailwind CSS.
-- **UI**: Shared `@repo/ui` package, lucide-react, reusable feature components.
-- **Backend**: Convex queries, mutations, actions, crons, custom JWT auth integrated with core SEP-10 challenge-response transaction validation.
-- **Blockchain**: Stellar Testnet, Soroban, Stellar RPC, Horizon, `@stellar/stellar-sdk`.
-- **Wallets**: Stellar Wallets Kit with Freighter-first Testnet flow.
-- **Smart contracts**: Rust, `soroban-sdk`, Stellar CLI.
-- **Tooling**: pnpm workspaces, Turborepo, oxlint, oxfmt, Husky.
-
-## Local Development
+## 🚀 Run Velo Locally
 
 ### Prerequisites
 
 - Node.js `>=18`.
 - pnpm `10.25.0` or compatible.
-- Rust toolchain.
-- Stellar CLI.
-- Convex account/project.
-- Funded Stellar Testnet wallet for live chain flows.
+- A Convex project.
+- Rust and the Stellar CLI for smart-contract work.
+- A funded Stellar Testnet wallet for live payment flows.
 
-### Install
+### 1. Install the workspace
+
+From the repository root:
 
 ```bash
 pnpm install
 ```
 
-### Environment
+### 2. Configure the web environment
 
-Required web environment:
+Create `apps/web/.env.local` with the core application values:
 
 ```bash
 NEXT_PUBLIC_CONVEX_URL=<convex_deployment_url>
 NEXT_PUBLIC_APP_URL=http://localhost:3000
-```
-
-Recommended Testnet environment:
-
-```bash
-NEXT_PUBLIC_CONVEX_SITE_URL=<convex_site_url>
 NEXT_PUBLIC_STELLAR_NETWORK=testnet
 NEXT_PUBLIC_STELLAR_RPC_URL=https://soroban-testnet.stellar.org
-NEXT_PUBLIC_VELO_REGISTRY_CONTRACT_ID=<deployed_registry_contract_id>
-NEXT_PUBLIC_VELO_PAY_ACCESS_CONTRACT_ID=<deployed_pay_access_contract_id>
-NEXT_PUBLIC_USDC_ISSUER=<testnet_usdc_issuer>
+NEXT_PUBLIC_VELO_REGISTRY_CONTRACT_ID=CBSR5LFHR5Q2X3PO3HSMGXI43YEUYGFTHUPGNVGW6XH2VNOQUEUHIEJR
+NEXT_PUBLIC_VELO_PAY_ACCESS_CONTRACT_ID=CBHDLZYSYWETHPC6KDGH35S4SNBU5P7QWLNNDWYXJRHZMZDTQSKYVOXJ
 ```
 
-Hosted/production guardrails:
+Authentication, backend, hosted deployment, and PDAX UAT flows require additional server-side configuration. See the [full environment reference](docs/velo-master-context.md#environment-variables) and [demo setup guide](docs/demo-setup.md).
 
-```bash
-VELO_REQUIRE_CONTRACT_IDS=true
-VELO_AUTH_JWT_PRIVATE_KEY_PEM="-----BEGIN EC PRIVATE KEY-----\n...\n-----END EC PRIVATE KEY-----"
-VELO_AUTH_CHALLENGE_SECRET=<random 32+ byte secret>
-VELO_PAY_ACCESS_CONTRACT_ID=<deployed_pay_access_contract_id>
-RATE_LIMIT_KEY_MAX=60
-RATE_LIMIT_PROJECT_MAX=100
-```
-
-Contract IDs are validated and normalized. Hosted builds require both public contract IDs when `VELO_REQUIRE_CONTRACT_IDS=true` or `VERCEL_ENV=production`.
-
-### Run Development
+### 3. Start the development workspace
 
 ```bash
 pnpm dev
 ```
 
-Web app only:
+Open [http://localhost:3000](http://localhost:3000). To run only the web app:
 
 ```bash
 pnpm --filter web dev
 ```
 
-Convex backend only:
+### 4. Try the merchant SDK
 
-```bash
-pnpm --filter @repo/backend dev
+```ts
+import { Velo } from "@carts1024/velo-sdk";
+
+const velo = new Velo({
+  apiKey: process.env.VELO_API_KEY!,
+  environment: "testnet",
+});
+
+const session = await velo.checkout.sessions.create({
+  amount: "10.00",
+  asset: "native",
+  description: "Velo Testnet checkout",
+  successUrl: "http://localhost:3000/success",
+  cancelUrl: "http://localhost:3000/cancel",
+});
+
+console.log(session.checkoutUrl);
 ```
 
-## Smart Contract Development
+Continue with the [Velo Pay checkout guide](docs/velo-pay-checkout.md), [Express example](examples/express/README.md), or [Next.js App Router example](examples/nextjs-app-router/README.md).
 
-Build Registry:
+## 🧪 Test and Validate
 
-```bash
-stellar contract build --manifest-path contracts/registry/Cargo.toml
-```
-
-Test Registry:
-
-```bash
-cd contracts/registry
-cargo test
-```
-
-Build PayAccess:
-
-```bash
-stellar contract build --manifest-path contracts/pay_access/Cargo.toml
-```
-
-Test PayAccess:
-
-```bash
-cd contracts/pay_access
-cargo test
-```
-
-After deployment, set:
-
-```bash
-NEXT_PUBLIC_VELO_REGISTRY_CONTRACT_ID=<DEPLOYED_REGISTRY_CONTRACT_ID>
-NEXT_PUBLIC_VELO_PAY_ACCESS_CONTRACT_ID=<DEPLOYED_PAY_ACCESS_CONTRACT_ID>
-VELO_PAY_ACCESS_CONTRACT_ID=<DEPLOYED_PAY_ACCESS_CONTRACT_ID>
-```
-
-## Testing and Quality
-
-Run all tests:
-
-```bash
-pnpm test
-```
-
-Run package tests:
-
-```bash
-pnpm --filter web test
-pnpm --filter @repo/backend test
-pnpm --filter @repo/stellar test
-```
-
-Run contract tests:
-
-```bash
-cd contracts/registry && cargo test
-cd contracts/pay_access && cargo test
-```
-
-Run lint, formatting, generated type steps, and TypeScript checks:
+Run the JavaScript and TypeScript quality gates from the repository root:
 
 ```bash
 pnpm lint:fix
-```
-
-Build all packages:
-
-```bash
+pnpm test
 pnpm build
 ```
 
-## Key Documentation
+Run both Soroban contract suites:
 
-- [Project status report](docs/prds/talakit-project-status-report-2026-06-29.md)
-- [Pay-prioritized Alpha spec](docs/prds/prd-talakit02026-06-26/talakit-alpha-spec-pay-prioritized.md)
-- [Original Alpha spec](docs/prds/prd-talakit02026-06-26/talakit-alpha-spec.md)
-- [SDK phase docs](docs/prds/prd-velo-sdk/sdk-phase.md)
-- [SDK sprint plan](docs/prds/prd-velo-sdk/sdk-sprint-plan.md)
-- [Registry contract README](contracts/registry/README.md)
-- [PayAccess contract README](contracts/pay_access/README.md)
-
-## Alpha Acceptance Target
-
-Alpha is demo-ready when this live Testnet path is verified:
-
-```txt
-1. Developer opens Velo.
-2. Developer connects Freighter wallet on Testnet.
-3. Developer creates a Velo project / merchant profile.
-4. Developer registers project on-chain using VeloRegistry.
-5. Developer activates payment access using VeloPayAccess.
-6. VeloPayAccess verifies project status through VeloRegistry.
-7. Developer generates API key and configures webhook.
-8. Developer creates PaymentIntent through API/snippet.
-9. Velo generates hosted payment link.
-10. Customer opens payment link.
-11. Customer connects wallet and submits Testnet payment.
-12. Velo scanner confirms ledger status and marks PaymentIntent paid.
-13. Velo sends signed payment.succeeded webhook.
-14. Developer sees payment status, metrics, and webhook delivery logs.
-15. Public verify page shows project and official contracts.
+```bash
+cargo test --manifest-path contracts/registry/Cargo.toml
+cargo test --manifest-path contracts/pay_access/Cargo.toml
 ```
 
-## License
+Build the contract WASM artifacts:
+
+```bash
+stellar contract build --manifest-path contracts/registry/Cargo.toml
+stellar contract build --manifest-path contracts/pay_access/Cargo.toml
+```
+
+## 🚢 Deploy Smart Contracts
+
+The deployment script releases both Velo contracts as an ordered, non-atomic sequence. It deploys
+`VeloRegistry` first, deploys `VeloPayAccess`, initializes PayAccess with the Registry contract ID,
+runs read-only smoke checks, and writes a deployment manifest. If a later step fails, earlier
+successful uploads or deployments remain on the network and must be recorded before retrying.
+
+> [!CAUTION]
+> Velo remains Testnet alpha software. Mainnet support in the script provides guarded deployment
+> mechanics; it does not mean the contracts have completed production security, audit, custody, or
+> operational-readiness requirements.
+
+### Prerequisites
+
+Install the [Stellar CLI](https://developers.stellar.org/docs/tools/cli) and configure a funded CLI
+identity for the target network. Pass the identity name to the script—never place a secret key or
+seed phrase in the command.
+
+For Testnet, create and fund an identity:
+
+```bash
+stellar keys add deployer
+stellar keys fund deployer --network testnet
+```
+
+### Deploy to Testnet
+
+Preview the contract test, build, deployment, initialization, and smoke-check commands without
+executing them:
+
+```bash
+pnpm contracts:deploy --network testnet --dry-run
+```
+
+Deploy both contracts:
+
+```bash
+pnpm contracts:deploy --network testnet --source deployer
+```
+
+The deployment runs both Rust contract suites and builds optimized, locked WASM artifacts by
+default. Use `--skip-tests` only if the same commit has already passed its contract tests. Use
+`--skip-build` only when the expected optimized artifacts already exist.
+
+### Deploy to Mainnet
+
+Before deploying to Mainnet, complete the security and operational checklist in the
+[contract deployment guide](contracts/README.md#mainnet). At minimum, verify the reviewed commit on
+Testnet, review authorization and storage paths, establish deployer key custody and incident
+procedures, and obtain independent peer review. High-value deployments also require an appropriate
+audit or documented risk acceptance.
+
+Preview the Mainnet plan:
+
+```bash
+pnpm contracts:deploy --network mainnet --dry-run
+```
+
+After completing the readiness checklist, deploy with the explicit Mainnet acknowledgement:
+
+```bash
+pnpm contracts:deploy \
+  --network mainnet \
+  --source production-deployer \
+  --confirm-mainnet
+```
+
+The script locks the canonical passphrase for the selected network and refuses a live Mainnet
+deployment without `--confirm-mainnet`.
+
+### Record the deployment
+
+A successful deployment writes `deployments/<network>.json`, containing the deployment time, Git
+commit, deployer public key, contract IDs, and uploaded WASM hashes. The command also prints the
+values to configure in the web and backend environments:
+
+```bash
+NEXT_PUBLIC_VELO_REGISTRY_CONTRACT_ID=<registry_contract_id>
+NEXT_PUBLIC_VELO_PAY_ACCESS_CONTRACT_ID=<pay_access_contract_id>
+VELO_PAY_ACCESS_CONTRACT_ID=<pay_access_contract_id>
+```
+
+See the [full contract deployment guide](contracts/README.md) for optional flags, safety checks, and
+manifest details.
+
+## 📦 Repository Map
+
+```text
+.
+├── apps/web                 # Next.js application, console, checkout, and public pages
+├── packages/backend         # Convex schema, functions, actions, crons, and tests
+├── packages/observability   # Shared telemetry and redaction helpers
+├── packages/pdax            # Server-only PDAX UAT client
+├── packages/stellar         # Stellar transaction and contract helpers
+├── packages/ui              # Shared React components and styles
+├── packages/velo-sdk        # Public alpha server-side SDK
+├── contracts/registry       # Soroban project registry contract
+├── contracts/pay_access     # Soroban payment-access contract
+├── examples                 # Express and Next.js merchant integrations
+└── docs                     # Product, architecture, operations, and demo documentation
+```
+
+## 📚 Documentation
+
+- [Velo master context](docs/velo-master-context.md) — product scope, trust boundaries, source map, and full environment reference.
+- [Velo Pay checkout](docs/velo-pay-checkout.md) — PaymentIntent and hosted checkout lifecycle.
+- [E2E demo guide](docs/demo-setup.md) — merchant onboarding, payment, webhook, and PDAX UAT walkthrough.
+- [Velo SDK reference](packages/velo-sdk/README.md) — client setup, payment APIs, pagination, errors, and webhook verification.
+- [Registry contract](contracts/registry/README.md) and [PayAccess contract](contracts/pay_access/README.md) — Soroban interfaces and tests.
+- [Observability architecture](docs/architecture/sprint-10-end-to-end-observability-and-redaction.md) — correlation, telemetry export, and safe redaction.
+- [Performance qualification architecture](docs/architecture/sprint-11-comparative-throughput-certification.md) — benchmark evidence and release gating.
+- [PDAX settlement workflow](docs/prds/prd-velo-pdax/pdax-settlement-workflow.md) — UAT conversion and payout design.
+
+## ⚠️ Alpha Boundaries
+
+Before evaluating Velo, keep these constraints in view:
+
+- Payment flows target Stellar Testnet.
+- The Testnet contract IDs above still require explicit configuration and validation in each hosted environment.
+- Checkout code is implemented, but the full wallet-to-webhook path still needs live rehearsal on target devices.
+- PDAX support uses UAT credentials, sandbox balances, simulated pricing/liquidity, and demo payout flows.
+- Mainnet settlement, production compliance workflows, and production custody are not implemented.
+- Public API rate limiting still needs distributed production hardening.
+
+## 🤝 Contributing
+
+Keep changes focused, follow the existing package boundaries, and add tests beside the behavior you change. Before opening a pull request, run the relevant package tests plus `pnpm lint:fix` and `pnpm build`. Include screenshots for visible UI changes and link the relevant product or architecture document when applicable.
+
+## 📄 License
 
 MIT

@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Velo Sprint 11 qualification evidence",
+  "type": "object",
+  "required": ["status", "manifestVersion", "evidenceSchemaVersion", "cohortId", "baseline", "candidate", "runs", "machineVerdict", "approvalStatus"],
+  "properties": {
+    "status": { "const": "qualification_completed" },
+    "manifestVersion": { "const": 4 },
+    "version": { "const": 4 },
+    "evidenceSchemaVersion": { "const": 3 },
+    "manifestDigest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "cohortId": { "type": "string", "minLength": 1 },
+    "baseline": { "$ref": "#/$defs/subject" },
+    "candidate": { "$ref": "#/$defs/subject" },
+    "runs": { "type": "array", "items": { "$ref": "#/$defs/run" } },
+    "capacity": { "type": "object" },
+    "machineVerdict": { "enum": ["PASS", "FAIL", "EVIDENCE_PENDING"] },
+    "approvalStatus": { "enum": ["PENDING", "APPROVED", "REJECTED"] },
+    "approvals": { "type": "array" },
+    "publicClaim": { "type": ["string", "null"] }
+  },
+  "$defs": {
+    "subject": { "type": "object", "required": ["revision", "infrastructureDigest"], "properties": { "revision": { "type": "string", "minLength": 1 }, "infrastructureDigest": { "type": "string", "minLength": 1 } } },
+    "run": { "type": "object", "required": ["runId", "subject", "cohortId", "arm", "window", "attemptedSamples", "successfulSamples", "latencyMs", "correlationCoverage", "telemetry", "rawArtifact"], "properties": { "runId": { "type": "string" }, "subject": { "enum": ["baseline", "candidate"] }, "cohortId": { "type": "string" }, "arm": { "type": "string" }, "window": { "type": "string" }, "attemptedSamples": { "type": "integer", "minimum": 0 }, "successfulSamples": { "type": "integer", "minimum": 0 }, "errorRate": { "type": "number", "minimum": 0 }, "throughputRps": { "type": "number", "minimum": 0 }, "latencyMs": { "type": "object", "required": ["p50", "p95", "p99"] }, "correlationCoverage": { "type": "number", "minimum": 0, "maximum": 1 }, "telemetry": { "type": "boolean" }, "rawArtifact": { "type": "object" } } }
+  }
+}

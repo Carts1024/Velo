@@ -5,10 +5,11 @@ export default defineTable({
   projectId: v.id("projects"),
   amount: v.string(),
   asset: v.string(), // e.g. "native" or "USDC:<issuer>"
-  receiverAddress: v.string(),
+  receiverAddress: v.optional(v.string()),
   merchantName: v.string(),
   description: v.optional(v.string()),
   status: v.union(
+    v.literal("awaiting_route"),
     v.literal("created"),
     v.literal("pending"),
     v.literal("paid"),
@@ -18,8 +19,31 @@ export default defineTable({
   ),
   payerAddress: v.optional(v.string()),
   txHash: v.optional(v.string()),
+  verifiedTxHash: v.optional(v.string()),
   successUrl: v.optional(v.string()),
   cancelUrl: v.optional(v.string()),
+  anchor: v.optional(v.union(v.literal("inhouse"), v.literal("pdax"))),
+  receiverMemo: v.optional(v.string()),
+  anchorDepositCurrency: v.optional(v.string()),
+  // Public request correlation, deliberately opaque and never derived from wallet data.
+  correlationId: v.optional(v.string()),
+  traceparent: v.optional(v.string()),
+  stageTimestamps: v.optional(
+    v.object({
+      created: v.number(),
+      routeReady: v.optional(v.number()),
+      routeFailed: v.optional(v.number()),
+      awaiting_signature: v.optional(v.number()),
+      signed: v.optional(v.number()),
+      submitted: v.optional(v.number()),
+      submissionReported: v.optional(v.number()),
+      observed: v.optional(v.number()),
+      confirmed: v.optional(v.number()),
+      failed: v.optional(v.number()),
+      cancelled: v.optional(v.number()),
+      expired: v.optional(v.number()),
+    }),
+  ),
   expiresAt: v.number(), // Unix timestamp (createdAt + 30 mins)
   createdAt: v.number(),
   updatedAt: v.number(),
@@ -27,4 +51,8 @@ export default defineTable({
   .index("by_project", ["projectId"])
   .index("by_project_created_at", ["projectId", "createdAt"])
   .index("by_project_status_created_at", ["projectId", "status", "createdAt"])
+  .index("by_correlation_id", ["correlationId"])
+  .index("by_project_and_correlation_id", ["projectId", "correlationId"])
+  .index("by_tx_hash", ["txHash"])
+  .index("by_verified_tx_hash", ["verifiedTxHash"])
   .index("by_status", ["status"]);

@@ -1,0 +1,70 @@
+{
+  "version": 4,
+  "manifestVersion": 4,
+  "evidenceSchemaVersion": 3,
+  "qualification": "sprint-11",
+  "status": "draft",
+  "baseline": { "revision": "unresolved", "artifact": "external" },
+  "candidate": { "revision": "unresolved", "artifact": "external" },
+  "infrastructure": {
+    "class": "unresolved",
+    "region": "unresolved",
+    "runtime": "unresolved",
+    "network": "unresolved",
+    "dependencies": {},
+    "endpoints": {}
+  },
+  "wallets": { "fundingReceipt": "external", "assetIds": [] },
+  "confirmation": { "definition": "unresolved", "source": "unresolved" },
+  "windows": ["morning", "afternoon", "evening"],
+  "windowPolicy": { "timezone": "UTC", "minimumSeparationMinutes": 60 },
+  "profiles": ["normal", "growth", "burst", "soak", "degraded-provider", "backlog-recovery"],
+  "temperatures": ["cold", "warm"],
+  "arms": [
+    "normal",
+    "growth",
+    "burst",
+    "soak",
+    "degraded-provider",
+    "replay-idempotency",
+    "backlog-recovery",
+    "telemetry-on",
+    "telemetry-off",
+    "saturation-recovery",
+    "rollback"
+  ],
+  "scenarios": [
+    "payment-intent-create",
+    "payment-intent-list",
+    "checkout-preparation",
+    "transaction-submission",
+    "confirmation-detection",
+    "ui-propagation",
+    "webhook-delivery"
+  ],
+  "workload": {
+    "normalRequestsPerSecond": 10,
+    "growthRequestsPerSecond": 50,
+    "soakDurationSeconds": null,
+    "capacitySearch": { "minRps": null, "maxRps": null, "stepRps": null, "resolutionRps": null }
+  },
+  "telemetry": { "required": true, "maxOverheadP95Exclusive": 0.03, "correlationCoverageAtLeast": 0.999 },
+  "slo": {
+    "maxErrorRateExclusive": 0.005,
+    "headroomFraction": 0.2,
+    "recoveryDeadlineSeconds": null,
+    "maxP95RegressionFraction": 0.05
+  },
+  "requiredEvidence": {
+    "minimumSuccessfulSamplesPerCell": 1000,
+    "requiredWindows": 3,
+    "requireRawSamples": true,
+    "requireResetAttestation": true,
+    "requireP01AndP05": true,
+    "requireSprint10Observability": true
+  },
+  "authorization": { "loadTest": "unresolved", "degradation": "unresolved", "rollback": "unresolved", "competitor": "none" },
+  "artifactStorage": { "raw": "external", "tracked": ["manifest", "evidence-manifest", "qualification-report", "summary", "release-decision"], "digestAlgorithm": "sha256" },
+  "headroom": { "normal": 0.2, "growth": 0.2 },
+  "qualificationStatus": "EVIDENCE_PENDING"
+}

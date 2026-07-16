@@ -92,6 +92,12 @@ const statusCopy = {
     title: "Response decode unsupported",
     icon: AlertCircleIcon,
   },
+  submitted: {
+    label: "Submitted",
+    variant: "warning",
+    title: "Transaction is submitted",
+    icon: Clock3Icon,
+  },
 } as const;
 
 function formatTimestamp(value?: number) {

@@ -275,7 +275,7 @@ export function ProjectSettings({ projectId }: { projectId: string }) {
                 {isSaving ? "Saving..." : selectedLogo ? "Save and upload logo" : "Save settings"}
               </Button>
               <Button type="button" variant="outline" asChild>
-                <Link href={`/projects/${project._id}`}>Project overview</Link>
+                <Link href="/dashboard">Dashboard</Link>
               </Button>
             </div>
           </div>

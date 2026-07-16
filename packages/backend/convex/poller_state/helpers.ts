@@ -28,7 +28,10 @@ export async function storePollSuccess(
   ctx: MutationCtx,
   projectId: ProjectId,
   latestLedger: number | undefined,
+  cursor: string | undefined,
   observedAt: number,
+  ledgerLag?: number,
+  timeLagMs?: number,
 ) {
   const scope = projectScope(projectId);
   const poller = await ctx.db
@@ -40,8 +43,11 @@ export async function storePollSuccess(
     projectId,
     status: "idle" as const,
     lastLedger: latestLedger,
+    cursor,
     lastRunAt: observedAt,
     errorMessage: undefined,
+    ledgerLag,
+    timeLagMs,
     updatedAt: observedAt,
   };
 

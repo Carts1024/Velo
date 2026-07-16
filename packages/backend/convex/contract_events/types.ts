@@ -7,4 +7,5 @@ export type PollTarget = {
   projectId: Id<"projects">;
   contractIds: string[];
   lastLedger?: number;
+  cursor?: string;
 };

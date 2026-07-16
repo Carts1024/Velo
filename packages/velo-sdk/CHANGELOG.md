@@ -2,6 +2,13 @@
 
 All notable changes to the Velo SDK will be documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- Optional durable `PaymentIntent.correlationId` for end-to-end payment journey lookup.
+- Optional `RequestOptions.traceparent` propagation for existing W3C traces.
+
 ## [0.1.0-alpha.2] - 2026-07-02
 
 ### Added

@@ -1,0 +1,59 @@
+{
+  "version": 3,
+  "evidenceSchemaVersion": 2,
+  "windows": ["morning", "afternoon", "evening"],
+  "windowPolicy": {
+    "timezone": "UTC",
+    "minimumSeparationMinutes": 60,
+    "definitions": {
+      "morning": { "startHour": 0, "endHour": 8 },
+      "afternoon": { "startHour": 8, "endHour": 16 },
+      "evening": { "startHour": 16, "endHour": 24 }
+    }
+  },
+  "modes": ["dry-run", "capture"],
+  "temperatures": ["cold", "warm"],
+  "qualificationProfiles": ["normal", "growth"],
+  "defaultProfile": "normal",
+  "thresholds": {
+    "requiredRuns": 3,
+    "requiredSuccessfulSamples": 1000,
+    "requiredQualificationCells": 84,
+    "minimumContributors": 3,
+    "maxErrorRateExclusive": 0.005,
+    "maxP95Regression": 0.05,
+    "requireBaseline": true,
+    "minSuccessfulThroughput": {
+      "normal": 10,
+      "growth": 50
+    },
+    "maxSaturatedArrivals": 0,
+    "latencySloMs": {
+      "payment-intent-create": { "p50": 150, "p95": 350, "p99": 750 },
+      "payment-intent-list": { "p50": 100, "p95": 250, "p99": 500 },
+      "checkout-preparation": { "p50": 500, "p95": 1500, "p99": 3000 },
+      "transaction-submission": { "p50": 1000, "p95": 3000, "p99": 8000 },
+      "confirmation-detection": { "p50": 3000, "p95": 8000, "p99": 15000 },
+      "ui-propagation": { "p50": 100, "p95": 350, "p99": 750 },
+      "webhook-delivery": { "p50": 500, "p95": 2000, "p99": 5000 }
+    }
+  },
+  "profiles": [
+    "idle",
+    "normal",
+    "growth",
+    "burst",
+    "webhook-fan-out",
+    "backlog-recovery",
+    "degraded-dependency"
+  ],
+  "scenarios": [
+    "payment-intent-create",
+    "payment-intent-list",
+    "checkout-preparation",
+    "transaction-submission",
+    "confirmation-detection",
+    "ui-propagation",
+    "webhook-delivery"
+  ]
+}

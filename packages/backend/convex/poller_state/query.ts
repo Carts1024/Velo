@@ -1,6 +1,9 @@
+import { v } from "convex/values";
+
 import type { QueryCtx } from "../_generated/server";
 import type { ProjectId } from "../projects/types";
 
+import { internalQuery } from "../_generated/server";
 import { projectScope } from "./helpers";
 
 export async function pollerForProject(ctx: QueryCtx, projectId: ProjectId) {
@@ -9,3 +12,13 @@ export async function pollerForProject(ctx: QueryCtx, projectId: ProjectId) {
     .withIndex("by_scope", (q) => q.eq("scope", projectScope(projectId)))
     .unique();
 }
+
+export const getByScope = internalQuery({
+  args: { scope: v.string() },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("pollerState")
+      .withIndex("by_scope", (q) => q.eq("scope", args.scope))
+      .unique();
+  },
+});

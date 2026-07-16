@@ -6,6 +6,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [asset, setAsset] = useState<"USDC" | "native">("USDC");
+  const [anchor, setAnchor] = useState<"inhouse" | "pdax">("inhouse");
 
   const handleCheckout = async () => {
     setLoading(true);
@@ -14,7 +15,10 @@ export default function Home() {
       const res = await fetch("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ asset }),
+        body: JSON.stringify({
+          asset,
+          anchor,
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -33,15 +37,17 @@ export default function Home() {
   };
 
   return (
-    <div style={{
-      maxWidth: "600px",
-      margin: "80px auto",
-      padding: "40px 24px",
-      borderRadius: "16px",
-      background: "#18181b",
-      border: "1px solid #27272a",
-      boxShadow: "0 4px 30px rgba(0, 0, 0, 0.4)"
-    }}>
+    <div
+      style={{
+        maxWidth: "600px",
+        margin: "80px auto",
+        padding: "40px 24px",
+        borderRadius: "16px",
+        background: "#18181b",
+        border: "1px solid #27272a",
+        boxShadow: "0 4px 30px rgba(0, 0, 0, 0.4)",
+      }}
+    >
       <h1 style={{ fontSize: "28px", fontWeight: "700", marginBottom: "8px" }}>
         Velo Checkout Integration
       </h1>
@@ -50,9 +56,19 @@ export default function Home() {
       </p>
 
       <div style={{ marginBottom: "24px" }}>
-        <label style={{ display: "block", fontSize: "12px", fontWeight: "600", color: "#a1a1aa", marginBottom: "8px", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+        <span
+          style={{
+            display: "block",
+            fontSize: "12px",
+            fontWeight: "600",
+            color: "#a1a1aa",
+            marginBottom: "8px",
+            textTransform: "uppercase",
+            letterSpacing: "0.05em",
+          }}
+        >
           Select Asset
-        </label>
+        </span>
         <div style={{ display: "flex", gap: "12px" }}>
           <button
             onClick={() => setAsset("USDC")}
@@ -65,7 +81,7 @@ export default function Home() {
               border: asset === "USDC" ? "1px solid #3f3f46" : "1px solid #27272a",
               fontWeight: "600",
               cursor: "pointer",
-              transition: "all 0.2s"
+              transition: "all 0.2s",
             }}
           >
             USDC
@@ -81,7 +97,7 @@ export default function Home() {
               border: asset === "native" ? "1px solid #3f3f46" : "1px solid #27272a",
               fontWeight: "600",
               cursor: "pointer",
-              transition: "all 0.2s"
+              transition: "all 0.2s",
             }}
           >
             XLM
@@ -89,13 +105,71 @@ export default function Home() {
         </div>
       </div>
 
-      <div style={{
-        padding: "16px",
-        borderRadius: "8px",
-        background: "#09090b",
-        border: "1px solid #27272a",
-        marginBottom: "24px"
-      }}>
+      <div style={{ marginBottom: "24px" }}>
+        <span
+          style={{
+            display: "block",
+            fontSize: "12px",
+            fontWeight: "600",
+            color: "#a1a1aa",
+            marginBottom: "8px",
+            textTransform: "uppercase",
+            letterSpacing: "0.05em",
+          }}
+        >
+          Routing Anchor (V2)
+        </span>
+        <div style={{ display: "flex", gap: "12px" }}>
+          <button
+            onClick={() => setAnchor("inhouse")}
+            style={{
+              flex: 1,
+              padding: "12px",
+              borderRadius: "8px",
+              background: anchor === "inhouse" ? "#27272a" : "#09090b",
+              color: anchor === "inhouse" ? "#ffffff" : "#a1a1aa",
+              border: anchor === "inhouse" ? "1px solid #3f3f46" : "1px solid #27272a",
+              fontWeight: "600",
+              cursor: "pointer",
+              transition: "all 0.2s",
+            }}
+          >
+            In-House
+          </button>
+          <button
+            onClick={() => setAnchor("pdax")}
+            style={{
+              flex: 1,
+              padding: "12px",
+              borderRadius: "8px",
+              background: anchor === "pdax" ? "#27272a" : "#09090b",
+              color: anchor === "pdax" ? "#ffffff" : "#a1a1aa",
+              border: anchor === "pdax" ? "1px solid #3f3f46" : "1px solid #27272a",
+              fontWeight: "600",
+              cursor: "pointer",
+              transition: "all 0.2s",
+            }}
+          >
+            PDAX
+          </button>
+        </div>
+        <p style={{ color: "#71717a", fontSize: "11px", marginTop: "8px", lineHeight: "1.4" }}>
+          {anchor === "inhouse" &&
+            "Bypasses PDAX lookup and routes payment directly to the merchant's owner address."}
+          {anchor === "pdax" &&
+            "Performs a secure PDAX deposit lookup to generate a temporary deposit address & memo."}
+        </p>
+      </div>
+
+      <div
+        style={{
+          padding: "16px",
+          borderRadius: "8px",
+          background: "#09090b",
+          border: "1px solid #27272a",
+          marginBottom: "24px",
+        }}
+      >
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
           <span>Order #1001</span>
           <strong>{asset === "USDC" ? "10.00 USDC" : "10.00 XLM"}</strong>
@@ -104,15 +178,17 @@ export default function Home() {
       </div>
 
       {error && (
-        <div style={{
-          padding: "12px 16px",
-          borderRadius: "6px",
-          background: "#450a0a",
-          border: "1px solid #7f1d1d",
-          color: "#fca5a5",
-          fontSize: "14px",
-          marginBottom: "24px"
-        }}>
+        <div
+          style={{
+            padding: "12px 16px",
+            borderRadius: "6px",
+            background: "#450a0a",
+            border: "1px solid #7f1d1d",
+            color: "#fca5a5",
+            fontSize: "14px",
+            marginBottom: "24px",
+          }}
+        >
           {error}
         </div>
       )}
@@ -131,7 +207,7 @@ export default function Home() {
           fontSize: "15px",
           cursor: loading ? "not-allowed" : "pointer",
           opacity: loading ? 0.7 : 1,
-          transition: "all 0.2s"
+          transition: "all 0.2s",
         }}
       >
         {loading ? "Redirecting to Velo Pay..." : `Pay with ${asset === "USDC" ? "USDC" : "XLM"}`}

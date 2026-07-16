@@ -25,6 +25,8 @@ import { Velo } from "@carts1024/velo-sdk";
 const velo = new Velo({
   apiKey: process.env.VELO_API_KEY!,
   environment: "testnet", // 'production', 'testnet', or 'development'
+  timeoutMs: 10_000, // total wall-clock budget across all attempts
+  maxRetries: 2,
 });
 ```
 
@@ -49,11 +51,61 @@ const paymentIntent = await velo.paymentIntents.retrieve("pi_12345");
 console.log(`Payment status: ${paymentIntent.status}`);
 ```
 
+### Dual-Anchor Routing (V2)
+
+Velo SDK (V2) supports routing payments through different anchors: `inhouse` (default) or `pdax`.
+
+To request a specific anchor explicitly during checkout session creation, pass the optional `anchor` parameter:
+
+```ts
+const session = await velo.checkout.sessions.create({
+  amount: "10.00",
+  asset: "USDC",
+  anchor: "pdax", // or "inhouse"
+  description: "Dual-anchor payment",
+  successUrl: "https://yourdomain.com/success",
+  cancelUrl: "https://yourdomain.com/cancel",
+});
+```
+
+API keys can be scoped to specific anchors. If an explicit `anchor` conflicts with the API key's scoped anchor, a `VeloValidationError` is thrown.
+
+Retrieving or creating a payment intent in V2 returns the following anchor-aware response properties:
+
+```ts
+const intent = await velo.paymentIntents.retrieve("pi_12345");
+
+console.log(intent.correlationId); // Durable Velo journey ID, when available
+console.log(intent.anchor); // 'inhouse' | 'pdax'
+console.log(intent.receiverAddress); // Destination wallet address (e.g. project owner or PDAX deposit address)
+console.log(intent.receiverMemo); // String memo/tag if required (e.g. PDAX tag, else null)
+console.log(intent.anchorDepositCurrency); // Mapped deposit currency (e.g. 'USDCXLM', else null)
+console.log(intent.payerAddress); // Wallet address of the payer, populated after checkout flow
+```
+
+For PDAX, creation can return `status: "awaiting_route"` with `receiverAddress: null`. The hosted `checkoutUrl` waits automatically. Integrations that need destination fields directly should retrieve the intent until it becomes `created`; they must not construct a payment while it is `awaiting_route`.
+
 ---
 
 ## Webhook Verification
 
 Velo signs webhook events sent to your endpoints using HMAC-SHA256. Webhook verification is required to verify that incoming payloads are authentic and untampered.
+
+### Envelope version and event types
+
+Current events use `version: "1"`. After HMAC verification, the SDK normalizes a legacy event with
+no `version` to v1 and rejects an explicit unsupported version. Signature validation happens before
+the unsupported-version error, preventing unauthenticated payloads from becoming a version oracle.
+Evidence: [`verifyWebhookSignature normalizes a signed legacy event to version 1`](src/webhooks.test.ts)
+and [`verifyWebhookSignature verifies HMAC before rejecting unsupported versions`](src/webhooks.test.ts).
+
+The typed union includes payment, project, contract, transaction, settlement quote/trade/withdrawal,
+and `provider.pdax.event.received` events. Settlement/provider shape validation is covered by
+[`verifyWebhookSignature accepts settlement and provider event payloads`](src/webhooks.test.ts).
+
+Delivery IDs represent durable, fenced deliveries. Consumers must still deduplicate by
+`x-velo-delivery`: Velo provides **exactly-once observable transitions**, not exactly-once
+transport. Invalid signatures fail closed, as covered by [`verifyWebhookSignature rejects signature mismatch`](src/webhooks.test.ts).
 
 > [!IMPORTANT]
 > Webhook signature verification requires the **raw, unparsed request body**. Do not parse the request body as JSON prior to calling verify.
@@ -173,11 +225,11 @@ app.post("/webhooks", express.raw({ type: "application/json" }), async (req, res
 
 Configure the following environment variables in your server environments:
 
-| Variable              | Required          | Description                                                                                     |
-| --------------------- | ----------------- | ----------------------------------------------------------------------------------------------- |
-| `VELO_API_KEY`        | **Yes**           | Your Velo project API key (e.g. `tk_live_...` or `tk_test_...`).                                |
-| `VELO_WEBHOOK_SECRET` | Only for Webhooks | Used to verify signature of incoming webhook events.                                            |
-| `VELO_BASE_URL`       | No                | Overrides the default Velo API endpoint (defaults to `https://api.velo.xyz` or local dev base). |
+| Variable              | Required          | Description                                                                                                                                                                               |
+| --------------------- | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `VELO_API_KEY`        | **Yes**           | Your Velo project API key (e.g. `tk_live_...` or `tk_test_...`).                                                                                                                          |
+| `VELO_WEBHOOK_SECRET` | Only for Webhooks | Used to verify signature of incoming webhook events.                                                                                                                                      |
+| `VELO_BASE_URL`       | No                | Overrides the default Velo API endpoint. SDK defaults are `https://api.velo.pay` for production, `https://api.testnet.velo.pay` for testnet, and `http://localhost:3000` for development. |
 
 ---
 
@@ -198,7 +250,49 @@ const session = await velo.checkout.sessions.create(
 );
 ```
 
+## Bounded transport and retries
+
+Every SDK request has a total wall-clock deadline (`timeoutMs`, default 30 seconds) and accepts
+an `AbortSignal` and opaque correlation ID through `RequestOptions`:
+
+```ts
+const controller = new AbortController();
+const intent = await velo.paymentIntents.retrieve("pi_123", {
+  signal: controller.signal,
+  correlationId: "order-2026-0001",
+  traceparent: "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+});
+```
+
+`correlationId` becomes `X-Correlation-Id` for the current request. `traceparent` is an optional W3C trace context value propagated to Velo and supported downstream dependencies. A returned payment intent can also contain its durable journey `correlationId`; keep that value for journey lookup rather than replacing it with a later retry's request ID.
+
+Only safe reads, or explicitly idempotent writes with an `idempotencyKey`, are retried. Retry
+delays use capped jitter and honor `Retry-After`; creation is never retried without an idempotency
+key. A submission request marked `{ submission: true }` is never retried and throws
+`VeloSubmissionUnknownError` when the network outcome cannot be determined, so callers can
+reconcile by transaction hash. `VeloTimeoutError`, `VeloRateLimitError`, `VeloProviderError`,
+and `VeloValidationError` are exported for typed handling. Caller-initiated cancellation preserves
+the caller's `AbortSignal.reason`, so cancellation may surface as a native abort reason rather than
+an SDK-wrapped error.
+
+The package uses the runtime's global `fetch`. Node 18+, serverless, edge, and browsers provide
+different connection-pooling behavior; the SDK sets no agent-specific pool and cannot make a
+browser share connections across origins. Keep API keys server-side and set a deadline below the
+hosting platform's function deadline.
+
 Idempotency keys are scoped to your project. Repeating a request with the same payload and same key will return the cached original response. Repeating with a different payload will throw a `VeloAPIError` with status code `409` (conflict).
+
+### Migration notes for alpha.2 transport
+
+- Add an `idempotencyKey` to checkout/session creation before relying on automatic retries.
+- Pass `correlationId` from your order or request context when you need to join SDK calls with Velo API and webhook logs.
+- Pass `traceparent` when your service already has a W3C trace and you want Velo calls to participate in it.
+- Set `timeoutMs` below your serverless or API-route deadline; the SDK budget includes retries and retry waits.
+- Treat `VeloSubmissionUnknownError` as "check by transaction hash / intent state" rather than "submit again."
+- For webhook consumers, continue deduplicating deliveries by `x-velo-delivery` and verifying `x-velo-signature` with the raw request body.
+
+Sprint 8 webhook evidence is deterministic and automated. It is not live SLO qualification or
+production availability evidence.
 
 ---
 

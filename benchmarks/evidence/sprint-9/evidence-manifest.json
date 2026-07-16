@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "asOf": "2026-07-13",
+  "status": "CAPTURE PENDING — AUTHORIZED STAGING RESOURCES/WINDOWS REQUIRED",
+  "liveQualification": "not_evaluated",
+  "rawEvidencePolicy": {
+    "storage": "external immutable storage; never Git",
+    "repositoryContent": "compact summary and evidence index only",
+    "requiredArtifactFields": [
+      "artifactType",
+      "window",
+      "captureId",
+      "uri",
+      "sha256",
+      "bytes",
+      "records",
+      "capturedAt",
+      "retainedUntil"
+    ]
+  },
+  "artifacts": [],
+  "qualificationGate": null,
+  "approval": null
+}

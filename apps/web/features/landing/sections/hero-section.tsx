@@ -90,22 +90,21 @@ export function HeroSection() {
         {/* Micro-badge */}
         <div className="animate-fade-in mb-6 inline-flex items-center gap-2 rounded-full border border-zinc-800 bg-zinc-900/60 px-3 py-1 font-mono text-xs tracking-wide text-zinc-300 backdrop-blur-md">
           <Terminal size={14} className="text-zinc-400" />
-          <span>Stellar Testnet payment infrastructure + developer tooling active</span>
+          <span>Application operations for Stellar</span>
         </div>
 
         {/* Headings */}
         <h1 className="mb-6 text-4xl leading-none font-bold tracking-tight text-zinc-100 md:text-7xl">
-          All-in-one infrastructure <br />
+          Build on Stellar. <br />
           <span className="bg-gradient-to-r from-zinc-950 to-zinc-500 dark:from-white dark:to-zinc-400 bg-clip-text text-transparent">
-            for building on Stellar
+            Operate with Velo.
           </span>
         </h1>
 
         {/* Tagline */}
         <p className="mb-10 max-w-2xl text-lg leading-relaxed font-light text-zinc-400 md:text-xl">
-          Ship Stellar apps faster with hosted tools for project setup, on-chain contract
-          verification, transaction debugging, event monitoring, and secure stablecoin payment
-          links.
+          Build and operate Stellar apps without stitching the surrounding infrastructure together.
+          Velo connects the workflows you use to build, verify, observe, pay, and settle.
         </p>
 
         {/* Actions */}
@@ -114,21 +113,21 @@ export function HeroSection() {
             href="/dashboard"
             className="group pointer-events-auto flex w-full items-center justify-center gap-2 rounded-xl bg-white px-8 py-4 text-sm font-semibold text-zinc-950 shadow-[0_0_25px_rgba(255,255,255,0.15)] transition-all hover:scale-[1.02] hover:bg-zinc-200 sm:w-auto"
           >
-            <span>Start Building</span>
+            <span>Start on Testnet</span>
             <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />
           </Link>
           <Link
-            href="/debug"
+            href="#velo-pay"
             className="pointer-events-auto w-full rounded-xl border border-zinc-800 bg-zinc-900 px-8 py-4 text-sm font-semibold text-zinc-300 transition-all hover:bg-zinc-800 hover:text-zinc-100 sm:w-auto"
           >
-            Debug Infrastructure
+            Explore Velo Pay
           </Link>
         </div>
       </div>
 
       {/* Alpha scope note */}
       <div className="pointer-events-none relative z-20 pb-8 text-center font-mono text-[10px] tracking-widest text-zinc-600 uppercase select-none">
-        Active Velo Pay Alpha on Stellar Testnet
+        Alpha software for Stellar Testnet · Capabilities and availability may change
       </div>
     </section>
   );

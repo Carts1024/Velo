@@ -43,6 +43,9 @@ jobs:
       - name: Run Tests
         run: pnpm test
 
+      - name: Benchmark Harness Smoke Test
+        run: pnpm benchmark:smoke
+
   test-rust:
     name: Smart Contract Tests
     runs-on: ubuntu-latest
@@ -93,7 +96,7 @@ jobs:
         if: env.HAS_CONVEX_DEPLOY_KEY == 'true'
         env:
           CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
-        run: pnpm --filter @repo/backend convex deploy --cmd 'pnpm build'
+        run: pnpm --filter @repo/backend exec convex deploy --typecheck enable --codegen enable
 
       - name: Skip Convex Deploy
         if: env.HAS_CONVEX_DEPLOY_KEY != 'true'
@@ -122,26 +125,36 @@ jobs:
           echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
       - name: Build Contracts
-        run: stellar contract build --manifest-path contracts/registry/Cargo.toml
+        run: |
+          stellar contract build --manifest-path contracts/registry/Cargo.toml --locked --optimize
+          stellar contract build --manifest-path contracts/pay_access/Cargo.toml --locked --optimize
 
       - name: Upload WASM Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: registry-contract-wasm
-          path: contracts/registry/target/wasm32v1-none/release/velo_registry.wasm
+          name: velo-contract-wasm
+          path: |
+            contracts/registry/target/wasm32v1-none/release/velo_registry.wasm
+            contracts/pay_access/target/wasm32v1-none/release/velo_pay_access.wasm
 
       - name: Deploy to Testnet
         if: env.HAS_STELLAR_SECRET_KEY == 'true'
         env:
           STELLAR_SECRET_KEY: ${{ secrets.STELLAR_SECRET_KEY }}
         run: |
-          stellar network add --rpc-url https://soroban-testnet.stellar.org --network-passphrase "Test SDF Network ; September 2015" testnet
           stellar keys add deployer --secret-key "$STELLAR_SECRET_KEY"
-          CONTRACT_ID=$(stellar contract deploy \
-            --wasm contracts/registry/target/wasm32v1-none/release/velo_registry.wasm \
+          node scripts/deploy-contracts.mjs \
+            --network testnet \
             --source deployer \
-            --network testnet)
-          echo "Deployed Contract ID: $CONTRACT_ID"
+            --skip-tests \
+            --skip-build
+
+      - name: Upload Testnet Deployment Manifest
+        if: env.HAS_STELLAR_SECRET_KEY == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: testnet-contract-deployment
+          path: deployments/testnet.json
 
       - name: Skip Testnet Deploy
         if: env.HAS_STELLAR_SECRET_KEY != 'true'

@@ -31,6 +31,8 @@ export const createDraft = mutation({
       ownerAddress,
       ownerTokenIdentifier: identity.tokenIdentifier,
       status: "draft",
+      defaultPaymentAnchor: args.defaultPaymentAnchor ?? "inhouse",
+      rateLimitBackend: "convex",
       lastSyncAt: undefined,
       createdAt: now,
       updatedAt: now,
@@ -167,6 +169,7 @@ export const updateDraft = mutation({
       metadataHash: args.metadataHash,
       ownerAddress,
       ownerTokenIdentifier: project.ownerTokenIdentifier,
+      defaultPaymentAnchor: args.defaultPaymentAnchor,
       updatedAt: Date.now(),
     });
 
@@ -182,6 +185,7 @@ export const updateSettings = mutation({
     id: v.id("projects"),
     name: v.string(),
     description: v.string(),
+    defaultPaymentAnchor: v.optional(v.union(v.literal("inhouse"), v.literal("pdax"))),
   },
   handler: async (ctx, args) => {
     await requireProjectOwner(ctx, args.id);
@@ -200,6 +204,9 @@ export const updateSettings = mutation({
     await ctx.db.patch(args.id, {
       name,
       description,
+      ...(args.defaultPaymentAnchor !== undefined
+        ? { defaultPaymentAnchor: args.defaultPaymentAnchor }
+        : {}),
       updatedAt: Date.now(),
     });
 
@@ -263,6 +270,7 @@ export const generateApiKey = mutation({
   args: {
     id: v.id("projects"),
     label: v.string(),
+    paymentAnchor: v.optional(v.union(v.literal("inhouse"), v.literal("pdax"))),
   },
   handler: async (ctx, args) => {
     await requireProjectOwner(ctx, args.id);
@@ -288,6 +296,7 @@ export const generateApiKey = mutation({
       keyHash: apiKeyHash,
       prefix: `tk_live_${token.slice(0, 4)}...${token.slice(-4)}`,
       label: args.label.trim() || "Default Key",
+      paymentAnchor: args.paymentAnchor,
       createdAt: now,
       requestCount: 0,
       revoked: false,
@@ -305,6 +314,7 @@ export const generateApiKeyInternal = internalMutation({
   args: {
     id: v.id("projects"),
     label: v.string(),
+    paymentAnchor: v.optional(v.union(v.literal("inhouse"), v.literal("pdax"))),
   },
   handler: async (ctx, args) => {
     const randomBytes = new Uint8Array(16);
@@ -326,6 +336,7 @@ export const generateApiKeyInternal = internalMutation({
       keyHash: apiKeyHash,
       prefix: `tk_live_${token.slice(0, 4)}...${token.slice(-4)}`,
       label: args.label.trim() || "Default Key",
+      paymentAnchor: args.paymentAnchor,
       createdAt: now,
       requestCount: 0,
       revoked: false,

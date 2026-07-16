@@ -1,4 +1,12 @@
-import { Horizon, Networks, Operation, TransactionBuilder, Asset } from "@stellar/stellar-sdk";
+import { telemetryHeaders, type TelemetryContext } from "@repo/observability";
+import {
+  Horizon,
+  Networks,
+  Operation,
+  TransactionBuilder,
+  Asset,
+  Memo,
+} from "@stellar/stellar-sdk";
 
 export type CheckoutPaymentParams = {
   payerAddress: string;
@@ -7,14 +15,21 @@ export type CheckoutPaymentParams = {
   asset: string;
   networkPassphrase?: string;
   horizonUrl?: string;
+  memo?: string;
+  telemetryContext?: TelemetryContext;
 };
 
 export type CheckoutSubmitParams = {
   signedXdr: string;
   horizonUrl?: string;
+  telemetryContext?: TelemetryContext;
 };
 
 const DEFAULT_TESTNET_HORIZON = "https://horizon-testnet.stellar.org";
+
+export function horizonOptions(telemetryContext?: TelemetryContext) {
+  return telemetryContext ? { headers: telemetryHeaders(telemetryContext) } : undefined;
+}
 
 type HorizonErrorPayload = {
   title?: string;
@@ -120,6 +135,7 @@ export async function buildCheckoutPaymentTransaction(
     asset: assetStr,
     networkPassphrase = Networks.TESTNET,
     horizonUrl = DEFAULT_TESTNET_HORIZON,
+    memo,
   } = params;
 
   if (payerAddress.trim().toUpperCase() === receiverAddress.trim().toUpperCase()) {
@@ -131,9 +147,11 @@ export async function buildCheckoutPaymentTransaction(
     throw new Error("Amount must be positive");
   }
 
-  const server = new Horizon.Server(horizonUrl);
-  const account = await server.loadAccount(payerAddress);
-  const receiverAccount = await server.loadAccount(receiverAddress);
+  const server = new Horizon.Server(horizonUrl, horizonOptions(params.telemetryContext));
+  const [account, receiverAccount] = await Promise.all([
+    server.loadAccount(payerAddress),
+    server.loadAccount(receiverAddress),
+  ]);
   const stellarAsset = parseAsset(assetStr);
   const paymentAmount = Number.parseFloat(amount);
 
@@ -155,7 +173,7 @@ export async function buildCheckoutPaymentTransaction(
     );
   }
 
-  const transaction = new TransactionBuilder(account, {
+  const transactionBuilder = new TransactionBuilder(account, {
     fee: "10000", // Standard maximum base fee (0.0001 XLM / operation limit)
     networkPassphrase,
   })
@@ -166,8 +184,14 @@ export async function buildCheckoutPaymentTransaction(
         amount,
       }),
     )
-    .setTimeout(300) // 5 minutes timeout
-    .build();
+    .setTimeout(300); // 5 minutes timeout
+
+  if (memo !== undefined) {
+    const memoObj = /^\d+$/.test(memo) ? Memo.id(memo) : Memo.text(memo);
+    transactionBuilder.addMemo(memoObj);
+  }
+
+  const transaction = transactionBuilder.build();
 
   return transaction.toXDR();
 }
@@ -181,7 +205,7 @@ export async function submitCheckoutTransaction(
 ): Promise<{ hash: string; successful: boolean }> {
   const { signedXdr, horizonUrl = DEFAULT_TESTNET_HORIZON } = params;
 
-  const server = new Horizon.Server(horizonUrl);
+  const server = new Horizon.Server(horizonUrl, horizonOptions(params.telemetryContext));
   const transaction = TransactionBuilder.fromXDR(signedXdr, Networks.TESTNET);
 
   try {
@@ -192,7 +216,6 @@ export async function submitCheckoutTransaction(
     };
   } catch (error) {
     const message = describeHorizonError(error);
-    console.error("Stellar Horizon submission error:", message, error);
     throw new Error(message);
   }
 }
@@ -216,12 +239,15 @@ export type CreatePaymentIntentParams = {
   successUrl?: string;
   cancelUrl?: string;
   baseUrl?: string;
+  correlationId?: string;
+  telemetryContext?: TelemetryContext;
 };
 
 export type CreatePaymentIntentResult = {
   paymentIntentId: string;
   checkoutUrl: string;
   expiresIn: number;
+  correlationId?: string;
 };
 
 /**
@@ -231,17 +257,25 @@ export type CreatePaymentIntentResult = {
 export async function createCheckoutSession(
   params: CreatePaymentIntentParams,
 ): Promise<CreatePaymentIntentResult> {
-  const { apiKey, baseUrl = "http://localhost:3000", ...body } = params;
+  const {
+    apiKey,
+    baseUrl = "http://localhost:3000",
+    correlationId,
+    telemetryContext,
+    ...body
+  } = params;
 
   if (!apiKey) {
     throw new Error("API key is required");
   }
 
-  const response = await fetch(`${baseUrl}/api/v1/payment-intents`, {
+  const response = await fetch(`${baseUrl}/api/v2/payment-intents`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
+      ...(correlationId ? { "X-Correlation-Id": correlationId } : {}),
+      ...(telemetryContext ? telemetryHeaders(telemetryContext) : {}),
     },
     body: JSON.stringify(body),
   });

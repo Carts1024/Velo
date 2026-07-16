@@ -1,7 +1,8 @@
 import { createWalletJwt, verifyWalletChallenge } from "@/core/auth/wallet-jwt";
+import { withRouteTelemetry } from "@/core/observability";
 import { NextResponse } from "next/server";
 
-export async function POST(request: Request) {
+export const POST = withRouteTelemetry("wallet.verify", async (request) => {
   try {
     const body = (await request.json()) as {
       address?: string;
@@ -18,8 +19,7 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json({ token: createWalletJwt(address), address });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unable to verify wallet signature";
-    return NextResponse.json({ error: message }, { status: 401 });
+  } catch {
+    return NextResponse.json({ error: "Unable to verify wallet signature" }, { status: 401 });
   }
-}
+});

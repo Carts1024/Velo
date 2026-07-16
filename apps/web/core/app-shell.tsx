@@ -236,13 +236,13 @@ export function AppShell({ children }: { children: ReactNode }) {
         return;
       }
 
-      const projectRouteMatch = pathname.match(/^\/projects\/[a-zA-Z0-9_-]+(\/.*)?$/);
-      if (projectRouteMatch) {
-        router.push(`/projects/${id}${projectRouteMatch[1] ?? ""}`);
+      const projectRouteMatch = pathname.match(/^\/projects\/([a-zA-Z0-9_-]+)(\/.*)?$/);
+      if (projectRouteMatch && projectRouteMatch[1] !== "new" && projectRouteMatch[2]) {
+        router.push(`/projects/${id}${projectRouteMatch[2]}`);
         return;
       }
 
-      router.push(`/projects/${id}`);
+      router.push("/dashboard");
     },
     [pathname, rememberSelectedProject, router],
   );
@@ -274,10 +274,10 @@ export function AppShell({ children }: { children: ReactNode }) {
 
     if (activeProject) {
       urls.push(
-        `/projects/${activeProject.id}`,
         `/projects/${activeProject.id}/contracts`,
         `/projects/${activeProject.id}/events`,
         `/projects/${activeProject.id}/webhooks`,
+        `/projects/${activeProject.id}/api-keys`,
         `/projects/${activeProject.id}/integration`,
         `/projects/${activeProject.id}/settings`,
       );

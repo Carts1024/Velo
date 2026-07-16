@@ -10,5 +10,7 @@ export default defineTable({
   lastRunAt: v.optional(v.number()),
   status: v.union(v.literal("idle"), v.literal("polling"), v.literal("stale"), v.literal("error")),
   errorMessage: v.optional(v.string()),
+  ledgerLag: v.optional(v.number()),
+  timeLagMs: v.optional(v.number()),
   updatedAt: v.number(),
 }).index("by_scope", ["scope"]);

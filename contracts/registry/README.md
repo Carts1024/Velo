@@ -41,7 +41,12 @@ If using Stellar CLI from the monorepo root, the equivalent command is:
 stellar contract build --manifest-path contracts/registry/Cargo.toml
 ```
 
-## Deploy To Testnet
+## Deploy
+
+The supported monorepo deployment entry point deploys the registry and dependent pay-access
+contract together on Testnet or Mainnet. See [`../README.md`](../README.md).
+
+## Manual Testnet Deployment
 
 Prerequisites:
 

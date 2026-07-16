@@ -15,7 +15,13 @@ This is a simple demo application showing how to integrate `@carts1024/velo-sdk`
 cp .env.example .env.local
 ```
 
-Make sure `VELO_API_KEY` starts with `tk_live_` (generated from local dashboard at http://localhost:3000) and `VELO_ENV=development`.
+Create two keys in the local dashboard at http://localhost:3000:
+
+- Scope one key to **In-house** and assign it to `VELO_INHOUSE_API_KEY`.
+- Scope the other key to **PDAX** and assign it to `VELO_PDAX_API_KEY`.
+- Do not reuse the same key for both variables. Both values stay server-side and must start with `tk_live_`.
+
+Set `VELO_ENV=development` when using the local Velo API. The checkout route selects the matching SDK client from the requested anchor, so an in-house request is never authenticated with the PDAX-scoped key (or vice versa).
 
 2. Run the application:
 
@@ -24,7 +30,7 @@ pnpm install
 pnpm dev
 ```
 
-The application will be accessible at `http://localhost:3001` or `http://localhost:3002` (if port 3000/3001 are occupied).
+The example runs at `http://localhost:3005`.
 
 ## Key Files
 

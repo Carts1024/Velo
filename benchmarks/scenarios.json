@@ -1,0 +1,186 @@
+{
+  "version": 3,
+  "scenarios": [
+    {
+      "id": "payment-intent-create",
+      "version": 3,
+      "journey": "Payment-intent creation",
+      "adapter": "http",
+      "controlPath": "/payment-intent-create",
+      "method": "POST",
+      "path": "/api/v2/payment-intents",
+      "headers": {
+        "content-type": "application/json",
+        "idempotency-key": "bench-${RUN_ID}-${SAMPLE}"
+      },
+      "body": {
+        "amount": "1.00",
+        "asset": "USDC",
+        "description": "Sprint 9 authorized benchmark capture"
+      },
+      "requiredEnv": [
+        "VELO_BENCHMARK_BASE_URL",
+        "VELO_BENCHMARK_API_KEY",
+        "VELO_BENCHMARK_CONTROL_URL",
+        "VELO_BENCHMARK_CONTROL_TOKEN",
+        "VELO_BENCHMARK_CONTROL_SECRET",
+        "VELO_BENCHMARK_AUTHORIZATION_ID"
+      ],
+      "outcome": {
+        "contentType": "application/json",
+        "required": {
+          "object": "payment_intent",
+          "id": "string",
+          "paymentIntentId": "string",
+          "status": "string",
+          "amount": "string",
+          "asset": "string",
+          "checkoutUrl": "string"
+        }
+      },
+      "primaryMetric": "http_request_ms",
+      "requiredEvents": ["http.request_start", "http.response_end"],
+      "requiredMetrics": ["http_request_ms"]
+    },
+    {
+      "id": "payment-intent-list",
+      "version": 3,
+      "journey": "Read-only public API",
+      "adapter": "http",
+      "controlPath": "/payment-intent-list",
+      "method": "GET",
+      "path": "/api/v2/payment-intents?limit=20",
+      "requiredEnv": [
+        "VELO_BENCHMARK_BASE_URL",
+        "VELO_BENCHMARK_API_KEY",
+        "VELO_BENCHMARK_CONTROL_URL",
+        "VELO_BENCHMARK_CONTROL_TOKEN",
+        "VELO_BENCHMARK_CONTROL_SECRET",
+        "VELO_BENCHMARK_AUTHORIZATION_ID"
+      ],
+      "outcome": {
+        "contentType": "application/json",
+        "required": {
+          "object": "list",
+          "data": "array",
+          "hasMore": "boolean",
+          "nextCursor": "string|null"
+        }
+      },
+      "primaryMetric": "http_request_ms",
+      "requiredEvents": ["http.request_start", "http.response_end"],
+      "requiredMetrics": ["http_request_ms"]
+    },
+    {
+      "id": "checkout-preparation",
+      "version": 3,
+      "journey": "Hosted checkout preparation",
+      "adapter": "control",
+      "controlPath": "/checkout-preparation",
+      "requiredEnv": [
+        "VELO_BENCHMARK_CONTROL_URL",
+        "VELO_BENCHMARK_CONTROL_TOKEN",
+        "VELO_BENCHMARK_CONTROL_SECRET",
+        "VELO_BENCHMARK_AUTHORIZATION_ID"
+      ],
+      "primaryMetric": "checkout_preparation_ms",
+      "requiredEvents": ["checkout.navigation_start", "checkout.ready"],
+      "requiredMetrics": ["checkout_preparation_ms"]
+    },
+    {
+      "id": "transaction-submission",
+      "version": 3,
+      "journey": "Wallet interaction and Stellar transaction submission",
+      "adapter": "control",
+      "controlPath": "/transaction-submission",
+      "requiredEnv": [
+        "VELO_BENCHMARK_CONTROL_URL",
+        "VELO_BENCHMARK_CONTROL_TOKEN",
+        "VELO_BENCHMARK_CONTROL_SECRET",
+        "VELO_BENCHMARK_AUTHORIZATION_ID"
+      ],
+      "primaryMetric": "transaction_submission_ms",
+      "requiredEvents": [
+        "wallet.interaction_start",
+        "wallet.interaction_end",
+        "stellar.submission_start",
+        "stellar.submission_accepted",
+        "velo.report_submitted"
+      ],
+      "requiredMetrics": [
+        "wallet_interaction_ms",
+        "stellar_submission_ms",
+        "velo_report_submission_ms",
+        "transaction_submission_ms"
+      ]
+    },
+    {
+      "id": "confirmation-detection",
+      "version": 3,
+      "journey": "Stellar finality through Velo canonical verification",
+      "adapter": "control",
+      "controlPath": "/confirmation-detection",
+      "requiredEnv": [
+        "VELO_BENCHMARK_CONTROL_URL",
+        "VELO_BENCHMARK_CONTROL_TOKEN",
+        "VELO_BENCHMARK_CONTROL_SECRET",
+        "VELO_BENCHMARK_AUTHORIZATION_ID"
+      ],
+      "primaryMetric": "confirmation_detection_ms",
+      "requiredEvents": [
+        "stellar.submission_accepted",
+        "stellar.finalized",
+        "velo.observed",
+        "velo.verified"
+      ],
+      "requiredMetrics": [
+        "stellar_finality_ms",
+        "velo_observation_ms",
+        "velo_processing_ms",
+        "confirmation_detection_ms"
+      ]
+    },
+    {
+      "id": "ui-propagation",
+      "version": 3,
+      "journey": "Canonical payment state to subscribed browser render",
+      "adapter": "control",
+      "controlPath": "/ui-propagation",
+      "requiredEnv": [
+        "VELO_BENCHMARK_CONTROL_URL",
+        "VELO_BENCHMARK_CONTROL_TOKEN",
+        "VELO_BENCHMARK_CONTROL_SECRET",
+        "VELO_BENCHMARK_AUTHORIZATION_ID"
+      ],
+      "primaryMetric": "ui_propagation_ms",
+      "requiredEvents": ["velo.verified", "ui.rendered"],
+      "requiredMetrics": ["ui_propagation_ms"]
+    },
+    {
+      "id": "webhook-delivery",
+      "version": 3,
+      "journey": "Canonical state through durable webhook acknowledgement",
+      "adapter": "control",
+      "controlPath": "/webhook-delivery",
+      "requiredEnv": [
+        "VELO_BENCHMARK_CONTROL_URL",
+        "VELO_BENCHMARK_CONTROL_TOKEN",
+        "VELO_BENCHMARK_CONTROL_SECRET",
+        "VELO_BENCHMARK_AUTHORIZATION_ID"
+      ],
+      "primaryMetric": "webhook_delivery_ms",
+      "requiredEvents": [
+        "velo.verified",
+        "webhook.enqueued",
+        "webhook.attempt_started",
+        "merchant.acknowledged"
+      ],
+      "requiredMetrics": [
+        "webhook_enqueue_ms",
+        "webhook_queue_ms",
+        "merchant_response_ms",
+        "webhook_delivery_ms"
+      ]
+    }
+  ]
+}
