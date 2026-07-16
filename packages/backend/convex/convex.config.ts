@@ -8,6 +8,7 @@ const app = defineApp({
     UPSTASH_REDIS_REST_TOKEN: v.optional(v.string()),
     VELO_RATE_LIMIT_SCOPE_SECRET: v.optional(v.string()),
     VELO_ENABLE_RATE_LIMIT_BENCHMARK: v.optional(v.string()),
+    VELO_CONVEX_TELEMETRY_ENABLED: v.optional(v.string()),
   },
 });
 

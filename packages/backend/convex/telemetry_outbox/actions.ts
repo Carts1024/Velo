@@ -5,6 +5,7 @@ import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 
 import { internalAction } from "../_generated/server";
+import { isConvexTelemetryEnabled } from "./config";
 
 const claimRef = makeFunctionReference<"mutation">("telemetry_outbox/mutations:claim");
 const completeRef = makeFunctionReference<"mutation">("telemetry_outbox/mutations:complete");
@@ -152,6 +153,7 @@ export function buildMetricPayload(metrics: OutboxRow[]) {
 export const exportBatch = internalAction({
   args: { limit: v.optional(v.number()) },
   handler: async (ctx, args) => {
+    if (!isConvexTelemetryEnabled()) return { exported: 0 };
     const leaseToken = crypto.randomUUID();
     const rows = (await ctx.runMutation(claimRef, {
       leaseToken,

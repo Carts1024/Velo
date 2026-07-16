@@ -1,4 +1,5 @@
 import { internalMutation } from "../_generated/server";
+import { isConvexTelemetryEnabled } from "./config";
 
 // Keep this mutation comfortably below Convex's transaction/system-operation
 // budget. Gauge values are intentionally approximate, so a small bounded
@@ -56,6 +57,7 @@ export function boundedScenarioDurations(
 export const capture = internalMutation({
   args: {},
   handler: async (ctx) => {
+    if (!isConvexTelemetryEnabled()) return { saturated: false };
     const now = Date.now();
     const [
       routes,

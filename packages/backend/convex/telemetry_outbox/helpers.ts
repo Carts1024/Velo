@@ -9,6 +9,8 @@ import type {
   TelemetryStage,
 } from "@repo/observability";
 
+import { isConvexTelemetryEnabled } from "./config";
+
 const RETENTION_MS = 14 * 24 * 60 * 60 * 1_000;
 
 export async function recordMetric(
@@ -19,6 +21,7 @@ export async function recordMetric(
   outcome: TelemetryOutcome,
   value = 1,
 ) {
+  if (!isConvexTelemetryEnabled()) return null;
   const now = Date.now();
   return await ctx.db.insert("telemetryOutbox", {
     kind: "metric",
@@ -47,12 +50,15 @@ export async function recordSpan(
     journeyCorrelationId?: string;
     traceparent?: string;
     errorCode?: TelemetryErrorCode;
+    durationMs?: number;
   } = {},
 ) {
+  if (!isConvexTelemetryEnabled()) return null;
   if (outcome === "success") {
     const samplingKey = options.journeyCorrelationId ?? options.requestCorrelationId;
     if (!samplingKey || !deterministicSample(samplingKey, 0.1)) return null;
   }
+  const { durationMs, ...context } = options;
   const now = Date.now();
   return await ctx.db.insert("telemetryOutbox", {
     kind: "span",
@@ -60,7 +66,8 @@ export async function recordSpan(
     operation,
     stage,
     outcome,
-    ...options,
+    ...context,
+    ...(durationMs !== undefined ? { durationMs: Math.max(0, durationMs) } : {}),
     state: "pending",
     attemptCount: 0,
     nextAttemptAt: now,
