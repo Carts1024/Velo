@@ -4,9 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "next dev --port 3005",
     "build": "next build",
-    "start": "next start"
+    "dev": "next dev --port 3005",
+    "start": "next start",
+    "test": "node --experimental-strip-types --test app/**/*.test.ts"
   },
   "dependencies": {
     "@carts1024/velo-sdk": "workspace:*",
