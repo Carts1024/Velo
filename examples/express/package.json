@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "node --experimental-strip-types server.ts",
     "build": "tsc",
-    "start": "node dist/server.js"
+    "start": "node dist/server.js",
+    "test": "node --experimental-strip-types --test *.test.ts"
   },
   "dependencies": {
     "@carts1024/velo-sdk": "workspace:*",

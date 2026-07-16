@@ -21,7 +21,7 @@ Velo connects the workflows teams use to build, verify, observe, pay, and settle
 ![Rust](https://img.shields.io/badge/Rust-Soroban-dea584?style=flat-square&logo=rust&logoColor=black)
 ![License](https://img.shields.io/badge/License-MIT-22c55e?style=flat-square)
 
-[Platform guide](docs/velo-master-context.md) · [Velo Pay guide](docs/velo-pay-checkout.md) · [SDK](packages/velo-sdk/README.md) · [Deploy contracts](#-deploy-smart-contracts) · [Run locally](#-run-velo-locally)
+[Open Velo](https://run-velo.vercel.app) · [Try the Velo Pay demo](https://velo-pay-demo.vercel.app) · [Platform guide](docs/velo-master-context.md) · [Velo Pay guide](docs/velo-pay-checkout.md) · [SDK](packages/velo-sdk/README.md) · [Deploy contracts](#-deploy-smart-contracts) · [Run locally](#-run-velo-locally)
 
 </div>
 
@@ -40,13 +40,13 @@ Those jobs often end up fragmented across scripts, dashboards, providers, and ma
 
 **Build → Verify → Observe → Pay → Settle**
 
-| Capability | What Velo helps you do | Alpha status |
-| --- | --- | --- |
-| 🛠️ **Build** | Connect supported Stellar operations through APIs, SDKs, project workspaces, and reusable workflows. | Implemented alpha |
-| ✅ **Verify** | Link wallet authorization and on-chain provenance to the project and contracts an owner claims as official. | Live validation pending |
-| 📡 **Observe** | Inspect Testnet transactions, monitor contract events, and review signed webhook delivery. | Live qualification pending |
-| 💳 **Pay** | Create hosted Stellar checkout flows and return ledger-verified payment state to an application. | Code-complete; E2E pending |
-| 🏦 **Settle** | Exercise supported stablecoin conversion and local payout workflows through PDAX UAT. | UAT demo only |
+| Capability     | What Velo helps you do                                                                                      | Alpha status               |
+| -------------- | ----------------------------------------------------------------------------------------------------------- | -------------------------- |
+| 🛠️ **Build**   | Connect supported Stellar operations through APIs, SDKs, project workspaces, and reusable workflows.        | Implemented alpha          |
+| ✅ **Verify**  | Link wallet authorization and on-chain provenance to the project and contracts an owner claims as official. | Live validation pending    |
+| 📡 **Observe** | Inspect Testnet transactions, monitor contract events, and review signed webhook delivery.                  | Live qualification pending |
+| 💳 **Pay**     | Create hosted Stellar checkout flows and return ledger-verified payment state to an application.            | Code-complete; E2E pending |
+| 🏦 **Settle**  | Exercise supported stablecoin conversion and local payout workflows through PDAX UAT.                       | UAT demo only              |
 
 Start with Velo Pay, then use the wider platform as your Stellar application grows.
 
@@ -61,6 +61,37 @@ Start with Velo Pay, then use the wider platform as your Stellar application gro
 - **Debug transactions and monitor contracts** from the same project workspace.
 - **Demonstrate regional settlement** with PDAX UAT balances, quotes, trades, InstaPay withdrawals, callbacks, and normalized merchant events.
 
+## 🌐 How Velo Uses Stellar
+
+Velo uses Stellar as the authorization, payment, and settlement-verification layer beneath its
+Testnet operating loop.
+
+| Stellar capability                  | How Velo uses it today                                                                                                                                                                                                            |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Wallets and signatures**          | Stellar Wallets Kit connects supported wallets for authentication and transaction signing. Velo's current authentication flow uses a wallet-signed, SEP-10-style challenge; broader SEP-10 infrastructure remains on the roadmap. |
+| **Classic transactions and assets** | `@stellar/stellar-sdk` and Horizon prepare and submit checkout transactions, inspect accounts and trustlines, and support native XLM and issued-asset payment flows.                                                              |
+| **Stellar RPC and ledger data**     | Backend workers verify submitted transactions, reconcile pending payments, debug transaction results, and poll supported Soroban contract events.                                                                                 |
+| **Soroban contracts**               | `VeloRegistry` records wallet-owned project identity and official contract references. `VeloPayAccess` reads Registry state to control payment activation and checkout credits.                                                   |
+| **Ledger-verified payments**        | A browser submission never marks a PaymentIntent as paid. The backend checks the transaction against the intended source, destination, asset, and amount before updating state and scheduling `payment.succeeded`.                |
+| **Stablecoin settlement**           | The current PDAX UAT workflow demonstrates how Stellar stablecoin collection can continue into quotes, trades, and Philippine local-payout flows. It is a sandbox integration, not production settlement.                         |
+
+## 💡 Innovation and Differentiation
+
+Velo composes Stellar primitives into application-ready workflows while keeping authorization and
+payment truth verifiable on-chain. Its differentiation is the operating model around Stellar, not a
+claim to replace wallets, Horizon, RPC providers, anchors, or the Stellar SDK.
+
+- **One operating loop:** project provenance, payment access, hosted checkout, ledger verification,
+  contract monitoring, signed webhooks, and settlement workflows share one project context.
+- **Ledger evidence over client trust:** the checkout UI can submit a transaction, but only backend
+  verification can finalize the payment.
+- **Contracts plus operations:** Soroban authorization is connected to the API, SDK, checkout, event
+  monitoring, and webhook surfaces that application teams need around a contract.
+- **A progressive integration path:** teams can start with hosted Testnet checkout and adopt deeper
+  infrastructure as their identity, payment, observability, and data requirements grow.
+- **Explicit evidence boundaries:** implemented code, live-qualification work, roadmap commitments,
+  and exploratory ideas are labeled separately.
+
 ## 👥 Who Velo Is For
 
 - Stellar and Soroban teams that need an operational layer beyond contract deployment.
@@ -68,6 +99,31 @@ Start with Velo Pay, then use the wider platform as your Stellar application gro
 - Merchant platforms integrating stablecoin checkout and signed payment notifications.
 - Operators validating transaction, webhook, contract, and settlement behavior.
 - Ecosystem reviewers checking project ownership and official contract provenance.
+
+## 📈 Go to Market
+
+Velo's initial go-to-market is **B2B developer infrastructure for Stellar**. Its target customers are
+fintechs, wallets, merchant platforms, anchors, and application teams that need payment and
+operational capabilities without assembling every surrounding Stellar integration themselves.
+
+1. **B2B design partners:** work with a small group of Testnet teams that have concrete checkout,
+   verification, webhook, or settlement requirements. Track time to first successful payment,
+   checkout completion, webhook delivery, and integration feedback.
+2. **Technical pilots:** use the SDK, examples, documentation, and hosted flow to prove repeatable
+   integrations and turn design-partner needs into reusable infrastructure.
+3. **Ecosystem partnerships:** distribute those capabilities through direct developer outreach,
+   hackathons, ecosystem programs, and integrations with wallets, anchors, payment providers, and
+   Stellar applications.
+4. **Production contracts:** introduce supported deployment paths, reliability targets, and
+   usage-based or platform pricing only after the necessary security, compliance, partner,
+   Mainnet-readiness, and operational work is complete.
+
+The initial business model and the longer-term payment use case are distinct: Velo can serve
+businesses as an infrastructure platform first, then expand into B2B payment workflows such as
+supplier payments, enterprise payouts, and cross-border settlement as SEP-31, anchor connectivity,
+and production settlement mature. The product wedge is verifiable checkout and payment operations;
+the infrastructure expansion path includes shared SEP, account, transaction-sponsorship, RPC,
+indexing, and developer-operations services.
 
 ## 🧭 How Velo Fits Together
 
@@ -94,9 +150,9 @@ The browser can submit a payment, but it cannot declare success. Velo verifies t
 
 ## 🔗 Current Testnet Contracts
 
-| Contract | Address | Explorer |
-| --- | --- | --- |
-| `VeloRegistry` | `CBSR5LFHR5Q2X3PO3HSMGXI43YEUYGFTHUPGNVGW6XH2VNOQUEUHIEJR` | [View on Stellar Expert](https://stellar.expert/explorer/testnet/contract/CBSR5LFHR5Q2X3PO3HSMGXI43YEUYGFTHUPGNVGW6XH2VNOQUEUHIEJR) |
+| Contract        | Address                                                    | Explorer                                                                                                                            |
+| --------------- | ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `VeloRegistry`  | `CBSR5LFHR5Q2X3PO3HSMGXI43YEUYGFTHUPGNVGW6XH2VNOQUEUHIEJR` | [View on Stellar Expert](https://stellar.expert/explorer/testnet/contract/CBSR5LFHR5Q2X3PO3HSMGXI43YEUYGFTHUPGNVGW6XH2VNOQUEUHIEJR) |
 | `VeloPayAccess` | `CBHDLZYSYWETHPC6KDGH35S4SNBU5P7QWLNNDWYXJRHZMZDTQSKYVOXJ` | [View on Stellar Expert](https://stellar.expert/explorer/testnet/contract/CBHDLZYSYWETHPC6KDGH35S4SNBU5P7QWLNNDWYXJRHZMZDTQSKYVOXJ) |
 
 These are alpha Testnet deployments and may be replaced as Velo evolves. After a redeployment,
@@ -204,6 +260,30 @@ stellar contract build --manifest-path contracts/registry/Cargo.toml
 stellar contract build --manifest-path contracts/pay_access/Cargo.toml
 ```
 
+## ⚡ Performance and Benchmarking
+
+On July 15, 2026, Velo measured the hosted PaymentIntent-creation endpoint from `us-east-1`. The run
+measured each HTTP request from its start until a valid payment-intent response was received from
+`https://run-velo.vercel.app`.
+
+| Observed metric           |        Result |
+| ------------------------- | ------------: |
+| Attempted requests        |         3,000 |
+| Successful requests       |  3,000 (100%) |
+| Errors / dropped requests |         0 / 0 |
+| Successful throughput     | 10 requests/s |
+| p50 latency               |      85.14 ms |
+| p95 latency               |     108.11 ms |
+| p99 latency               |     176.19 ms |
+| Maximum latency           |     565.03 ms |
+
+The workload used 10 warmup requests, 3,000 measured requests, a target rate of 10 requests per
+second, concurrency of 25, and a 10-second request timeout. The capture ran on Node.js `v20.20.2` and
+is recorded locally as
+`benchmarks/reports/velo-us-east-1-2026-07-15T02-47-16-859Z.json` with its 3,000-sample raw NDJSON
+artifact.
+
+
 ## 🚢 Deploy Smart Contracts
 
 The deployment script releases both Velo contracts as an ordered, non-atomic sequence. It deploys
@@ -288,6 +368,35 @@ VELO_PAY_ACCESS_CONTRACT_ID=<pay_access_contract_id>
 
 See the [full contract deployment guide](contracts/README.md) for optional flags, safety checks, and
 manifest details.
+
+## 🗺️ Roadmap and Upcoming Features
+
+Roadmap items describe current direction and may change as Velo learns from alpha users. They are not
+claims of present availability.
+
+### Payments, identity, and accounts
+
+- SEP-10 authentication infrastructure.
+- Smart-account infrastructure.
+- SEP-24 deposit and withdrawal infrastructure.
+- Gas-station infrastructure for sponsored transactions.
+
+### Standards and developer tooling
+
+- SDK support for SEP-6, SEP-10, SEP-24, SEP-31, SEP-38, and SEP-45.
+- Broader developer-operations infrastructure.
+- Smart-contract playground.
+
+### Network and operations infrastructure
+
+- Full Stellar RPC gateway.
+- Distributed indexing layer.
+- Production request logs and operational visibility.
+
+### Exploring
+
+- Deeper integration with Stellar Anchors.
+- A reusable Stellar Anchor SDK, subject to findings from that exploration.
 
 ## 📦 Repository Map
 
