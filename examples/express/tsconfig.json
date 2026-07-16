@@ -9,5 +9,5 @@
     "allowImportingTsExtensions": true,
     "noEmit": true
   },
-  "include": ["server.ts"]
+  "include": ["*.ts"]
 }
