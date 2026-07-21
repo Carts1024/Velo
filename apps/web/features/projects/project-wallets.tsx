@@ -583,14 +583,36 @@ export function ProjectWallets({ projectId }: { projectId: string }) {
         </div>
 
         {snippets && stored?.activePublicationId ? (
-          <div className="rounded-lg border bg-white p-5">
+          <div className="bg-card text-card-foreground rounded-lg border p-5">
             <div className="mb-4">
               <h2 className="font-semibold">Integration instructions</h2>
-              <p className="text-sm text-zinc-600">
-                Allow your app origin, paste one option at the exact UI mounting location, then
-                verify connection and signing.
+              <p className="text-muted-foreground text-sm">
+                Complete these steps after publishing a wallet revision.
               </p>
             </div>
+            <ol className="mb-5 grid gap-3 md:grid-cols-3">
+              <li className="bg-muted/30 rounded-md border p-3">
+                <p className="text-sm font-medium">1. Allow and publish</p>
+                <p className="text-muted-foreground mt-1 text-xs leading-relaxed">
+                  Add each consuming app’s exact origin above, save the draft, then publish the
+                  revision.
+                </p>
+              </li>
+              <li className="bg-muted/30 rounded-md border p-3">
+                <p className="text-sm font-medium">2. Mount one integration</p>
+                <p className="text-muted-foreground mt-1 text-xs leading-relaxed">
+                  Choose HTML or React below. The public project key is safe to expose in browser
+                  code.
+                </p>
+              </li>
+              <li className="bg-muted/30 rounded-md border p-3">
+                <p className="text-sm font-medium">3. Reload and verify</p>
+                <p className="text-muted-foreground mt-1 text-xs leading-relaxed">
+                  Reload the consuming app after publishing. Velo loads the published wallets and
+                  appearance during initialization.
+                </p>
+              </li>
+            </ol>
             <Tabs defaultValue="html">
               <TabsList>
                 <TabsTrigger value="html">HTML</TabsTrigger>
@@ -600,21 +622,31 @@ export function ProjectWallets({ projectId }: { projectId: string }) {
                 value="html"
                 code={snippets.html}
                 onCopy={() => copy(snippets.html, "HTML")}
+                hint="No package installation is required. Mount the element where the wallet controls should appear."
               />
               <SnippetTab
                 value="react"
                 code={snippets.react}
                 onCopy={() => copy(snippets.react, "React")}
+                hint="Keep this file behind a client boundary. WalletWidget includes connect, account, copy, disconnect, status, and error UI."
+                command={snippets.install}
               />
             </Tabs>
-            <p className="mt-4 text-xs text-zinc-500">
+            <p className="text-muted-foreground mt-4 text-xs">
               CSP: <code>{snippets.csp}</code>
             </p>
-            <p className="mt-2 text-xs text-zinc-500">
-              Listen for <code>velo:wallet-connected</code> in HTML, or call{" "}
-              <code>useVeloWallet()</code> in a client component. Signing inputs and signatures
-              never pass through Velo.
-            </p>
+            <div className="bg-muted/30 mt-4 rounded-md border p-3 text-xs leading-relaxed">
+              <p>
+                <strong>Signing is optional.</strong> Basic connection does not request a signature.
+                Use <code>useVeloWallet()</code> only when your transaction or authentication flow
+                needs wallet methods.
+              </p>
+              <p className="text-muted-foreground mt-2">
+                For authentication, sign a server-generated, expiring challenge—not a static
+                message. Signing inputs and signatures stay in the consuming browser and never pass
+                through Velo.
+              </p>
+            </div>
             <div className="mt-4 flex items-center gap-3">
               <Button asChild variant="outline" size="sm">
                 <Link href={`/wallet-preview/${stored.publicKey}`} target="_blank">
@@ -711,9 +743,28 @@ function SettingSwitch({
   );
 }
 
-function SnippetTab({ value, code, onCopy }: { value: string; code: string; onCopy: () => void }) {
+function SnippetTab({
+  value,
+  code,
+  hint,
+  command,
+  onCopy,
+}: {
+  value: string;
+  code: string;
+  hint: string;
+  command?: string;
+  onCopy: () => void;
+}) {
   return (
     <TabsContent value={value}>
+      <p className="text-muted-foreground mb-3 text-xs leading-relaxed">{hint}</p>
+      {command ? (
+        <div className="bg-muted/40 mb-3 flex flex-wrap items-center gap-2 rounded-md border px-3 py-2 text-xs">
+          <span className="text-muted-foreground">Install:</span>
+          <code>{command}</code>
+        </div>
+      ) : null}
       <div className="relative">
         <pre className="overflow-x-auto rounded-md bg-zinc-950 p-4 pr-12 text-xs text-zinc-100">
           <code>{code}</code>

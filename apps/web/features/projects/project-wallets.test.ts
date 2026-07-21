@@ -26,6 +26,10 @@ test("Wallets panel exposes configuration and publication lifecycle", () => {
   assert.match(panel, /Dark palette/);
   assert.match(panel, /Button style/);
   assert.match(panel, /Integration instructions/);
+  assert.match(panel, /Add each consuming app’s exact origin/);
+  assert.match(panel, /public project key is safe to expose/);
+  assert.match(panel, /Basic connection does not request a signature/);
+  assert.match(panel, /server-generated, expiring challenge/);
   assert.match(panel, /aria-live="polite"/);
 });
 

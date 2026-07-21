@@ -20,8 +20,9 @@ export function walletIntegrationSnippets(options: {
   const cdnBaseUrl = options.cdnBaseUrl.replace(/\/$/, "");
   const apiBaseUrl = options.apiBaseUrl.replace(/\/$/, "");
   return {
-    html: `<script type="module" src="${cdnBaseUrl}/v1/velo-wallet.js"></script>\n<velo-wallet id="stellar-wallet" project-key="${options.projectKey}" api-base="${apiBaseUrl}"></velo-wallet>\n<script>\n  const wallet = document.querySelector("#stellar-wallet");\n  wallet.addEventListener("velo:wallet-connected", (event) => {\n    console.log("Connected", event.detail.address);\n  });\n  // const signedXdr = await wallet.signTransaction(transactionXdr);\n</script>`,
-    react: `"use client";\n\nimport { VeloWalletProvider, WalletWidget, useVeloWallet } from "@carts1024/velo-wallets/react";\n\nfunction WalletActions() {\n  const wallet = useVeloWallet();\n  return (\n    <>\n      <WalletWidget />\n      <button onClick={() => wallet.signMessage("Hello from my app")}>Sign message</button>\n    </>\n  );\n}\n\nexport function WalletControls() {\n  return (\n    <VeloWalletProvider projectKey="${options.projectKey}" apiBaseUrl="${apiBaseUrl}">\n      <WalletActions />\n    </VeloWalletProvider>\n  );\n}`,
+    html: `<script type="module" src="${cdnBaseUrl}/v1/velo-wallet.js"></script>\n\n<velo-wallet\n  id="stellar-wallet"\n  project-key="${options.projectKey}"\n  api-base="${apiBaseUrl}"\n></velo-wallet>\n\n<script>\n  const wallet = document.querySelector("#stellar-wallet");\n\n  wallet.addEventListener("velo:wallet-connected", (event) => {\n    console.log("Connected", event.detail.address);\n  });\n\n  wallet.addEventListener("velo:wallet-error", (event) => {\n    console.error("Wallet error", event.detail.error);\n  });\n</script>`,
+    react: `"use client";\n\nimport { VeloWalletProvider, WalletWidget } from "@carts1024/velo-wallets/react";\n\nexport function WalletControls() {\n  return (\n    <VeloWalletProvider projectKey="${options.projectKey}" apiBaseUrl="${apiBaseUrl}">\n      <WalletWidget />\n    </VeloWalletProvider>\n  );\n}`,
+    install: "pnpm add @carts1024/velo-wallets",
     csp: `script-src 'self' ${new URL(cdnBaseUrl).origin}; connect-src 'self' ${new URL(apiBaseUrl).origin}`,
   };
 }
