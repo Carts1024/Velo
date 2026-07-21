@@ -22,6 +22,7 @@ import settlementTransactions from "./settlement_transactions/schema";
 import telemetryOutbox from "./telemetry_outbox/schema";
 import transactions from "./transactions/schema";
 import users from "./users/schema";
+import { walletConfigPublications, walletConfigs } from "./wallet_configs/schema";
 import webhookDeliveries from "./webhook_deliveries/schema";
 import webhookDomainEvents from "./webhook_domain_events/schema";
 import webhookEndpoints from "./webhook_endpoints/schema";
@@ -52,4 +53,6 @@ export default defineSchema({
   providerOperations,
   rateLimitBuckets,
   webhookDomainEvents,
+  walletConfigs,
+  walletConfigPublications,
 });

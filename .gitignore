@@ -26,6 +26,8 @@ coverage
 out/
 build
 dist
+apps/web/public/wallets/
+artifacts/
 target/
 
 
@@ -96,3 +98,8 @@ benchmarks/evidence/sprint-9/*.ndjson
 !benchmarks/evidence/sprint-11/evidence-manifest.json
 !benchmarks/evidence/sprint-11/release-decision.json
 docs/branding/velo-brand-positioning.md
+
+# Velo Wallets alpha implementation report
+!docs/prds/
+docs/prds/*
+!docs/prds/velo-wallets-one-sprint-plan.md

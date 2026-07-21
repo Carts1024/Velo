@@ -26,7 +26,8 @@
     "dev": "turbo run dev",
     "lint:fix": "turbo run lint:fix",
     "prepare": "husky",
-    "test": "turbo run test"
+    "test": "turbo run test",
+    "wallets:stage": "pnpm --filter @carts1024/velo-wallets build && node scripts/stage-wallet-bundle.mjs"
   },
   "devDependencies": {
     "husky": "^9.1.7",

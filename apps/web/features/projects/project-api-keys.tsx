@@ -150,7 +150,7 @@ export function ProjectApiKeys({ projectId }: { projectId: string }) {
     return (
       <section className="grid gap-4">
         <h1 className="text-3xl font-semibold tracking-normal">Project unavailable</h1>
-        <p className="max-w-2xl text-sm text-zinc-600">
+        <p className="max-w-2xl text-sm text-muted-foreground">
           The project does not exist or the connected wallet is not its owner.
         </p>
         <Button asChild className="w-fit">
@@ -184,7 +184,7 @@ export function ProjectApiKeys({ projectId }: { projectId: string }) {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-3xl font-semibold tracking-normal">API keys</h1>
-          <p className="mt-2 max-w-2xl text-sm text-zinc-600">
+          <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
             Generate and manage keys for {project.name}. Raw keys are shown once when created.
           </p>
         </div>
@@ -201,14 +201,14 @@ export function ProjectApiKeys({ projectId }: { projectId: string }) {
         </Alert>
       ) : null}
 
-      <div className="rounded-lg border border-zinc-200 bg-white shadow-sm">
-        <div className="flex flex-col gap-4 border-b border-zinc-200 p-4 lg:flex-row lg:items-end lg:justify-between">
+      <div className="rounded-lg border border-border bg-card text-card-foreground shadow-sm">
+        <div className="flex flex-col gap-4 border-b border-border p-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <div className="flex items-center gap-2">
-              <KeyIcon className="size-5 text-zinc-700" />
+              <KeyIcon className="size-5 text-muted-foreground" />
               <h2 className="text-base font-semibold tracking-normal">Key management</h2>
             </div>
-            <p className="mt-1 text-sm text-zinc-600">
+            <p className="mt-1 text-sm text-muted-foreground">
               Use labels that identify environment or service owner.
             </p>
           </div>
@@ -229,23 +229,25 @@ export function ProjectApiKeys({ projectId }: { projectId: string }) {
         </div>
 
         {newRawKey ? (
-          <div className="border-b border-zinc-200 bg-emerald-50/50 p-4">
-            <Alert className="border-emerald-200 bg-white text-emerald-950">
-              <KeyIcon className="size-5 text-emerald-600" />
-              <AlertTitle className="font-semibold text-emerald-900">Save your API key</AlertTitle>
-              <AlertDescription className="text-emerald-900">
+          <div className="border-b border-border bg-emerald-50/60 p-4 dark:bg-emerald-950/20">
+            <Alert className="border-emerald-200 bg-card text-card-foreground dark:border-emerald-900/60">
+              <KeyIcon className="size-5 text-emerald-600 dark:text-emerald-400" />
+              <AlertTitle className="font-semibold text-emerald-900 dark:text-emerald-200">
+                Save your API key
+              </AlertTitle>
+              <AlertDescription className="text-emerald-900 dark:text-emerald-200">
                 <p className="mb-3 text-sm leading-relaxed">
                   Copy this key now. For security reasons, it cannot be shown again after this box
                   is closed or the page refreshes.
                 </p>
-                <div className="flex items-center gap-2 rounded-md border border-emerald-200 bg-white p-3 font-mono text-xs font-semibold break-all text-zinc-900 shadow-sm">
+                <div className="flex items-center gap-2 rounded-md border border-emerald-200 bg-background p-3 font-mono text-xs font-semibold break-all text-foreground shadow-sm dark:border-emerald-900/60">
                   <span className="min-w-0 flex-1 select-all">{newRawKey}</span>
                   <CopyButton value={newRawKey} label="API key" size="sm" />
                 </div>
                 <Button
                   variant="outline"
                   size="sm"
-                  className="mt-3 bg-white"
+                  className="mt-3"
                   onClick={() => setNewRawKey(null)}
                 >
                   I have copied the key
@@ -257,7 +259,7 @@ export function ProjectApiKeys({ projectId }: { projectId: string }) {
 
         <div className="overflow-x-auto">
           {apiKeys.length === 0 ? (
-            <div className="p-8 text-center text-sm text-zinc-600">
+            <div className="p-8 text-center text-sm text-muted-foreground">
               No API keys generated yet. Create a labeled key to start using Velo APIs.
             </div>
           ) : (
@@ -277,7 +279,9 @@ export function ProjectApiKeys({ projectId }: { projectId: string }) {
                 {apiKeys.map((key) => (
                   <TableRow key={key._id}>
                     <TableCell className="font-medium text-sm">{key.label}</TableCell>
-                    <TableCell className="font-mono text-xs text-zinc-500">{key.prefix}</TableCell>
+                    <TableCell className="font-mono text-xs text-muted-foreground">
+                      {key.prefix}
+                    </TableCell>
                     <TableCell>
                       <Badge variant={key.revoked ? "gray" : "success"}>
                         {key.revoked ? "revoked" : "active"}
@@ -288,13 +292,13 @@ export function ProjectApiKeys({ projectId }: { projectId: string }) {
                         {key.paymentAnchor === "pdax" ? "PDAX" : "In-house"}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-xs text-zinc-500">
+                    <TableCell className="text-xs text-muted-foreground">
                       {formatTimestamp(key.createdAt)}
                     </TableCell>
-                    <TableCell className="text-xs text-zinc-500">
+                    <TableCell className="text-xs text-muted-foreground">
                       <div>{key.requestCount} requests</div>
                       {key.lastUsedAt ? (
-                        <div className="mt-0.5 text-[10px] text-zinc-400">
+                        <div className="mt-0.5 text-[10px] text-muted-foreground/75">
                           Last used {formatTimestamp(key.lastUsedAt)}
                         </div>
                       ) : null}
@@ -320,7 +324,7 @@ export function ProjectApiKeys({ projectId }: { projectId: string }) {
         </div>
 
         <Dialog open={isGenerateDialogOpen} onOpenChange={setIsGenerateDialogOpen}>
-          <DialogContent className="sm:max-w-[425px] bg-white text-zinc-950">
+          <DialogContent className="bg-background text-foreground sm:max-w-[425px]">
             <DialogHeader>
               <DialogTitle>Generate API key</DialogTitle>
               <DialogDescription>Create a new API key for {project.name}.</DialogDescription>
@@ -334,7 +338,7 @@ export function ProjectApiKeys({ projectId }: { projectId: string }) {
                 </Alert>
               ) : null}
               <div className="grid gap-2">
-                <Label htmlFor="api-key-name" className="text-zinc-700">
+                <Label htmlFor="api-key-name" className="text-foreground">
                   Key label
                 </Label>
                 <Input
@@ -349,7 +353,7 @@ export function ProjectApiKeys({ projectId }: { projectId: string }) {
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="api-key-anchor" className="text-zinc-700">
+                <Label htmlFor="api-key-anchor" className="text-foreground">
                   Payment routing
                 </Label>
                 <select
@@ -357,12 +361,12 @@ export function ProjectApiKeys({ projectId }: { projectId: string }) {
                   value={selectedAnchor}
                   onChange={(e) => setSelectedAnchor(e.target.value as "inhouse" | "pdax")}
                   disabled={isGeneratingKey}
-                  className="flex h-9 w-full rounded-md border border-zinc-200 bg-white px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-zinc-400 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm text-foreground shadow-xs transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-hidden disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <option value="inhouse">Velo's own process (In-house)</option>
                   <option value="pdax">PDAX Anchor</option>
                 </select>
-                <p className="text-[11px] text-zinc-500 mt-0.5">
+                <p className="mt-0.5 text-[11px] text-muted-foreground">
                   {selectedAnchor === "inhouse"
                     ? "Standard payment flow routing directly to project owner address."
                     : "Routed via PDAX. Requires connected PDAX provider. Includes memo tags."}
@@ -388,8 +392,8 @@ export function ProjectApiKeys({ projectId }: { projectId: string }) {
         </Dialog>
 
         {activeKeys.length > 0 ? (
-          <div className="border-t border-zinc-200 bg-zinc-50/40 p-4">
-            <h3 className="mb-3 text-xs font-semibold tracking-wider text-zinc-500 uppercase">
+          <div className="border-t border-border bg-muted/30 p-4">
+            <h3 className="mb-3 text-xs font-semibold tracking-wider text-muted-foreground uppercase">
               Available API endpoints
             </h3>
             <div className="grid gap-2.5">
@@ -417,14 +421,14 @@ export function ProjectApiKeys({ projectId }: { projectId: string }) {
               ].map((endpoint) => (
                 <div
                   key={endpoint.path}
-                  className="flex flex-col justify-between gap-2 rounded-md border border-zinc-100 bg-white p-3 md:flex-row md:items-center"
+                  className="flex flex-col justify-between gap-2 rounded-md border border-border bg-card p-3 md:flex-row md:items-center"
                 >
                   <div className="min-w-0 flex-1">
-                    <span className="mr-2 inline-flex rounded bg-zinc-100 px-2 py-0.5 font-mono text-xs font-medium text-zinc-800">
+                    <span className="mr-2 inline-flex rounded bg-muted px-2 py-0.5 font-mono text-xs font-medium text-foreground">
                       {endpoint.method}
                     </span>
-                    <span className="font-mono text-xs text-zinc-700">{endpoint.path}</span>
-                    <p className="mt-1 text-xs text-zinc-500">{endpoint.description}</p>
+                    <span className="font-mono text-xs text-foreground">{endpoint.path}</span>
+                    <p className="mt-1 text-xs text-muted-foreground">{endpoint.description}</p>
                   </div>
                   <Button variant="outline" size="xs" onClick={() => copyEndpoint(endpoint.path)}>
                     Copy URL

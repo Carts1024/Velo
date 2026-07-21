@@ -1,0 +1,59 @@
+# @carts1024/velo-wallets
+
+Hosted, project-configured multi-wallet integration for Stellar applications. Velo Wallets wraps Stellar Wallets Kit 2.3.0; it does not replace it.
+
+The npm package bundles its pinned Wallets Kit runtime, so consumers do not need a JSR registry configuration.
+
+## HTML
+
+```html
+<script type="module" src="https://wallets.velo.dev/v1/velo-wallet.js"></script>
+<velo-wallet project-key="vw_pk_example"></velo-wallet>
+```
+
+The element provides `connect`, `disconnect`, `getAddress`, `signTransaction`, `signAuthEntry`, and `signMessage`, plus the versioned `velo:wallet-*` DOM events.
+
+Published Light/Dark palettes, typography, button shape, and modal styling are loaded with the project configuration. A consuming page can make a local override with validated CSS variables before the element initializes:
+
+```css
+velo-wallet {
+  --velo-wallet-accent: #6d28d9;
+  --velo-wallet-accent-text: #ffffff;
+}
+```
+
+For theme-specific overrides, prefix palette variables with `--velo-wallet-light-` or `--velo-wallet-dark-`. The component exposes the `container`, `trigger`, `actions`, `copy-button`, `disconnect-button`, and `status` CSS parts.
+
+## React / Next.js
+
+```tsx
+"use client";
+
+import { VeloWalletProvider, WalletWidget } from "@carts1024/velo-wallets/react";
+
+export function WalletControls() {
+  return (
+    <VeloWalletProvider projectKey="vw_pk_example">
+      <WalletWidget />
+    </VeloWalletProvider>
+  );
+}
+```
+
+Mount the provider only at the client boundary that needs wallet state. Package entry imports are server-safe. Signing inputs and results remain in the consuming browser and are never sent to Velo.
+
+`WalletWidget` includes connected-wallet identity, copy, disconnect, status, and error UI. `ConnectButton` remains available for button-only integrations. Published styling is the default; local React overrides can be supplied at the provider:
+
+```tsx
+<VeloWalletProvider
+  projectKey="vw_pk_example"
+  appearance={{
+    palettes: { light: { accent: "#6D28D9", accentText: "#FFFFFF" } },
+    button: { size: "lg", radius: "pill" },
+  }}
+>
+  <WalletWidget />
+</VeloWalletProvider>
+```
+
+Local appearance values are merged over the published project configuration and validated before the wallet selector opens. A document may use only one project key and one local appearance override.

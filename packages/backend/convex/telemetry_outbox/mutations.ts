@@ -2,6 +2,7 @@ import { deterministicSample, ERROR_CODES, METRIC_NAMES, SPAN_NAMES } from "@rep
 import { v } from "convex/values";
 
 import { internalMutation, mutation } from "../_generated/server";
+import { isConvexTelemetryEnabled } from "./config";
 import { telemetryStageValidator } from "./schema";
 
 const outcome = v.union(
@@ -30,7 +31,7 @@ export const recordUiMarker = mutation({
     const intent = await ctx.db.get(args.paymentIntentId);
     if (!intent || intent.correlationId !== args.journeyCorrelationId) return false;
     const now = Date.now();
-    if (deterministicSample(args.journeyCorrelationId, 0.1)) {
+    if (isConvexTelemetryEnabled() && deterministicSample(args.journeyCorrelationId, 0.1)) {
       await ctx.db.insert("telemetryOutbox", {
         kind: "span",
         name: "velo.ui.render",
@@ -77,6 +78,7 @@ export const enqueue = internalMutation({
     sampled: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
+    if (!isConvexTelemetryEnabled()) return null;
     const validName =
       args.kind === "span"
         ? SPAN_NAMES.includes(args.name as (typeof SPAN_NAMES)[number])
