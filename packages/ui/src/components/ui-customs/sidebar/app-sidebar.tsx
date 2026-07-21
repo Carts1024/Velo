@@ -115,6 +115,12 @@ export function AppSidebar({
       disabled: !activeProject,
     },
     {
+      title: "Wallets",
+      url: `${projectBaseUrl}/wallets`,
+      icon: WalletIcon,
+      disabled: !activeProject,
+    },
+    {
       title: "Public Proof",
       url: publicProofUrl,
       icon: FileTextIcon,

@@ -9,8 +9,10 @@ import {
   ChevronRightIcon,
   HashIcon,
   KeyIcon,
+  ShieldCheckIcon,
+  WalletCardsIcon,
 } from "lucide-react";
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 
 type SectionId =
   | "intro"
@@ -21,18 +23,33 @@ type SectionId =
   | "webhooks"
   | "nextjs"
   | "express"
-  | "reference";
+  | "reference"
+  | "wallets-overview"
+  | "wallets-configure"
+  | "wallets-html"
+  | "wallets-react"
+  | "wallets-reference";
 
 interface DocSection {
   id: SectionId;
   title: string;
-  category: "Getting Started" | "SDK Reference" | "Guides & Examples" | "API Reference";
+  category:
+    | "Getting Started"
+    | "Velo Wallets"
+    | "SDK Reference"
+    | "Guides & Examples"
+    | "API Reference";
 }
 
 const SECTIONS: DocSection[] = [
   { id: "intro", title: "Introduction", category: "Getting Started" },
   { id: "install", title: "Installation", category: "Getting Started" },
   { id: "config", title: "Configuration", category: "Getting Started" },
+  { id: "wallets-overview", title: "Wallets Quickstart", category: "Velo Wallets" },
+  { id: "wallets-configure", title: "Configure & Publish", category: "Velo Wallets" },
+  { id: "wallets-html", title: "Use with HTML", category: "Velo Wallets" },
+  { id: "wallets-react", title: "Use with React", category: "Velo Wallets" },
+  { id: "wallets-reference", title: "Methods & Troubleshooting", category: "Velo Wallets" },
   { id: "checkouts", title: "Checkout Sessions", category: "SDK Reference" },
   { id: "intents", title: "Payment Intents", category: "SDK Reference" },
   { id: "webhooks", title: "Webhook Verification", category: "SDK Reference" },
@@ -44,11 +61,17 @@ const SECTIONS: DocSection[] = [
 export default function DocsPage() {
   const [activeSection, setActiveSection] = useState<SectionId>("intro");
   const [copiedText, setCopiedText] = useState<string | null>(null);
+  const sectionHeadingRef = useRef<HTMLHeadingElement>(null);
 
   const handleCopy = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
     setCopiedText(id);
     setTimeout(() => setCopiedText(null), 2000);
+  };
+
+  const selectSection = (id: SectionId) => {
+    setActiveSection(id);
+    window.requestAnimationFrame(() => sectionHeadingRef.current?.focus());
   };
 
   const currentSection = SECTIONS.find((s) => s.id === activeSection) || SECTIONS[0]!;
@@ -215,6 +238,84 @@ app.post("/webhooks", express.raw({ type: "application/json" }), async (req, res
 });
 
 app.listen(3001, () => console.log("Express server running on port 3001"));`,
+    walletHtml: `<!-- Paste this where you want the wallet button to appear. -->
+<script
+  type="module"
+  src="https://wallets.velo.dev/v1/velo-wallet.js"
+></script>
+
+<velo-wallet project-key="vw_pk_your_public_project_key"></velo-wallet>`,
+    walletHtmlEvents: `const wallet = document.querySelector("velo-wallet");
+
+wallet.addEventListener("velo:wallet-connected", (event) => {
+  console.log("Connected address:", event.detail.address);
+});
+
+wallet.addEventListener("velo:wallet-error", (event) => {
+  console.error(event.detail.error.code, event.detail.error.message);
+});
+
+// Call this after your app has created a Stellar transaction XDR.
+async function requestSignature(transactionXdr) {
+  const signedXdr = await wallet.signTransaction(transactionXdr);
+  return signedXdr;
+}`,
+    walletReactInstall: `pnpm add @carts1024/velo-wallets`,
+    walletReactProvider: `"use client";
+
+import {
+  ConnectButton,
+  VeloWalletProvider,
+} from "@carts1024/velo-wallets/react";
+
+export function WalletControls() {
+  return (
+    <VeloWalletProvider projectKey="vw_pk_your_public_project_key">
+      <ConnectButton />
+    </VeloWalletProvider>
+  );
+}`,
+    walletReactHook: `"use client";
+
+import { useState } from "react";
+import { useVeloWallet } from "@carts1024/velo-wallets/react";
+
+export function ConnectedAccount() {
+  const wallet = useVeloWallet();
+  const [result, setResult] = useState("");
+  const [isSigning, setIsSigning] = useState(false);
+
+  async function signGreeting() {
+    setIsSigning(true);
+    setResult("Waiting for wallet approval…");
+    try {
+      await wallet.signMessage("Hello from my app");
+      setResult("Message signed.");
+    } catch (error) {
+      setResult(error instanceof Error ? error.message : "Signing failed.");
+    } finally {
+      setIsSigning(false);
+    }
+  }
+
+  if (wallet.status !== "connected") {
+    return <p role="status">{wallet.error?.message ?? "Connect a wallet to continue."}</p>;
+  }
+
+  return (
+    <div>
+      <p>Address: {wallet.address}</p>
+      <button onClick={signGreeting} disabled={isSigning}>
+        {isSigning ? "Signing…" : "Sign message"}
+      </button>
+      <button onClick={() => wallet.disconnect()}>Disconnect</button>
+      <p role="status" aria-live="polite">{result}</p>
+    </div>
+  );
+}`,
+    walletCsp: `Content-Security-Policy:
+  script-src 'self' https://wallets.velo.dev;
+  connect-src 'self' https://wallets.velo.dev;`,
   };
 
   const categories = Array.from(new Set(SECTIONS.map((s) => s.category)));
@@ -226,6 +327,7 @@ app.listen(3001, () => console.log("Express server running on port 3001"));`,
         <div className="absolute right-2 top-2 z-10 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
           <button
             onClick={() => handleCopy(code, id)}
+            aria-label="Copy code to clipboard"
             className="flex h-8 w-8 items-center justify-center rounded border border-border bg-background text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             title="Copy to clipboard"
           >
@@ -235,6 +337,9 @@ app.listen(3001, () => console.log("Express server running on port 3001"));`,
               <CopyIcon size={14} />
             )}
           </button>
+          <span className="sr-only" role="status" aria-live="polite">
+            {isCopied ? "Code copied to clipboard." : ""}
+          </span>
         </div>
         <pre className="overflow-x-auto p-4 font-mono text-[13px] leading-relaxed text-foreground select-all">
           {code}
@@ -248,7 +353,7 @@ app.listen(3001, () => console.log("Express server running on port 3001"));`,
       <div className="flex flex-col gap-8 rounded-xl border border-border bg-card p-6 font-sans text-card-foreground selection:bg-primary selection:text-primary-foreground md:flex-row md:p-8">
         {/* Left Sidebar */}
         <aside className="w-full shrink-0 overflow-y-auto border-b border-border pb-6 md:sticky md:top-24 md:h-[calc(100vh-220px)] md:w-64 md:border-r md:border-b-0 md:pr-6 md:pb-0">
-          <div className="space-y-6">
+          <nav className="space-y-6" aria-label="Documentation sections">
             {categories.map((cat) => (
               <div key={cat} className="space-y-2">
                 <h3 className="font-mono text-xs font-semibold tracking-wider text-muted-foreground uppercase">
@@ -260,7 +365,8 @@ app.listen(3001, () => console.log("Express server running on port 3001"));`,
                     return (
                       <li key={s.id}>
                         <button
-                          onClick={() => setActiveSection(s.id)}
+                          onClick={() => selectSection(s.id)}
+                          aria-current={isActive ? "page" : undefined}
                           className={`w-full text-left px-3 py-1.5 rounded-lg text-sm transition-all flex items-center justify-between ${
                             isActive
                               ? "border-l-2 border-zinc-950 bg-zinc-100 font-medium text-zinc-950 dark:border-white dark:bg-zinc-900 dark:text-white"
@@ -281,7 +387,7 @@ app.listen(3001, () => console.log("Express server running on port 3001"));`,
                 </ul>
               </div>
             ))}
-          </div>
+          </nav>
         </aside>
 
         {/* Content Panel */}
@@ -294,7 +400,11 @@ app.listen(3001, () => console.log("Express server running on port 3001"));`,
             <span className="text-foreground">{currentSection.title}</span>
           </div>
 
-          <h1 className="mb-6 text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
+          <h1
+            ref={sectionHeadingRef}
+            tabIndex={-1}
+            className="mb-6 text-3xl font-bold tracking-tight text-foreground outline-none sm:text-4xl"
+          >
             {currentSection.title}
           </h1>
 
@@ -456,6 +566,518 @@ const session = await velo.checkout.sessions.create({
                       </tr>
                     </tbody>
                   </table>
+                </div>
+              </>
+            )}
+
+            {activeSection === "wallets-overview" && (
+              <>
+                <p>
+                  Velo Wallets adds a multi-wallet connect button to your Stellar application. You
+                  choose the wallets and appearance in Velo, publish the settings, and then paste a
+                  small HTML or React integration into your app.
+                </p>
+
+                <div className="my-6 flex gap-3 rounded-xl border border-border bg-muted/50 p-4">
+                  <WalletCardsIcon className="mt-0.5 size-5 shrink-0 text-muted-foreground" />
+                  <div className="text-sm">
+                    <strong className="mb-1 block text-foreground">
+                      Velo Wallets and the Velo SDK solve different tasks
+                    </strong>
+                    Velo Wallets runs in the browser and lets a user connect or sign with their own
+                    Stellar wallet. The Velo SDK runs on your server and uses a private API key for
+                    payments and webhooks. Never put a private Velo API key in a wallet component.
+                  </div>
+                </div>
+
+                <h3 className="mt-8 mb-4 text-lg font-bold text-foreground">
+                  The beginner workflow
+                </h3>
+                <ol className="grid list-none gap-3 pl-0 sm:grid-cols-3">
+                  <li className="rounded-lg border border-border p-4">
+                    <span className="mb-2 block font-mono text-xs text-muted-foreground">
+                      STEP 1
+                    </span>
+                    <strong className="block text-foreground">Configure</strong>
+                    Choose Testnet, wallets, styling, and the websites allowed to use your
+                    integration.
+                  </li>
+                  <li className="rounded-lg border border-border p-4">
+                    <span className="mb-2 block font-mono text-xs text-muted-foreground">
+                      STEP 2
+                    </span>
+                    <strong className="block text-foreground">Publish</strong>
+                    Your first save creates the public project key. Publishing makes an immutable
+                    configuration revision live.
+                  </li>
+                  <li className="rounded-lg border border-border p-4">
+                    <span className="mb-2 block font-mono text-xs text-muted-foreground">
+                      STEP 3
+                    </span>
+                    <strong className="block text-foreground">Test, then paste</strong>
+                    Run the isolated Testnet diagnostics first, then copy the generated HTML or
+                    React snippet into your app.
+                  </li>
+                </ol>
+
+                <h3 className="mt-8 mb-3 text-lg font-bold text-foreground">
+                  What your users can do
+                </h3>
+                <ul className="list-disc space-y-2 pl-6 text-zinc-600 dark:text-zinc-400">
+                  <li>Choose from the Stellar wallets you enabled.</li>
+                  <li>Connect, view, copy, and disconnect their public account.</li>
+                  <li>Detect account or wallet changes made in the selected wallet.</li>
+                  <li>Sign transaction XDR, Soroban authorization entries, and messages.</li>
+                  <li>Restore a previous connection when session persistence is enabled.</li>
+                </ul>
+
+                <div className="my-6 flex gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-950 dark:border-emerald-900/60 dark:bg-emerald-950/20 dark:text-emerald-300">
+                  <ShieldCheckIcon className="mt-0.5 size-5 shrink-0 text-emerald-600" />
+                  <div className="text-sm">
+                    <strong>Signing stays in the browser</strong>
+                    <p className="mt-1">
+                      Velo does not receive your transaction XDR, authorization entry, message, or
+                      signature. The selected wallet handles every signing request locally.
+                    </p>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {activeSection === "wallets-configure" && (
+              <>
+                <p>
+                  Start on Testnet even if your final application will use Mainnet. You can verify
+                  the whole connection flow without risking real assets.
+                </p>
+
+                <h3 className="mt-8 mb-4 text-lg font-bold text-foreground">
+                  Configure your first integration
+                </h3>
+                <ol className="list-decimal space-y-4 pl-6 text-zinc-600 dark:text-zinc-400">
+                  <li>
+                    <strong className="text-foreground">Connect the project owner wallet.</strong>{" "}
+                    Open the Velo dashboard and select the project that will use the integration.
+                  </li>
+                  <li>
+                    <strong className="text-foreground">Open Wallets.</strong> Choose the{" "}
+                    <strong>Wallets</strong> item in the project sidebar.
+                  </li>
+                  <li>
+                    <strong className="text-foreground">Keep the Testnet preset.</strong> The safe
+                    preset enables Freighter, follows the system theme, restores sessions, and
+                    allows <code>http://localhost:3000</code>.
+                  </li>
+                  <li>
+                    <strong className="text-foreground">Choose supported wallets.</strong> Enable
+                    only the wallets you want users to see. Keep at least one selected.
+                  </li>
+                  <li>
+                    <strong className="text-foreground">Customize the button.</strong> Select a
+                    light, dark, or system theme and enter a label between 1 and 40 characters.
+                  </li>
+                  <li>
+                    <strong className="text-foreground">Add allowed origins.</strong> Enter one
+                    exact website origin per line. Include the scheme and port when one is used.
+                  </li>
+                  <li>
+                    <strong className="text-foreground">Save draft.</strong> This validates and
+                    stores your work and creates the public project key on the first save. It does
+                    not change the version used by live applications.
+                  </li>
+                  <li>
+                    <strong className="text-foreground">Publish revision.</strong> Review the
+                    summary and confirm. After publication, the page displays ready-to-copy
+                    integration snippets and enables the diagnostics link.
+                  </li>
+                </ol>
+
+                <h3 className="mt-8 mb-4 text-lg font-bold text-foreground">
+                  Allowed-origin examples
+                </h3>
+                <div className="overflow-x-auto rounded-lg border border-border">
+                  <table className="min-w-full divide-y divide-border text-left text-sm">
+                    <thead className="bg-muted/70 font-mono text-xs text-muted-foreground">
+                      <tr>
+                        <th className="px-4 py-3">Value</th>
+                        <th className="px-4 py-3">Result</th>
+                        <th className="px-4 py-3">Why</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      <tr>
+                        <td className="px-4 py-3 font-mono">http://localhost:3000</td>
+                        <td className="px-4 py-3 text-emerald-600">Valid for Testnet</td>
+                        <td className="px-4 py-3">Exact local origin, including its port.</td>
+                      </tr>
+                      <tr>
+                        <td className="px-4 py-3 font-mono">https://app.example.com</td>
+                        <td className="px-4 py-3 text-emerald-600">Valid</td>
+                        <td className="px-4 py-3">Secure production origin without a path.</td>
+                      </tr>
+                      <tr>
+                        <td className="px-4 py-3 font-mono">https://app.example.com/wallet</td>
+                        <td className="px-4 py-3 text-red-600">Invalid</td>
+                        <td className="px-4 py-3">Origins cannot contain paths.</td>
+                      </tr>
+                      <tr>
+                        <td className="px-4 py-3 font-mono">https://*.example.com</td>
+                        <td className="px-4 py-3 text-red-600">Invalid</td>
+                        <td className="px-4 py-3">Wildcards are intentionally unsupported.</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="my-6 flex gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-950 dark:border-amber-900/60 dark:bg-amber-950/20 dark:text-amber-300">
+                  <AlertTriangleIcon className="mt-0.5 size-5 shrink-0 text-amber-600" />
+                  <div className="text-sm">
+                    <strong>Mainnet requires extra confirmation</strong>
+                    <p className="mt-1">
+                      Add at least one non-local HTTPS origin, save the draft, review the
+                      publication summary, and type <code>MAINNET</code> when prompted. Complete
+                      Testnet diagnostics before making this change.
+                    </p>
+                  </div>
+                </div>
+
+                <p>
+                  Publishing a later revision updates consuming applications the next time they
+                  load. You do not need to paste a new snippet or redeploy the consuming app as long
+                  as its public project key stays the same.
+                </p>
+              </>
+            )}
+
+            {activeSection === "wallets-html" && (
+              <>
+                <p>
+                  The Web Component is the quickest option for plain HTML, JavaScript, and frontend
+                  frameworks that support custom elements. It requires no package installation.
+                </p>
+
+                <div className="my-6 flex gap-3 rounded-xl border border-border bg-muted/50 p-4">
+                  <InfoIcon className="mt-0.5 size-5 shrink-0 text-muted-foreground" />
+                  <div className="text-sm">
+                    <strong className="mb-1 block text-foreground">
+                      1. Test the publication before editing your app
+                    </strong>
+                    While the published network is Testnet, open the diagnostics link in the Wallets
+                    panel and complete its guided checks. If it reports{" "}
+                    <code>ORIGIN_NOT_ALLOWED</code>, add the exact Velo preview origin shown by your
+                    browser, save, and publish again. The safe transaction check is Testnet-only.
+                  </div>
+                </div>
+
+                <h3 className="mt-8 mb-3 text-lg font-bold text-foreground">
+                  2. Copy the generated snippet
+                </h3>
+                <p>
+                  In your project&apos;s Wallets panel, open the <strong>HTML</strong> tab and copy
+                  the snippet. It contains your real public project key and Velo&apos;s configured
+                  CDN URL. The following placeholder shows its shape:
+                </p>
+                {renderCodeBlock(codeSnippets.walletHtml, "walletHtml")}
+
+                <p>
+                  Paste it inside the page or component where the connect button should appear. Do
+                  not replace the <code>vw_pk_...</code> value with a private Velo API key.
+                </p>
+
+                <h3 className="mt-8 mb-3 text-lg font-bold text-foreground">
+                  3. Listen for connection events or request a signature
+                </h3>
+                {renderCodeBlock(codeSnippets.walletHtmlEvents, "walletHtmlEvents")}
+
+                <h3 className="mt-8 mb-3 text-lg font-bold text-foreground">
+                  4. Update your Content Security Policy
+                </h3>
+                <p>
+                  If your site uses CSP, allow the generated CDN in <code>script-src</code> and the
+                  Velo configuration endpoint in <code>connect-src</code>. Copy the exact policy
+                  values shown in the Wallets panel. A typical hosted setup looks like this:
+                </p>
+                {renderCodeBlock(codeSnippets.walletCsp, "walletCsp")}
+
+                <h3 className="mt-8 mb-3 text-lg font-bold text-foreground">
+                  5. Verify in your application
+                </h3>
+                <ol className="list-decimal space-y-2 pl-6 text-zinc-600 dark:text-zinc-400">
+                  <li>Open your app from an origin included in the Wallets panel.</li>
+                  <li>Confirm the configured connect button appears.</li>
+                  <li>Connect a funded Testnet wallet and confirm its public address.</li>
+                  <li>Sign a test message, then disconnect and reconnect.</li>
+                  <li>Reject a signing request once and confirm your interface allows a retry.</li>
+                </ol>
+              </>
+            )}
+
+            {activeSection === "wallets-react" && (
+              <>
+                <p>
+                  Use the React adapter when your interface needs wallet state in several
+                  components. It uses the same runtime, wallet order, methods, and errors as the Web
+                  Component.
+                </p>
+
+                <div className="my-6 flex gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-950 dark:border-amber-900/60 dark:bg-amber-950/20 dark:text-amber-300">
+                  <AlertTriangleIcon className="mt-0.5 size-5 shrink-0 text-amber-600" />
+                  <div className="text-sm">
+                    <strong>Staged alpha package</strong>
+                    <p className="mt-1">
+                      Public npm activation may not be available during the alpha. Repository
+                      contributors can use the workspace package. External builders can use the
+                      hosted Web Component until npm publication is enabled.
+                    </p>
+                  </div>
+                </div>
+                <h3 className="mt-8 mb-3 text-lg font-bold text-foreground">
+                  1. Install the browser package
+                </h3>
+                {renderCodeBlock(codeSnippets.walletReactInstall, "walletReactInstall")}
+
+                <h3 className="mt-8 mb-3 text-lg font-bold text-foreground">
+                  2. Add the provider at a client boundary
+                </h3>
+                <p>
+                  In Next.js App Router, keep the <code>&quot;use client&quot;</code> line. Mount
+                  the provider around only the part of the interface that needs wallet access.
+                </p>
+                {renderCodeBlock(codeSnippets.walletReactProvider, "walletReactProvider")}
+
+                <h3 className="mt-8 mb-3 text-lg font-bold text-foreground">
+                  3. Read state and call wallet methods
+                </h3>
+                <p>
+                  A component inside <code>VeloWalletProvider</code> can call{" "}
+                  <code>useVeloWallet()</code>. Always check the status before asking the user to
+                  sign.
+                </p>
+                {renderCodeBlock(codeSnippets.walletReactHook, "walletReactHook")}
+
+                <div className="my-6 flex gap-3 rounded-xl border border-border bg-muted/50 p-4">
+                  <InfoIcon className="mt-0.5 size-5 shrink-0 text-muted-foreground" />
+                  <div className="text-sm">
+                    <strong className="mb-1 block text-foreground">
+                      Using a custom Velo host?
+                    </strong>
+                    Pass <code>apiBaseUrl=&quot;https://your-velo-host.example&quot;</code> to the
+                    provider. Most hosted integrations should omit this prop and use the default
+                    Velo endpoint. The generated React snippet already includes it when necessary.
+                  </div>
+                </div>
+              </>
+            )}
+
+            {activeSection === "wallets-reference" && (
+              <>
+                <p>
+                  Both integrations expose the same core operations. A wallet can support
+                  transaction signing but not every advanced signing method, so handle rejected and
+                  unsupported requests in your interface.
+                </p>
+
+                <h3 className="mt-8 mb-4 text-lg font-bold text-foreground">Available methods</h3>
+                <div className="overflow-x-auto rounded-lg border border-border">
+                  <table className="min-w-full divide-y divide-border text-left text-sm">
+                    <thead className="bg-muted/70 font-mono text-xs text-muted-foreground">
+                      <tr>
+                        <th className="px-4 py-3">Method</th>
+                        <th className="px-4 py-3">Purpose</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      <tr>
+                        <td className="px-4 py-3 font-mono">connect(): Promise&lt;string&gt;</td>
+                        <td className="px-4 py-3">
+                          Open wallet selection and return the connected public address.
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="px-4 py-3 font-mono">disconnect(): Promise&lt;void&gt;</td>
+                        <td className="px-4 py-3">
+                          Clear the active wallet connection and saved session.
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="px-4 py-3 font-mono">
+                          getAddress(): Promise&lt;string | null&gt;
+                        </td>
+                        <td className="px-4 py-3">
+                          Return the current public address, or null when disconnected.
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="px-4 py-3 font-mono">
+                          signTransaction(xdr): Promise&lt;string&gt;
+                        </td>
+                        <td className="px-4 py-3">
+                          Ask the wallet to sign an existing Stellar transaction XDR.
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="px-4 py-3 font-mono">
+                          signAuthEntry(entry): Promise&lt;string&gt;
+                        </td>
+                        <td className="px-4 py-3">
+                          Ask a compatible wallet to sign a Soroban authorization entry.
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="px-4 py-3 font-mono">
+                          signMessage(message): Promise&lt;string&gt;
+                        </td>
+                        <td className="px-4 py-3">
+                          Ask a compatible wallet to sign a plain-text message.
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <h3 className="mt-8 mb-3 text-lg font-bold text-foreground">
+                  Web Component events
+                </h3>
+                <ul className="space-y-2 pl-0 text-zinc-600 dark:text-zinc-400">
+                  <li>
+                    <code>velo:wallet-ready</code> — configuration loaded; detail is{" "}
+                    <code>{"{ version: 1 }"}</code>.
+                  </li>
+                  <li>
+                    <code>velo:wallet-connected</code> — detail contains{" "}
+                    <code>{"{ version: 1, address }"}</code>.
+                  </li>
+                  <li>
+                    <code>velo:wallet-disconnected</code> — the active session disconnected; detail
+                    contains <code>{"{ version: 1 }"}</code>.
+                  </li>
+                  <li>
+                    <code>velo:wallet-changed</code> — account, wallet, network, or status changed;
+                    detail contains <code>{"{ version: 1, state }"}</code>.
+                  </li>
+                  <li>
+                    <code>velo:wallet-error</code> — the operation failed; detail contains{" "}
+                    <code>{"{ version: 1, error }"}</code>.
+                  </li>
+                </ul>
+
+                <div className="my-6 flex gap-3 rounded-xl border border-border bg-muted/50 p-4">
+                  <InfoIcon className="mt-0.5 size-5 shrink-0 text-muted-foreground" />
+                  <div className="text-sm">
+                    <strong className="mb-1 block text-foreground">
+                      Use one project key per browser document
+                    </strong>
+                    Multiple elements and React consumers can share the same project key and
+                    runtime. Loading conflicting project keys in one document is rejected.
+                  </div>
+                </div>
+
+                <h3 className="mt-8 mb-4 text-lg font-bold text-foreground">
+                  Common problems and fixes
+                </h3>
+                <div className="overflow-x-auto rounded-lg border border-border">
+                  <table className="min-w-full divide-y divide-border text-left text-sm">
+                    <thead className="bg-muted/70 font-mono text-xs text-muted-foreground">
+                      <tr>
+                        <th className="px-4 py-3">Error</th>
+                        <th className="px-4 py-3">What to do</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      <tr>
+                        <td className="px-4 py-3 font-mono">CONFIG_NOT_FOUND</td>
+                        <td className="px-4 py-3">
+                          Check the public project key and publish the draft.
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="px-4 py-3 font-mono">CONFIG_DISABLED</td>
+                        <td className="px-4 py-3">
+                          Enable the last published revision in the Wallets panel.
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="px-4 py-3 font-mono">CONFIG_INCOMPATIBLE</td>
+                        <td className="px-4 py-3">
+                          Update the runtime URL or package so its major version matches the
+                          publication.
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="px-4 py-3 font-mono">RUNTIME_INIT_FAILED</td>
+                        <td className="px-4 py-3">
+                          Verify the project key, CDN, CSP, and configuration endpoint, then reload.
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="px-4 py-3 font-mono">ORIGIN_NOT_ALLOWED</td>
+                        <td className="px-4 py-3">
+                          Add the browser&apos;s exact origin, save, and publish a new revision.
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="px-4 py-3 font-mono">WALLET_UNAVAILABLE</td>
+                        <td className="px-4 py-3">
+                          Install or open one of the enabled wallets, then retry.
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="px-4 py-3 font-mono">CONNECTION_REJECTED</td>
+                        <td className="px-4 py-3">
+                          The user declined connection; keep the connect action available.
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="px-4 py-3 font-mono">POPUP_BLOCKED</td>
+                        <td className="px-4 py-3">
+                          Allow popups for the app and start connection from a direct user click.
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="px-4 py-3 font-mono">NETWORK_MISMATCH</td>
+                        <td className="px-4 py-3">
+                          Switch the wallet to the Testnet or Mainnet selected in Velo.
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="px-4 py-3 font-mono">SESSION_STALE</td>
+                        <td className="px-4 py-3">
+                          Reconnect the wallet to refresh its saved session.
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="px-4 py-3 font-mono">WALLET_METHOD_UNSUPPORTED</td>
+                        <td className="px-4 py-3">
+                          Use a compatible wallet or hide that action for this wallet.
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="px-4 py-3 font-mono">SIGNING_REJECTED</td>
+                        <td className="px-4 py-3">
+                          Explain the request and let the user safely retry.
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="px-4 py-3 font-mono">SIGNING_FAILED</td>
+                        <td className="px-4 py-3">
+                          Keep the unsigned input, show the wallet error, and allow a safe retry.
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="my-6 flex gap-3 rounded-xl border border-border bg-muted/50 p-4">
+                  <InfoIcon className="mt-0.5 size-5 shrink-0 text-muted-foreground" />
+                  <div className="text-sm">
+                    <strong className="mb-1 block text-foreground">Still stuck?</strong>
+                    Open the isolated diagnostics page from your project&apos;s Wallets panel. It
+                    checks configuration loading, connection, network, message signing, disconnect,
+                    and reconnect. Run its transaction-signing check only while the published
+                    network is Testnet; the generated XDR is never submitted. If the preview reports{" "}
+                    <code>ORIGIN_NOT_ALLOWED</code>, add the preview page&apos;s exact origin and
+                    publish a new revision.
+                  </div>
                 </div>
               </>
             )}
