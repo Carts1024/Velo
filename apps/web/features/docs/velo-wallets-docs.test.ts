@@ -30,6 +30,7 @@ test("Wallets guide includes complete HTML and React examples", () => {
   assert.match(docs, /<velo-wallet project-key=/);
   assert.match(docs, /velo:wallet-connected/);
   assert.match(docs, /VeloWalletProvider/);
+  assert.match(docs, /WalletWidget/);
   assert.match(docs, /useVeloWallet/);
   assert.match(docs, /signTransaction/);
   assert.match(docs, /Content-Security-Policy/);

@@ -1,4 +1,4 @@
-import { normalizeAllowedOrigin } from "@carts1024/velo-wallets/config";
+import { normalizeAllowedOrigin, normalizeWalletAppearance } from "@carts1024/velo-wallets/config";
 import { v } from "convex/values";
 
 import { query } from "../_generated/server";
@@ -61,6 +61,12 @@ export const getPublishedByKey = query({
       };
     }
 
+    const appearance = normalizeWalletAppearance({
+      theme: publication.theme,
+      buttonLabel: publication.buttonLabel,
+      appearance: publication.appearance,
+    });
+
     return {
       status: "ok" as const,
       config: {
@@ -70,10 +76,7 @@ export const getPublishedByKey = query({
         projectKey: publication.publicKey,
         network: publication.network,
         walletIds: publication.walletIds,
-        appearance: {
-          theme: publication.theme,
-          buttonLabel: publication.buttonLabel,
-        },
+        appearance,
         modal: {
           showInstallLabel: publication.showInstallLabel,
           hideUnsupportedWallets: publication.hideUnsupportedWallets,

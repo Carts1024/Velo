@@ -1,5 +1,6 @@
 import {
   normalizeAllowedOrigin,
+  normalizeWalletAppearance,
   validateWalletDraft,
   type WalletDraftConfig,
 } from "@carts1024/velo-wallets/config";
@@ -9,9 +10,13 @@ import type { MutationCtx } from "../_generated/server";
 const BASE64_URL_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
 
 export function normalizedDraft(config: WalletDraftConfig): WalletDraftConfig {
+  const normalizedAppearance = normalizeWalletAppearance(config);
+  const { theme: _theme, buttonLabel: _buttonLabel, ...appearance } = normalizedAppearance;
   const normalized = {
     ...config,
-    buttonLabel: config.buttonLabel.trim(),
+    theme: normalizedAppearance.theme,
+    buttonLabel: normalizedAppearance.buttonLabel,
+    appearance,
     allowedOrigins: config.allowedOrigins.map(normalizeAllowedOrigin),
   };
   const errors = validateWalletDraft(normalized);

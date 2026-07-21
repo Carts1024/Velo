@@ -5,6 +5,7 @@ const kit = vi.hoisted(() => {
   return {
     callbacks,
     init: vi.fn(),
+    setTheme: vi.fn(),
     setNetwork: vi.fn(),
     on: vi.fn((type: string, callback: (event: unknown) => void) => {
       callbacks.set(type, callback);
@@ -38,9 +39,10 @@ vi.mock("@creit-tech/stellar-wallets-kit/modules/utils", () => ({
   defaultModules: vi.fn(() => [{ productId: "freighter" }]),
 }));
 
+import { parsePublishedWalletConfig } from "./config.js";
 import { StellarWalletsKitAdapter, type WalletKitEvent } from "./wallet-kit-adapter.js";
 
-const config = {
+const config = parsePublishedWalletConfig({
   schemaVersion: 1 as const,
   revision: 1,
   runtimeMajor: 1 as const,
@@ -50,12 +52,25 @@ const config = {
   appearance: { theme: "system" as const, buttonLabel: "Connect wallet" },
   modal: { showInstallLabel: true, hideUnsupportedWallets: false },
   session: { persist: true },
-};
+});
+
+const mediaListeners = new Set<(event: MediaQueryListEvent) => void>();
 
 describe("StellarWalletsKitAdapter", () => {
   beforeEach(() => {
     kit.callbacks.clear();
     vi.clearAllMocks();
+    mediaListeners.clear();
+    Object.defineProperty(window, "matchMedia", {
+      configurable: true,
+      value: vi.fn(() => ({
+        matches: false,
+        addEventListener: (_type: string, listener: (event: MediaQueryListEvent) => void) =>
+          mediaListeners.add(listener),
+        removeEventListener: (_type: string, listener: (event: MediaQueryListEvent) => void) =>
+          mediaListeners.delete(listener),
+      })),
+    });
   });
 
   test("initializes before a wallet is selected", async () => {
@@ -70,5 +85,20 @@ describe("StellarWalletsKitAdapter", () => {
       walletId: null,
       networkPassphrase: "Test SDF Network ; September 2015",
     });
+    expect(kit.init).toHaveBeenCalledWith(
+      expect.objectContaining({ theme: expect.objectContaining({ primary: "#18181B" }) }),
+    );
+  });
+
+  test("updates a system theme and removes the listener on cleanup", async () => {
+    const adapter = new StellarWalletsKitAdapter();
+    await adapter.initialize(config);
+
+    expect(mediaListeners).toHaveLength(1);
+    mediaListeners.forEach((listener) => listener({ matches: true } as MediaQueryListEvent));
+    expect(kit.setTheme).toHaveBeenCalledWith(expect.objectContaining({ primary: "#FAFAFA" }));
+
+    adapter.destroy();
+    expect(mediaListeners).toHaveLength(0);
   });
 });

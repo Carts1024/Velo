@@ -264,14 +264,14 @@ async function requestSignature(transactionXdr) {
     walletReactProvider: `"use client";
 
 import {
-  ConnectButton,
   VeloWalletProvider,
+  WalletWidget,
 } from "@carts1024/velo-wallets/react";
 
 export function WalletControls() {
   return (
     <VeloWalletProvider projectKey="vw_pk_your_public_project_key">
-      <ConnectButton />
+      <WalletWidget />
     </VeloWalletProvider>
   );
 }`,
@@ -817,7 +817,9 @@ const session = await velo.checkout.sessions.create({
                 <p>
                   Use the React adapter when your interface needs wallet state in several
                   components. It uses the same runtime, wallet order, methods, and errors as the Web
-                  Component.
+                  Component. <code>WalletWidget</code> renders the published connect, connected,
+                  copy, disconnect, status, and error design; <code>ConnectButton</code> remains
+                  available when only a trigger is needed.
                 </p>
 
                 <div className="my-6 flex gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-950 dark:border-amber-900/60 dark:bg-amber-950/20 dark:text-amber-300">

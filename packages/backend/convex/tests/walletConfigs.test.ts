@@ -1,3 +1,4 @@
+import { DEFAULT_WALLET_APPEARANCE_STYLE } from "@carts1024/velo-wallets/config";
 /// <reference types="vite/client" />
 import { convexTest } from "convex-test";
 import { expect, test } from "vitest";
@@ -97,6 +98,17 @@ test("publishing creates immutable revisions and a browser-safe projection", asy
     walletIds: ["freighter"],
     theme: "dark",
     buttonLabel: "Launch wallet",
+    appearance: {
+      ...DEFAULT_WALLET_APPEARANCE_STYLE,
+      palettes: {
+        ...DEFAULT_WALLET_APPEARANCE_STYLE.palettes,
+        light: {
+          ...DEFAULT_WALLET_APPEARANCE_STYLE.palettes.light,
+          accent: "#6D28D9",
+          accentText: "#FFFFFF",
+        },
+      },
+    },
     showInstallLabel: true,
     hideUnsupportedWallets: false,
     persistSession: true,
@@ -116,6 +128,15 @@ test("publishing creates immutable revisions and a browser-safe projection", asy
       runtimeMajor: 1,
       projectKey: saved.publicKey,
       appearance: { theme: "dark", buttonLabel: "Launch wallet" },
+    },
+  });
+  expect(first).toMatchObject({
+    status: "ok",
+    config: {
+      appearance: {
+        palettes: { light: { accent: "#6D28D9", accentText: "#FFFFFF" } },
+        button: { variant: "solid", size: "md", radius: "rounded" },
+      },
     },
   });
   expect(first).not.toHaveProperty("allowedOrigins");

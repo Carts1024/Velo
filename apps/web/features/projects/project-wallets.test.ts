@@ -9,6 +9,10 @@ const sidebar = fs.readFileSync(
   "../../packages/ui/src/components/ui-customs/sidebar/app-sidebar.tsx",
   "utf8",
 );
+const nativeSelect = fs.readFileSync(
+  "../../packages/ui/src/components/ui/native-select.tsx",
+  "utf8",
+);
 
 test("Wallets panel exposes configuration and publication lifecycle", () => {
   assert.match(panel, /Guided Testnet preset/);
@@ -17,9 +21,22 @@ test("Wallets panel exposes configuration and publication lifecycle", () => {
   assert.match(panel, /Save draft/);
   assert.match(panel, /Publish revision/);
   assert.match(panel, /Disable integration/);
-  assert.match(panel, /Component preview/);
+  assert.match(panel, /Live wallet preview/);
+  assert.match(panel, /Light palette/);
+  assert.match(panel, /Dark palette/);
+  assert.match(panel, /Button style/);
   assert.match(panel, /Integration instructions/);
   assert.match(panel, /aria-live="polite"/);
+});
+
+test("Wallets dropdowns remain legible in light and dark modes", () => {
+  assert.match(panel, /NativeSelect/);
+  assert.match(panel, /NativeSelectOption/);
+  assert.doesNotMatch(panel, /<select/);
+  assert.match(nativeSelect, /text-foreground/);
+  assert.match(nativeSelect, /bg-background/);
+  assert.match(nativeSelect, /dark:\[color-scheme:dark\]/);
+  assert.match(nativeSelect, /var\(--popover-foreground\)/);
 });
 
 test("Wallets route is project-scoped and navigable", () => {

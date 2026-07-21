@@ -1,6 +1,8 @@
 import { defineTable } from "convex/server";
 import { v } from "convex/values";
 
+import { walletAppearanceStyle } from "./validators";
+
 const network = v.union(v.literal("testnet"), v.literal("public"));
 const theme = v.union(v.literal("light"), v.literal("dark"), v.literal("system"));
 
@@ -12,6 +14,7 @@ export const walletConfigs = defineTable({
   walletIds: v.array(v.string()),
   theme,
   buttonLabel: v.string(),
+  appearance: v.optional(walletAppearanceStyle),
   showInstallLabel: v.boolean(),
   hideUnsupportedWallets: v.boolean(),
   persistSession: v.boolean(),
@@ -35,6 +38,7 @@ export const walletConfigPublications = defineTable({
   walletIds: v.array(v.string()),
   theme,
   buttonLabel: v.string(),
+  appearance: v.optional(walletAppearanceStyle),
   showInstallLabel: v.boolean(),
   hideUnsupportedWallets: v.boolean(),
   persistSession: v.boolean(),

@@ -50,7 +50,31 @@ describe("VeloWalletClient", () => {
       address: "GABC",
       walletId: "freighter",
     });
-    expect(adapter.initialize).toHaveBeenCalledWith(publishedConfig);
+    expect(adapter.initialize).toHaveBeenCalledWith(
+      expect.objectContaining({
+        appearance: expect.objectContaining({
+          buttonLabel: "Connect wallet",
+          palettes: expect.any(Object),
+        }),
+      }),
+    );
+  });
+
+  test("merges validated local appearance overrides", async () => {
+    const adapter = mockAdapter();
+    const client = new VeloWalletClient({
+      projectKey: publishedConfig.projectKey,
+      adapter,
+      appearance: {
+        palettes: {
+          light: { accent: "#6D28D9", accentText: "#FFFFFF" },
+        },
+      },
+      fetchConfig: async () => publishedConfig,
+    });
+
+    await client.initialize();
+    expect(client.getConfig()?.appearance.palettes.light.accent).toBe("#6D28D9");
   });
 
   test("persists only the address and wallet id", async () => {

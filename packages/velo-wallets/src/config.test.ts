@@ -1,9 +1,12 @@
 import { describe, expect, test } from "vitest";
 
 import {
+  DEFAULT_WALLET_APPEARANCE_STYLE,
   DEFAULT_WALLET_CONFIG,
   WALLET_CATALOG,
+  mergeWalletAppearance,
   normalizeAllowedOrigin,
+  normalizeWalletAppearance,
   parsePublishedWalletConfig,
   validateWalletDraft,
 } from "./config.js";
@@ -32,7 +35,51 @@ describe("wallet configuration", () => {
       theme: "system",
       persistSession: true,
       allowedOrigins: ["http://localhost:3000"],
+      appearance: DEFAULT_WALLET_APPEARANCE_STYLE,
     });
+  });
+
+  test("normalizes legacy and locally overridden appearance", () => {
+    const legacy = normalizeWalletAppearance({ theme: "dark", buttonLabel: "Launch wallet" });
+    expect(legacy).toMatchObject({
+      theme: "dark",
+      buttonLabel: "Launch wallet",
+      palettes: { light: { accent: "#18181B" }, dark: { accent: "#FAFAFA" } },
+    });
+
+    expect(
+      mergeWalletAppearance(legacy, {
+        palettes: { light: { accent: "#6D28D9", accentText: "#FFFFFF" } },
+        button: { size: "lg" },
+      }),
+    ).toMatchObject({
+      palettes: { light: { accent: "#6D28D9", accentText: "#FFFFFF" } },
+      button: { size: "lg", variant: "solid" },
+    });
+  });
+
+  test("rejects malformed colors and inaccessible contrast", () => {
+    expect(
+      validateWalletDraft({
+        ...DEFAULT_WALLET_CONFIG,
+        appearance: {
+          ...DEFAULT_WALLET_APPEARANCE_STYLE,
+          palettes: {
+            ...DEFAULT_WALLET_APPEARANCE_STYLE.palettes,
+            light: {
+              ...DEFAULT_WALLET_APPEARANCE_STYLE.palettes.light,
+              accent: "red",
+              text: "#FFFFFF",
+            },
+          },
+        },
+      }),
+    ).toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(/Light accent must use/i),
+        expect.stringMatching(/Light text and background/i),
+      ]),
+    );
   });
 
   test("normalizes exact origins and rejects paths", () => {
@@ -50,19 +97,29 @@ describe("wallet configuration", () => {
   });
 
   test("parses only compatible public configurations", () => {
-    expect(
+    const parsed = parsePublishedWalletConfig({
+      schemaVersion: 1,
+      revision: 2,
+      runtimeMajor: 1,
+      projectKey: "vw_pk_example",
+      network: "testnet",
+      walletIds: ["freighter"],
+      appearance: { theme: "system", buttonLabel: "Connect wallet" },
+      modal: { showInstallLabel: true, hideUnsupportedWallets: false },
+      session: { persist: true },
+    });
+    expect(parsed.revision).toBe(2);
+    expect(parsed.appearance.palettes.light.accent).toBe("#18181B");
+
+    expect(() =>
       parsePublishedWalletConfig({
-        schemaVersion: 1,
-        revision: 2,
-        runtimeMajor: 1,
-        projectKey: "vw_pk_example",
-        network: "testnet",
-        walletIds: ["freighter"],
-        appearance: { theme: "system", buttonLabel: "Connect wallet" },
-        modal: { showInstallLabel: true, hideUnsupportedWallets: false },
-        session: { persist: true },
-      }).revision,
-    ).toBe(2);
+        ...parsed,
+        appearance: {
+          ...parsed.appearance,
+          palettes: { light: { accent: "#000000" }, dark: parsed.appearance.palettes.dark },
+        },
+      }),
+    ).toThrow(/CONFIG_INCOMPATIBLE/);
 
     expect(() => parsePublishedWalletConfig({ schemaVersion: 2 })).toThrow(/CONFIG_INCOMPATIBLE/);
   });

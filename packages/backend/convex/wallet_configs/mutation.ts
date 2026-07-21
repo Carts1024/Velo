@@ -63,6 +63,7 @@ export const publish = mutation({
       walletIds: draft.walletIds,
       theme: draft.theme,
       buttonLabel: draft.buttonLabel,
+      appearance: draft.appearance,
       showInstallLabel: draft.showInstallLabel,
       hideUnsupportedWallets: draft.hideUnsupportedWallets,
       persistSession: draft.persistSession,

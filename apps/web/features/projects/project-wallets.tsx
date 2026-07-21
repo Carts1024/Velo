@@ -8,10 +8,14 @@ import {
   walletIntegrationSnippets,
 } from "@/features/projects/wallet-config-form";
 import {
+  DEFAULT_WALLET_APPEARANCE_STYLE,
   DEFAULT_WALLET_CONFIG,
+  normalizeWalletAppearance,
   validateWalletDraft,
   WALLET_CATALOG,
+  type WalletAppearanceStyle,
   type WalletDraftConfig,
+  type WalletPalette,
 } from "@carts1024/velo-wallets/config";
 import { api } from "@repo/backend/convex/_generated/api";
 import { Alert, AlertDescription, AlertTitle } from "@repo/ui/components/ui/alert";
@@ -20,6 +24,7 @@ import { Button } from "@repo/ui/components/ui/button";
 import { Checkbox } from "@repo/ui/components/ui/checkbox";
 import { Input } from "@repo/ui/components/ui/input";
 import { Label } from "@repo/ui/components/ui/label";
+import { NativeSelect, NativeSelectOption } from "@repo/ui/components/ui/native-select";
 import { Skeleton } from "@repo/ui/components/ui/skeleton";
 import { Switch } from "@repo/ui/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@repo/ui/components/ui/tabs";
@@ -33,7 +38,7 @@ import {
   WalletIcon,
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 
 import type { Id } from "@repo/backend/convex/_generated/dataModel";
 
@@ -45,6 +50,19 @@ type SaveState =
   | "published"
   | "disabled"
   | "failed";
+
+const PALETTE_FIELDS: Array<[keyof WalletPalette, string]> = [
+  ["background", "Background"],
+  ["surface", "Surface"],
+  ["surfaceMuted", "Muted surface"],
+  ["text", "Text"],
+  ["mutedText", "Muted text"],
+  ["accent", "Accent"],
+  ["accentText", "Accent text"],
+  ["border", "Border"],
+  ["danger", "Danger"],
+  ["focusRing", "Focus ring"],
+];
 
 function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Wallet configuration could not be updated";
@@ -64,6 +82,10 @@ export function ProjectWallets({ projectId }: { projectId: string }) {
   const [saveState, setSaveState] = useState<SaveState>("draft");
   const [feedback, setFeedback] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
+  const [paletteTab, setPaletteTab] = useState<"light" | "dark">("light");
+  const [previewState, setPreviewState] = useState<
+    "disconnected" | "connecting" | "connected" | "error"
+  >("disconnected");
 
   useEffect(() => {
     if (stored) {
@@ -75,6 +97,7 @@ export function ProjectWallets({ projectId }: { projectId: string }) {
   }, [stored]);
 
   const errors = useMemo(() => validateWalletDraft(draft), [draft]);
+  const appearance = useMemo(() => normalizeWalletAppearance(draft), [draft]);
   const appBaseUrl = env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "");
   const cdnBaseUrl = env.NEXT_PUBLIC_WALLETS_CDN_BASE_URL ?? `${appBaseUrl}/wallets`;
   const snippets = stored
@@ -89,6 +112,26 @@ export function ProjectWallets({ projectId }: { projectId: string }) {
     setDraft((current) => ({ ...current, ...update }));
     setSaveState("unsaved");
     setFeedback(null);
+  }
+
+  function updateAppearance(update: Partial<WalletAppearanceStyle>) {
+    updateDraft({
+      appearance: {
+        palettes: update.palettes ?? appearance.palettes,
+        fontFamily: update.fontFamily ?? appearance.fontFamily,
+        button: { ...appearance.button, ...update.button },
+        modal: { ...appearance.modal, ...update.modal },
+      },
+    });
+  }
+
+  function updatePalette(mode: "light" | "dark", token: keyof WalletPalette, value: string) {
+    updateAppearance({
+      palettes: {
+        ...appearance.palettes,
+        [mode]: { ...appearance.palettes[mode], [token]: value },
+      },
+    });
   }
 
   async function handleSave() {
@@ -252,50 +295,213 @@ export function ProjectWallets({ projectId }: { projectId: string }) {
           </p>
         </div>
 
-        <div className="grid gap-5 md:grid-cols-2">
-          <div className="rounded-lg border bg-white p-5">
-            <Label htmlFor="wallet-network">Network</Label>
-            <select
-              id="wallet-network"
-              value={draft.network}
-              onChange={(event) =>
-                updateDraft({ network: event.target.value as WalletDraftConfig["network"] })
-              }
-              className="mt-2 h-9 w-full rounded-md border px-3 text-sm"
-            >
-              <option value="testnet">Testnet</option>
-              <option value="public">Mainnet</option>
-            </select>
-            {draft.network === "public" ? (
-              <p className="mt-2 text-xs text-amber-700">
-                Mainnet requires a non-local HTTPS origin and typed confirmation.
+        <div className="rounded-lg border bg-white p-5">
+          <Label htmlFor="wallet-network">Network</Label>
+          <NativeSelect
+            id="wallet-network"
+            value={draft.network}
+            onChange={(event) =>
+              updateDraft({ network: event.target.value as WalletDraftConfig["network"] })
+            }
+            wrapperClassName="mt-2"
+          >
+            <NativeSelectOption value="testnet">Testnet</NativeSelectOption>
+            <NativeSelectOption value="public">Mainnet</NativeSelectOption>
+          </NativeSelect>
+          {draft.network === "public" ? (
+            <p className="mt-2 text-xs text-amber-700">
+              Mainnet requires a non-local HTTPS origin and typed confirmation.
+            </p>
+          ) : null}
+        </div>
+
+        <div className="rounded-lg border bg-white p-5">
+          <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="font-semibold">Appearance</h2>
+              <p className="text-sm text-zinc-600">
+                These brand controls style the embedded wallet controls and wallet selector.
               </p>
-            ) : null}
-          </div>
-          <div className="rounded-lg border bg-white p-5">
-            <Label htmlFor="wallet-theme">Theme</Label>
-            <select
-              id="wallet-theme"
-              value={draft.theme}
-              onChange={(event) =>
-                updateDraft({ theme: event.target.value as WalletDraftConfig["theme"] })
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                updateDraft({
+                  theme: DEFAULT_WALLET_CONFIG.theme,
+                  buttonLabel: DEFAULT_WALLET_CONFIG.buttonLabel,
+                  appearance: DEFAULT_WALLET_APPEARANCE_STYLE,
+                })
               }
-              className="mt-2 h-9 w-full rounded-md border px-3 text-sm"
             >
-              <option value="system">System</option>
-              <option value="light">Light</option>
-              <option value="dark">Dark</option>
-            </select>
-            <Label htmlFor="wallet-label" className="mt-4">
-              Button label
-            </Label>
-            <Input
-              id="wallet-label"
-              maxLength={40}
-              value={draft.buttonLabel}
-              onChange={(event) => updateDraft({ buttonLabel: event.target.value })}
-              className="mt-2"
+              Reset appearance
+            </Button>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <div>
+              <Label htmlFor="wallet-theme">Theme</Label>
+              <NativeSelect
+                id="wallet-theme"
+                value={draft.theme}
+                onChange={(event) =>
+                  updateDraft({ theme: event.target.value as WalletDraftConfig["theme"] })
+                }
+                wrapperClassName="mt-2"
+              >
+                <NativeSelectOption value="system">System</NativeSelectOption>
+                <NativeSelectOption value="light">Light</NativeSelectOption>
+                <NativeSelectOption value="dark">Dark</NativeSelectOption>
+              </NativeSelect>
+            </div>
+            <div>
+              <Label htmlFor="wallet-label" className="mt-4">
+                Button label
+              </Label>
+              <Input
+                id="wallet-label"
+                maxLength={40}
+                value={draft.buttonLabel}
+                onChange={(event) => updateDraft({ buttonLabel: event.target.value })}
+                className="mt-2"
+              />
+            </div>
+            <AppearanceSelect
+              id="wallet-font"
+              label="Font"
+              value={appearance.fontFamily}
+              options={[
+                ["system", "System sans"],
+                ["serif", "Serif"],
+                ["mono", "Monospace"],
+              ]}
+              onChange={(value) =>
+                updateAppearance({ fontFamily: value as WalletAppearanceStyle["fontFamily"] })
+              }
             />
+            <AppearanceSelect
+              id="wallet-button-variant"
+              label="Button style"
+              value={appearance.button.variant}
+              options={[
+                ["solid", "Solid"],
+                ["outline", "Outline"],
+                ["soft", "Soft"],
+              ]}
+              onChange={(value) =>
+                updateAppearance({
+                  button: {
+                    ...appearance.button,
+                    variant: value as WalletAppearanceStyle["button"]["variant"],
+                  },
+                })
+              }
+            />
+            <AppearanceSelect
+              id="wallet-button-size"
+              label="Button size"
+              value={appearance.button.size}
+              options={[
+                ["sm", "Small"],
+                ["md", "Medium"],
+                ["lg", "Large"],
+              ]}
+              onChange={(value) =>
+                updateAppearance({
+                  button: {
+                    ...appearance.button,
+                    size: value as WalletAppearanceStyle["button"]["size"],
+                  },
+                })
+              }
+            />
+            <AppearanceSelect
+              id="wallet-button-radius"
+              label="Button radius"
+              value={appearance.button.radius}
+              options={[
+                ["square", "Square"],
+                ["rounded", "Rounded"],
+                ["pill", "Pill"],
+              ]}
+              onChange={(value) =>
+                updateAppearance({
+                  button: {
+                    ...appearance.button,
+                    radius: value as WalletAppearanceStyle["button"]["radius"],
+                  },
+                })
+              }
+            />
+            <AppearanceSelect
+              id="wallet-modal-radius"
+              label="Modal radius"
+              value={appearance.modal.radius}
+              options={[
+                ["sm", "Small"],
+                ["md", "Medium"],
+                ["lg", "Large"],
+              ]}
+              onChange={(value) =>
+                updateAppearance({
+                  modal: {
+                    ...appearance.modal,
+                    radius: value as WalletAppearanceStyle["modal"]["radius"],
+                  },
+                })
+              }
+            />
+            <AppearanceSelect
+              id="wallet-modal-shadow"
+              label="Modal shadow"
+              value={appearance.modal.shadow}
+              options={[
+                ["none", "None"],
+                ["sm", "Small"],
+                ["md", "Medium"],
+              ]}
+              onChange={(value) =>
+                updateAppearance({
+                  modal: {
+                    ...appearance.modal,
+                    shadow: value as WalletAppearanceStyle["modal"]["shadow"],
+                  },
+                })
+              }
+            />
+          </div>
+
+          <div className="mt-6">
+            <div className="mb-4 flex gap-2" aria-label="Palette editor">
+              {(["light", "dark"] as const).map((mode) => (
+                <Button
+                  key={mode}
+                  type="button"
+                  size="sm"
+                  variant={paletteTab === mode ? "default" : "outline"}
+                  aria-pressed={paletteTab === mode}
+                  onClick={() => setPaletteTab(mode)}
+                >
+                  {mode === "light" ? "Light palette" : "Dark palette"}
+                </Button>
+              ))}
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {PALETTE_FIELDS.map(([token, label]) => (
+                <ColorControl
+                  key={`${paletteTab}-${token}`}
+                  id={`wallet-${paletteTab}-${token}`}
+                  label={label}
+                  value={appearance.palettes[paletteTab][token]}
+                  onChange={(value) => updatePalette(paletteTab, token, value)}
+                />
+              ))}
+            </div>
+            <p className="mt-4 text-xs text-zinc-500">
+              Colors use #RRGGBB. Velo blocks publication when text, focus, or control contrast is
+              inaccessible.
+            </p>
           </div>
         </div>
 
@@ -425,25 +631,27 @@ export function ProjectWallets({ projectId }: { projectId: string }) {
 
       <aside className="grid content-start gap-5 xl:sticky xl:top-6">
         <div className="rounded-lg border bg-white p-5">
-          <h2 className="font-semibold">Component preview</h2>
-          <div
-            className={
-              draft.theme === "dark"
-                ? "mt-4 rounded-lg bg-zinc-950 p-5 text-white"
-                : "mt-4 rounded-lg bg-zinc-50 p-5 text-zinc-950"
-            }
-          >
-            <button
-              type="button"
-              className="rounded-md bg-violet-600 px-4 py-2 text-sm font-medium text-white"
-            >
-              {draft.buttonLabel || "Connect wallet"}
-            </button>
-            <p className="mt-3 text-xs opacity-70">
-              {draft.walletIds.length} wallets ·{" "}
-              {draft.network === "public" ? "Mainnet" : "Testnet"}
-            </p>
+          <h2 className="font-semibold">Live wallet preview</h2>
+          <div className="mt-3 flex flex-wrap gap-1" aria-label="Preview state">
+            {(["disconnected", "connecting", "connected", "error"] as const).map((state) => (
+              <Button
+                key={state}
+                type="button"
+                size="sm"
+                variant={previewState === state ? "secondary" : "ghost"}
+                onClick={() => setPreviewState(state)}
+              >
+                {state}
+              </Button>
+            ))}
           </div>
+          <WalletAppearancePreview
+            appearance={appearance}
+            mode={draft.theme === "dark" ? "dark" : paletteTab}
+            state={previewState}
+            walletCount={draft.walletIds.length}
+            network={draft.network}
+          />
         </div>
         <div className="rounded-lg border bg-white p-5">
           <h2 className="font-semibold">Publication</h2>
@@ -522,5 +730,208 @@ function SnippetTab({ value, code, onCopy }: { value: string; code: string; onCo
         </Button>
       </div>
     </TabsContent>
+  );
+}
+
+function AppearanceSelect({
+  id,
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  options: Array<[string, string]>;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div>
+      <Label htmlFor={id}>{label}</Label>
+      <NativeSelect
+        id={id}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        wrapperClassName="mt-2"
+      >
+        {options.map(([optionValue, optionLabel]) => (
+          <NativeSelectOption key={optionValue} value={optionValue}>
+            {optionLabel}
+          </NativeSelectOption>
+        ))}
+      </NativeSelect>
+    </div>
+  );
+}
+
+function ColorControl({
+  id,
+  label,
+  value,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const colorValue = /^#[0-9A-Fa-f]{6}$/.test(value) ? value : "#000000";
+  return (
+    <div>
+      <Label htmlFor={id}>{label}</Label>
+      <div className="mt-2 flex gap-2">
+        <input
+          aria-label={`${label} color picker`}
+          type="color"
+          value={colorValue}
+          onChange={(event) => onChange(event.target.value.toUpperCase())}
+          className="h-9 w-11 cursor-pointer rounded-md border bg-white p-1"
+        />
+        <Input
+          id={id}
+          value={value}
+          maxLength={7}
+          onChange={(event) => onChange(event.target.value.toUpperCase())}
+          className="font-mono text-xs"
+          aria-invalid={!/^#[0-9A-Fa-f]{6}$/.test(value)}
+        />
+      </div>
+    </div>
+  );
+}
+
+function WalletAppearancePreview({
+  appearance,
+  mode,
+  state,
+  walletCount,
+  network,
+}: {
+  appearance: ReturnType<typeof normalizeWalletAppearance>;
+  mode: "light" | "dark";
+  state: "disconnected" | "connecting" | "connected" | "error";
+  walletCount: number;
+  network: WalletDraftConfig["network"];
+}) {
+  const palette = appearance.palettes[mode];
+  const fontFamilies = {
+    system: "ui-sans-serif, system-ui, sans-serif",
+    serif: "ui-serif, Georgia, serif",
+    mono: "ui-monospace, SFMono-Regular, monospace",
+  } as const;
+  const buttonRadii = { square: 0, rounded: 10, pill: 999 } as const;
+  const modalRadii = { sm: 6, md: 12, lg: 16 } as const;
+  const shadows = {
+    none: "none",
+    sm: "0 4px 12px rgba(0,0,0,.12)",
+    md: "0 18px 48px rgba(0,0,0,.22)",
+  } as const;
+  const padding = { sm: "7px 11px", md: "10px 16px", lg: "13px 20px" } as const;
+  const primaryStyle: CSSProperties = {
+    background:
+      appearance.button.variant === "solid"
+        ? palette.accent
+        : appearance.button.variant === "outline"
+          ? "transparent"
+          : palette.surfaceMuted,
+    border: `1px solid ${appearance.button.variant === "outline" ? palette.accent : palette.border}`,
+    borderRadius: buttonRadii[appearance.button.radius],
+    color: appearance.button.variant === "solid" ? palette.accentText : palette.accent,
+    fontFamily: fontFamilies[appearance.fontFamily],
+    fontSize: appearance.button.size === "sm" ? 13 : appearance.button.size === "lg" ? 16 : 14,
+    fontWeight: 600,
+    padding: padding[appearance.button.size],
+  };
+  const secondaryStyle: CSSProperties = {
+    ...primaryStyle,
+    background: palette.surface,
+    borderColor: palette.border,
+    color: palette.text,
+    fontSize: 12,
+    padding: "7px 10px",
+  };
+  const label =
+    state === "connecting"
+      ? "Connecting…"
+      : state === "connected"
+        ? "Freighter · GD7O2C2…3I2SP"
+        : appearance.buttonLabel || "Connect wallet";
+
+  return (
+    <div
+      className="mt-4 overflow-hidden border p-4"
+      style={{
+        background: palette.background,
+        borderColor: palette.border,
+        borderRadius: modalRadii[appearance.modal.radius],
+        color: palette.text,
+        fontFamily: fontFamilies[appearance.fontFamily],
+      }}
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        <button type="button" style={primaryStyle} disabled={state === "connecting"}>
+          {label}
+        </button>
+        {state === "connected" ? (
+          <>
+            <button type="button" style={secondaryStyle}>
+              Copy address
+            </button>
+            <button type="button" style={{ ...secondaryStyle, color: palette.danger }}>
+              Disconnect
+            </button>
+          </>
+        ) : null}
+      </div>
+      <p
+        className="mt-2 text-xs"
+        style={{ color: state === "error" ? palette.danger : palette.mutedText }}
+      >
+        {state === "error"
+          ? "Wallet connection was rejected. Try again."
+          : state === "connecting"
+            ? "Opening wallet selector."
+            : state === "connected"
+              ? "Connected to Freighter."
+              : "Wallet connection is ready."}
+      </p>
+
+      <div
+        className="mt-5 border p-3"
+        style={{
+          background: palette.surface,
+          borderColor: palette.border,
+          borderRadius: modalRadii[appearance.modal.radius],
+          boxShadow: shadows[appearance.modal.shadow],
+        }}
+      >
+        <div className="mb-3 flex items-center justify-between">
+          <strong className="text-sm">Connect Wallet</strong>
+          <span aria-hidden="true">×</span>
+        </div>
+        {["Freighter", "Albedo", "xBull"].map((walletName, index) => (
+          <div
+            key={walletName}
+            className="flex items-center gap-2 border-t py-2 text-sm"
+            style={{ borderColor: palette.border }}
+          >
+            <span
+              className="grid size-7 place-items-center rounded-full text-xs font-bold"
+              style={{
+                background: index === 0 ? palette.accent : palette.surfaceMuted,
+                color: index === 0 ? palette.accentText : palette.text,
+              }}
+            >
+              {walletName[0]}
+            </span>
+            {walletName}
+          </div>
+        ))}
+      </div>
+      <p className="mt-3 text-xs" style={{ color: palette.mutedText }}>
+        {walletCount} wallets · {network === "public" ? "Mainnet" : "Testnet"} · {mode}
+      </p>
+    </div>
   );
 }

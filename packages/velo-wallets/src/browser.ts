@@ -1,6 +1,11 @@
-import type { PublishedWalletConfig, WalletNetwork } from "./config.js";
+import type { PublishedWalletConfig, WalletAppearanceOverrides, WalletNetwork } from "./config.js";
 
-import { parsePublishedWalletConfig, WALLET_CATALOG } from "./config.js";
+import {
+  mergeWalletAppearance,
+  parsePublishedWalletConfig,
+  validateWalletAppearance,
+  WALLET_CATALOG,
+} from "./config.js";
 import { normalizeWalletError, VeloWalletError, type VeloWalletErrorCode } from "./errors.js";
 import {
   networkPassphrase,
@@ -31,6 +36,7 @@ export type VeloWalletClientOptions = {
   apiBaseUrl?: string;
   adapter?: WalletKitAdapter;
   fetchConfig?: () => Promise<unknown>;
+  appearance?: WalletAppearanceOverrides;
 };
 
 export const DEFAULT_VELO_WALLETS_BASE_URL = "https://wallets.velo.dev";
@@ -55,9 +61,11 @@ export class VeloWalletClient {
   private fetchConfig: () => Promise<unknown>;
   private unsubscribeAdapter: (() => void) | null = null;
   private initializePromise: Promise<void> | null = null;
+  private appearanceOverrides?: WalletAppearanceOverrides;
 
   constructor(options: VeloWalletClientOptions) {
     this.projectKey = options.projectKey;
+    this.appearanceOverrides = options.appearance;
     this.adapter = options.adapter ?? new StellarWalletsKitAdapter();
     const apiBaseUrl = (options.apiBaseUrl ?? DEFAULT_VELO_WALLETS_BASE_URL).replace(/\/$/, "");
     this.fetchConfig =
@@ -90,7 +98,18 @@ export class VeloWalletClient {
   private async initializeOnce() {
     this.patchState({ status: "loading", error: null });
     try {
-      this.config = parsePublishedWalletConfig(await this.fetchConfig());
+      const config = parsePublishedWalletConfig(await this.fetchConfig());
+      this.config = {
+        ...config,
+        appearance: mergeWalletAppearance(config.appearance, this.appearanceOverrides),
+      };
+      const appearanceErrors = validateWalletAppearance(this.config.appearance);
+      if (appearanceErrors.length > 0) {
+        throw new VeloWalletError(
+          "CONFIG_INCOMPATIBLE",
+          `Invalid appearance override: ${appearanceErrors.join(" ")}`,
+        );
+      }
       this.patchState({ network: this.config.network });
       await this.adapter.initialize(this.config);
       this.unsubscribeAdapter = this.adapter.subscribe((event) => {
@@ -224,6 +243,7 @@ export class VeloWalletClient {
   destroy() {
     this.unsubscribeAdapter?.();
     this.unsubscribeAdapter = null;
+    this.adapter.destroy?.();
     this.listeners.clear();
   }
 
@@ -280,6 +300,8 @@ export class VeloWalletClient {
 }
 
 let sharedClient: VeloWalletClient | null = null;
+let sharedAppearanceKey = "";
+let sharedClientUsers = 0;
 
 export function getSharedVeloWalletClient(options: VeloWalletClientOptions) {
   if (sharedClient && sharedClient.projectKey !== options.projectKey) {
@@ -288,6 +310,27 @@ export function getSharedVeloWalletClient(options: VeloWalletClientOptions) {
       "Only one Velo Wallets project key can be active in a document.",
     );
   }
-  sharedClient ??= new VeloWalletClient(options);
+  const appearanceKey = JSON.stringify(options.appearance ?? {});
+  if (sharedClient && sharedAppearanceKey !== appearanceKey) {
+    throw new VeloWalletError(
+      "RUNTIME_INIT_FAILED",
+      "Only one Velo Wallets appearance override can be active in a document.",
+    );
+  }
+  if (!sharedClient) {
+    sharedAppearanceKey = appearanceKey;
+    sharedClient = new VeloWalletClient(options);
+  }
+  sharedClientUsers += 1;
   return sharedClient;
+}
+
+export function releaseSharedVeloWalletClient(client: VeloWalletClient) {
+  if (sharedClient !== client) return;
+  sharedClientUsers = Math.max(0, sharedClientUsers - 1);
+  if (sharedClientUsers === 0) {
+    sharedClient.destroy();
+    sharedClient = null;
+    sharedAppearanceKey = "";
+  }
 }

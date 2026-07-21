@@ -19,6 +19,7 @@ test("generated integration snippets use the active key and configured endpoints
   assert.match(snippets.html, /https:\/\/wallets\.velo\.dev\/v1\/velo-wallet\.js/);
   assert.match(snippets.html, /project-key="vw_pk_example"/);
   assert.match(snippets.react, /VeloWalletProvider projectKey="vw_pk_example"/);
+  assert.match(snippets.react, /WalletWidget/);
   assert.equal(
     snippets.csp,
     "script-src 'self' https://wallets.velo.dev; connect-src 'self' https://app.velo.dev",

@@ -1,5 +1,7 @@
 import type { PublishedWalletConfig } from "./config.js";
 
+import { walletKitTheme } from "./appearance.js";
+
 export type WalletKitSession = { address: string; walletId: string | null };
 export type WalletKitEvent =
   | { type: "changed"; address: string | null; walletId: string | null; networkPassphrase?: string }
@@ -14,6 +16,7 @@ export interface WalletKitAdapter {
   signMessage(message: string, address: string): Promise<string>;
   subscribe(listener: (event: WalletKitEvent) => void): () => void;
   restoreSession?(session: WalletKitSession): Promise<WalletKitSession | null>;
+  destroy?(): void;
 }
 
 const TESTNET_PASSPHRASE = "Test SDF Network ; September 2015";
@@ -27,6 +30,8 @@ export class StellarWalletsKitAdapter implements WalletKitAdapter {
   private config: PublishedWalletConfig | null = null;
   private listeners = new Set<(event: WalletKitEvent) => void>();
   private unsubscribers: Array<() => void> = [];
+  private themeMedia: MediaQueryList | null = null;
+  private themeListener: ((event: MediaQueryListEvent) => void) | null = null;
 
   async initialize(config: PublishedWalletConfig) {
     if (typeof window === "undefined") throw new Error("Wallet runtime requires a browser.");
@@ -38,10 +43,14 @@ export class StellarWalletsKitAdapter implements WalletKitAdapter {
     const modules = defaultModules({
       filterBy: (module) => config.walletIds.includes(module.productId),
     });
+    const systemDark =
+      config.appearance.theme === "system" &&
+      window.matchMedia?.("(prefers-color-scheme: dark)").matches;
     StellarWalletsKit.init({
       modules,
       network: config.network === "public" ? Networks.PUBLIC : Networks.TESTNET,
       authModal: config.modal,
+      theme: walletKitTheme(config.appearance, systemDark),
     });
     StellarWalletsKit.setNetwork(config.network === "public" ? Networks.PUBLIC : Networks.TESTNET);
 
@@ -64,6 +73,14 @@ export class StellarWalletsKitAdapter implements WalletKitAdapter {
       }),
       StellarWalletsKit.on(KitEventType.DISCONNECT, () => this.emit({ type: "disconnected" })),
     ];
+
+    this.removeThemeListener();
+    if (config.appearance.theme === "system" && window.matchMedia) {
+      this.themeMedia = window.matchMedia("(prefers-color-scheme: dark)");
+      this.themeListener = (event) =>
+        StellarWalletsKit.setTheme(walletKitTheme(config.appearance, event.matches));
+      this.themeMedia.addEventListener("change", this.themeListener);
+    }
   }
 
   async connect() {
@@ -123,6 +140,13 @@ export class StellarWalletsKitAdapter implements WalletKitAdapter {
     return () => this.listeners.delete(listener);
   }
 
+  destroy() {
+    this.unsubscribers.forEach((unsubscribe) => unsubscribe());
+    this.unsubscribers = [];
+    this.removeThemeListener();
+    this.listeners.clear();
+  }
+
   private emit(event: WalletKitEvent) {
     this.listeners.forEach((listener) => listener(event));
   }
@@ -130,5 +154,13 @@ export class StellarWalletsKitAdapter implements WalletKitAdapter {
   private requirePassphrase() {
     if (!this.config) throw new Error("Wallet adapter is not initialized.");
     return networkPassphrase(this.config);
+  }
+
+  private removeThemeListener() {
+    if (this.themeMedia && this.themeListener) {
+      this.themeMedia.removeEventListener("change", this.themeListener);
+    }
+    this.themeMedia = null;
+    this.themeListener = null;
   }
 }

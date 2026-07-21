@@ -1,8 +1,16 @@
+import { serializeCssVariables, walletCssVariables, walletPalette } from "./appearance.js";
 import {
   getSharedVeloWalletClient,
+  releaseSharedVeloWalletClient,
   type VeloWalletClient,
   type VeloWalletState,
 } from "./browser.js";
+import {
+  DEFAULT_WALLET_CONFIG,
+  normalizeWalletAppearance,
+  type WalletAppearanceOverrides,
+  type WalletPalette,
+} from "./config.js";
 
 const EVENT_VERSION = 1;
 const BaseElement: typeof HTMLElement =
@@ -13,6 +21,17 @@ export class VeloWalletElement extends BaseElement {
   private unsubscribe: (() => void) | null = null;
   private root: ShadowRoot | null = null;
   private lastStatus: VeloWalletState["status"] = "idle";
+  private localAppearance?: WalletAppearanceOverrides;
+  private themeMedia: MediaQueryList | null = null;
+  private readonly handleThemeChange = () => this.render();
+
+  set appearance(value: WalletAppearanceOverrides | undefined) {
+    this.localAppearance = value;
+  }
+
+  get appearance() {
+    return this.localAppearance;
+  }
 
   connectedCallback() {
     if (!this.root) this.root = this.attachShadow({ mode: "open" });
@@ -22,10 +41,16 @@ export class VeloWalletElement extends BaseElement {
       return;
     }
 
+    const cssAppearance = readCssAppearanceOverrides(this);
     this.client = getSharedVeloWalletClient({
       projectKey,
       apiBaseUrl: this.getAttribute("api-base") ?? undefined,
+      appearance: mergeAppearanceOverrides(cssAppearance, this.localAppearance),
     });
+    if (window.matchMedia) {
+      this.themeMedia = window.matchMedia("(prefers-color-scheme: dark)");
+      this.themeMedia.addEventListener("change", this.handleThemeChange);
+    }
     this.unsubscribe = this.client.subscribe(() => this.render());
     this.render();
     this.client
@@ -37,6 +62,10 @@ export class VeloWalletElement extends BaseElement {
   disconnectedCallback() {
     this.unsubscribe?.();
     this.unsubscribe = null;
+    if (this.client) releaseSharedVeloWalletClient(this.client);
+    this.client = null;
+    this.themeMedia?.removeEventListener("change", this.handleThemeChange);
+    this.themeMedia = null;
   }
 
   async connect() {
@@ -77,18 +106,30 @@ export class VeloWalletElement extends BaseElement {
     if (!this.root || !this.client) return;
     const state = this.client.getState();
     const connected = state.status === "connected";
-    const theme = this.client.getConfig()?.appearance.theme ?? "system";
+    const appearance =
+      this.client.getConfig()?.appearance ?? normalizeWalletAppearance(DEFAULT_WALLET_CONFIG);
+    const theme = appearance.theme;
+    const systemDark = theme === "system" && Boolean(this.themeMedia?.matches);
+    const palette = walletPalette(appearance, systemDark);
+    const configVariables = Object.fromEntries(
+      Object.entries(walletCssVariables(appearance, palette)).map(([key, value]) => [
+        key.replace("--velo-wallet-", "--velo-config-"),
+        value,
+      ]),
+    );
     const label = connected
       ? `${state.walletName ?? "Wallet"} · ${shortenAddress(state.address)}`
       : state.status === "connecting"
         ? "Connecting…"
-        : (this.client.getConfig()?.appearance.buttonLabel ?? "Connect wallet");
+        : state.status === "loading"
+          ? "Loading…"
+          : appearance.buttonLabel;
     this.root.innerHTML = `
       <style>${styles}</style>
-      <div class="wallet theme-${theme}" data-status="${state.status}">
-        <button class="primary" type="button" ${state.status === "connecting" ? "disabled" : ""}>${escapeHtml(label)}</button>
-        ${connected ? `<div class="actions"><button class="copy" type="button">Copy address</button><button class="disconnect" type="button">Disconnect</button></div>` : ""}
-        <span class="status" role="status" aria-live="polite">${escapeHtml(statusMessage(state))}</span>
+      <div class="wallet theme-${theme}" part="container" data-status="${state.status}" style="${escapeAttribute(serializeCssVariables(configVariables))}">
+        <button class="primary" part="trigger" type="button" ${state.status === "connecting" || state.status === "loading" ? "disabled" : ""}>${escapeHtml(label)}</button>
+        ${connected ? `<div class="actions" part="actions"><button class="copy" part="copy-button" type="button">Copy address</button><button class="disconnect" part="disconnect-button" type="button">Disconnect</button></div>` : ""}
+        <span class="status" part="status" role="status" aria-live="polite">${escapeHtml(statusMessage(state))}</span>
       </div>
     `;
     this.root.querySelector(".primary")?.addEventListener("click", () => {
@@ -177,17 +218,69 @@ function escapeHtml(value: string) {
   });
 }
 
+function escapeAttribute(value: string) {
+  return escapeHtml(value).replace(/`/g, "&#96;");
+}
+
+const paletteTokens: Array<[keyof WalletPalette, string]> = [
+  ["background", "background"],
+  ["surface", "surface"],
+  ["surfaceMuted", "surface-muted"],
+  ["text", "text"],
+  ["mutedText", "muted-text"],
+  ["accent", "accent"],
+  ["accentText", "accent-text"],
+  ["border", "border"],
+  ["danger", "danger"],
+  ["focusRing", "focus-ring"],
+];
+
+function readCssAppearanceOverrides(element: HTMLElement): WalletAppearanceOverrides | undefined {
+  const computed = getComputedStyle(element);
+  const light: Partial<WalletPalette> = {};
+  const dark: Partial<WalletPalette> = {};
+  for (const [token, cssToken] of paletteTokens) {
+    const shared = computed.getPropertyValue(`--velo-wallet-${cssToken}`).trim();
+    const lightValue =
+      computed.getPropertyValue(`--velo-wallet-light-${cssToken}`).trim() || shared;
+    const darkValue = computed.getPropertyValue(`--velo-wallet-dark-${cssToken}`).trim() || shared;
+    if (lightValue) light[token] = lightValue;
+    if (darkValue) dark[token] = darkValue;
+  }
+  return Object.keys(light).length || Object.keys(dark).length
+    ? { palettes: { light, dark } }
+    : undefined;
+}
+
+function mergeAppearanceOverrides(
+  base?: WalletAppearanceOverrides,
+  override?: WalletAppearanceOverrides,
+): WalletAppearanceOverrides | undefined {
+  if (!base) return override;
+  if (!override) return base;
+  return {
+    ...base,
+    ...override,
+    palettes: {
+      light: { ...base.palettes?.light, ...override.palettes?.light },
+      dark: { ...base.palettes?.dark, ...override.palettes?.dark },
+    },
+    button: { ...base.button, ...override.button },
+    modal: { ...base.modal, ...override.modal },
+  };
+}
+
 const styles = `
-  :host { display: inline-block; font-family: ui-sans-serif, system-ui, sans-serif; }
+  :host { display: inline-block; }
   .wallet { display: grid; gap: .35rem; }
-  .theme-dark { color-scheme: dark; }
-  @media (prefers-color-scheme: dark) { .theme-system { color-scheme: dark; } }
-  button { border: 1px solid #d4d4d8; border-radius: .5rem; background: white; color: #18181b; cursor: pointer; font: inherit; font-weight: 600; padding: .5rem .75rem; }
-  button.primary { background: #18181b; color: white; padding: .65rem 1rem; }
+  button { border: 1px solid var(--velo-wallet-border, var(--velo-config-border)); border-radius: var(--velo-wallet-button-radius, var(--velo-config-button-radius)); background: var(--velo-wallet-surface, var(--velo-config-surface)); color: var(--velo-wallet-text, var(--velo-config-text)); cursor: pointer; font-family: var(--velo-wallet-font-family, var(--velo-config-font-family)); font-size: .875rem; font-weight: 600; padding: .45rem .7rem; }
+  button.primary { background: var(--velo-wallet-button-background, var(--velo-config-button-background)); border-color: var(--velo-wallet-button-border, var(--velo-config-button-border)); color: var(--velo-wallet-button-text, var(--velo-config-button-text)); padding: var(--velo-wallet-button-padding, var(--velo-config-button-padding)); }
   .actions { display: flex; gap: .4rem; }
-  button:focus-visible { outline: 3px solid #60a5fa; outline-offset: 2px; }
+  button.disconnect { color: var(--velo-wallet-danger, var(--velo-config-danger)); }
+  button:focus-visible { outline: 3px solid var(--velo-wallet-focus-ring, var(--velo-config-focus-ring)); outline-offset: 2px; }
   button:disabled { cursor: wait; opacity: .65; }
-  .status { color: #52525b; font-size: .75rem; max-width: 24rem; }
+  .status { color: var(--velo-wallet-muted-text, var(--velo-config-muted-text)); font-family: var(--velo-wallet-font-family, var(--velo-config-font-family)); font-size: .75rem; max-width: 24rem; }
+  [data-status="error"] .status { color: var(--velo-wallet-danger, var(--velo-config-danger)); }
 `;
 
 if (typeof customElements !== "undefined" && !customElements.get("velo-wallet")) {

@@ -15,7 +15,11 @@ Velo Wallets is implemented as a project-configured wrapper around Stellar Walle
 </VeloWalletProvider>
 ```
 
-The deployable alpha includes project-owned drafts, immutable publications, exact-origin enforcement, Testnet/Mainnet configuration, a no-code Wallets panel, generated integration snippets, a Web Component, a React adapter, and an isolated real-wallet diagnostic route.
+The deployable alpha includes project-owned drafts, immutable publications, exact-origin enforcement, Testnet/Mainnet configuration, a no-code Wallets panel, generated integration snippets, a Web Component, a React adapter, an isolated real-wallet diagnostic route, and project-published visual theming for every wallet surface.
+
+## Configurable wallet appearance
+
+Project owners configure separate accessible Light and Dark palettes, typography, button style/size/radius, and modal radius/shadow in the Wallets panel. The live preview covers disconnected, connecting, connected, and error states plus the wallet selector. Published appearance is applied to the Web Component, React controls, and Stellar Wallets Kit modal; System mode follows the browser color scheme. Existing publications without the expanded appearance payload receive the alpha defaults without a migration or runtime-major change.
 
 ## Implemented sprint stories
 
