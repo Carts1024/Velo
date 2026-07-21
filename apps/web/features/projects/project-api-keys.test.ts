@@ -35,6 +35,15 @@ test("project api keys page uses existing Convex key APIs", () => {
   assert.match(apiKeysSource, /Available API endpoints/);
 });
 
+test("project api keys page uses theme-aware color tokens", () => {
+  assert.match(apiKeysSource, /bg-card/);
+  assert.match(apiKeysSource, /text-card-foreground/);
+  assert.match(apiKeysSource, /border-border/);
+  assert.match(apiKeysSource, /text-muted-foreground/);
+  assert.match(apiKeysSource, /bg-muted\/30/);
+  assert.doesNotMatch(apiKeysSource, /\b(?:bg-white|text-zinc-\d+|border-zinc-\d+)\b/);
+});
+
 test("sidebar exposes api keys project navigation", () => {
   assert.match(sidebarSource, /KeyIcon/);
   assert.match(sidebarSource, /title: "API Keys"[\s\S]*url: `\$\{projectBaseUrl\}\/api-keys`/);

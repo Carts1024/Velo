@@ -1,4 +1,3 @@
-import { deterministicSample } from "@repo/observability";
 import { v, ConvexError } from "convex/values";
 
 import { internal } from "../_generated/api";
@@ -174,23 +173,19 @@ export const createPublicPaymentIntent = internalMutation({
       createdAt: now,
       updatedAt: now,
     });
-    if (args.correlationId !== undefined && deterministicSample(args.correlationId, 0.1)) {
-      await ctx.db.insert("telemetryOutbox", {
-        kind: "span",
-        name: "velo.convex.operation",
-        operation: "payment_intent.create",
-        stage: "mutation",
-        outcome: "success",
-        requestCorrelationId: args.correlationId,
-        journeyCorrelationId: args.correlationId,
-        durationMs: Date.now() - startedAt,
-        state: "pending",
-        attemptCount: 0,
-        nextAttemptAt: now,
-        leaseGeneration: 0,
-        expiresAt: now + 14 * 24 * 60 * 60 * 1_000,
-        createdAt: now,
-      });
+    if (args.correlationId !== undefined) {
+      await recordSpan(
+        ctx,
+        "velo.convex.operation",
+        "payment_intent.create",
+        "mutation",
+        "success",
+        {
+          requestCorrelationId: args.correlationId,
+          journeyCorrelationId: args.correlationId,
+          durationMs: Date.now() - startedAt,
+        },
+      );
     }
 
     if (args.idempotencyKey !== undefined) {
@@ -555,23 +550,19 @@ export const prepareOrInsertPaymentIntentV2 = internalMutation({
       updatedAt: now,
     });
 
-    if (args.correlationId !== undefined && deterministicSample(args.correlationId, 0.1)) {
-      await ctx.db.insert("telemetryOutbox", {
-        kind: "span",
-        name: "velo.convex.operation",
-        operation: "payment_intent.create.v2",
-        stage: "mutation",
-        outcome: "success",
-        requestCorrelationId: args.correlationId,
-        journeyCorrelationId: args.correlationId,
-        durationMs: Date.now() - startedAt,
-        state: "pending",
-        attemptCount: 0,
-        nextAttemptAt: now,
-        leaseGeneration: 0,
-        expiresAt: now + 14 * 24 * 60 * 60 * 1_000,
-        createdAt: now,
-      });
+    if (args.correlationId !== undefined) {
+      await recordSpan(
+        ctx,
+        "velo.convex.operation",
+        "payment_intent.create.v2",
+        "mutation",
+        "success",
+        {
+          requestCorrelationId: args.correlationId,
+          journeyCorrelationId: args.correlationId,
+          durationMs: Date.now() - startedAt,
+        },
+      );
     }
 
     if (args.idempotencyKey !== undefined) {
@@ -849,24 +840,20 @@ export const createPublicPaymentIntentV2 = internalMutation({
       updatedAt: now,
     });
 
-    if (args.correlationId !== undefined && deterministicSample(args.correlationId, 0.1)) {
-      await ctx.db.insert("telemetryOutbox", {
-        kind: "span",
-        name: "velo.convex.operation",
-        operation: "payment_intent.create.public_v2",
-        stage: "mutation",
-        outcome: "success",
-        requestCorrelationId: args.correlationId,
-        journeyCorrelationId: args.correlationId,
-        ...(args.traceparent !== undefined ? { traceparent: args.traceparent } : {}),
-        durationMs: Date.now() - startedAt,
-        state: "pending",
-        attemptCount: 0,
-        nextAttemptAt: now,
-        leaseGeneration: 0,
-        expiresAt: now + 14 * 24 * 60 * 60 * 1_000,
-        createdAt: now,
-      });
+    if (args.correlationId !== undefined) {
+      await recordSpan(
+        ctx,
+        "velo.convex.operation",
+        "payment_intent.create.public_v2",
+        "mutation",
+        "success",
+        {
+          requestCorrelationId: args.correlationId,
+          journeyCorrelationId: args.correlationId,
+          ...(args.traceparent !== undefined ? { traceparent: args.traceparent } : {}),
+          durationMs: Date.now() - startedAt,
+        },
+      );
     }
 
     if (args.idempotencyKey !== undefined) {
@@ -1044,24 +1031,20 @@ export const createAuthorizedPaymentIntentV2 = internalMutation({
     };
     const paymentIntentId = await ctx.db.insert("paymentIntents", intentFields);
 
-    if (args.correlationId !== undefined && deterministicSample(args.correlationId, 0.1)) {
-      await ctx.db.insert("telemetryOutbox", {
-        kind: "span",
-        name: "velo.convex.operation",
-        operation: "payment_intent.create.public_action",
-        stage: "mutation",
-        outcome: "success",
-        requestCorrelationId: args.correlationId,
-        journeyCorrelationId: args.correlationId,
-        ...(args.traceparent !== undefined ? { traceparent: args.traceparent } : {}),
-        durationMs: Date.now() - startedAt,
-        state: "pending",
-        attemptCount: 0,
-        nextAttemptAt: now,
-        leaseGeneration: 0,
-        expiresAt: now + 14 * 24 * 60 * 60 * 1_000,
-        createdAt: now,
-      });
+    if (args.correlationId !== undefined) {
+      await recordSpan(
+        ctx,
+        "velo.convex.operation",
+        "payment_intent.create.public_action",
+        "mutation",
+        "success",
+        {
+          requestCorrelationId: args.correlationId,
+          journeyCorrelationId: args.correlationId,
+          ...(args.traceparent !== undefined ? { traceparent: args.traceparent } : {}),
+          durationMs: Date.now() - startedAt,
+        },
+      );
     }
 
     await ctx.db.insert("paymentIntentIdempotencyKeys", {

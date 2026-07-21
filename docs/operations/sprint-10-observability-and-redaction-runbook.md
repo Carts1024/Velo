@@ -18,6 +18,7 @@ Configure the web and Convex server environments to send OTLP/HTTP to the collec
 | Variable                                | Applies to       | Default or requirement                                                                         |
 | --------------------------------------- | ---------------- | ---------------------------------------------------------------------------------------------- |
 | `VELO_OTEL_ENABLED`                     | Web, server only | Set `true` to export. Otherwise telemetry export is disabled.                                  |
+| `VELO_CONVEX_TELEMETRY_ENABLED`         | Convex           | Defaults enabled. Set `false` to stop outbox writes, gauge scans, and exporter claims.          |
 | `VELO_OTEL_EXPORTER_OTLP_ENDPOINT`      | Web and Convex   | Local host default is `http://localhost:4318`; Convex requires an explicit reachable endpoint. |
 | `VELO_OTEL_EXPORTER_OTLP_AUTHORIZATION` | Web and Convex   | Optional complete authorization header value. Never expose it to the browser.                  |
 | `VELO_OTEL_SUCCESS_SAMPLE_RATIO`        | Web              | Defaults to `0.1`, clamped to `0..1`. Convex success sampling is fixed at `0.1`.               |

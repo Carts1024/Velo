@@ -7,6 +7,7 @@ import type { Doc } from "../_generated/dataModel";
 
 import schema from "../schema";
 import { buildMetricPayload, buildTracePayload, type OutboxRow } from "../telemetry_outbox/actions";
+import { isConvexTelemetryEnabled } from "../telemetry_outbox/config";
 import { boundedScenarioDurations } from "../telemetry_outbox/gauges";
 import { recordMetric, recordSpan } from "../telemetry_outbox/helpers";
 
@@ -15,6 +16,8 @@ const enqueue = makeFunctionReference<"mutation">("telemetry_outbox/mutations:en
 const claim = makeFunctionReference<"mutation">("telemetry_outbox/mutations:claim");
 const complete = makeFunctionReference<"mutation">("telemetry_outbox/mutations:complete");
 const fail = makeFunctionReference<"mutation">("telemetry_outbox/mutations:fail");
+const capture = makeFunctionReference<"mutation">("telemetry_outbox/gauges:capture");
+const exportBatch = makeFunctionReference<"action">("telemetry_outbox/actions:exportBatch");
 const recordUiMarker = makeFunctionReference<"mutation">(
   "telemetry_outbox/mutations:recordUiMarker",
 );
@@ -24,6 +27,123 @@ const normalizeLegacy = makeFunctionReference<"mutation">(
 const verifyLegacy = makeFunctionReference<"mutation">(
   "telemetry_outbox/redactionMigration:verifyNoLegacyDiagnostics",
 );
+
+test("Convex telemetry is enabled by default and disabled only by an explicit false", () => {
+  expect(isConvexTelemetryEnabled(undefined)).toBe(true);
+  expect(isConvexTelemetryEnabled("true")).toBe(true);
+  expect(isConvexTelemetryEnabled("false")).toBe(false);
+});
+
+test("disabled Convex telemetry avoids outbox writes while preserving UI journey stages", async () => {
+  const previousEnabled = process.env.VELO_CONVEX_TELEMETRY_ENABLED;
+  const previousSecret = process.env.VELO_UI_TELEMETRY_INTAKE_SECRET;
+  process.env.VELO_CONVEX_TELEMETRY_ENABLED = "false";
+  process.env.VELO_UI_TELEMETRY_INTAKE_SECRET = "test-secret";
+
+  try {
+    const t = convexTest(schema, modules);
+    expect(
+      await t.mutation(enqueue, {
+        kind: "metric",
+        name: "velo_request_total",
+        operation: "disabled",
+        stage: "mutation",
+        outcome: "success",
+        value: 1,
+      }),
+    ).toBeNull();
+    await t.run(async (ctx) => {
+      expect(
+        await recordMetric(ctx, "velo_retry_total", "disabled", "queue_wait", "retry"),
+      ).toBeNull();
+      expect(
+        await recordSpan(ctx, "velo.worker.run", "disabled", "queue_wait", "error"),
+      ).toBeNull();
+    });
+
+    const paymentIntentId = await t.run(async (ctx) => {
+      const now = Date.now();
+      const projectId = await ctx.db.insert("projects", {
+        name: "disabled-ui",
+        slug: "disabled-ui",
+        description: "test",
+        metadataJson: "{}",
+        metadataHash: "0".repeat(64),
+        ownerAddress: "GTEST",
+        status: "draft",
+        createdAt: now,
+        updatedAt: now,
+      });
+      return await ctx.db.insert("paymentIntents", {
+        projectId,
+        amount: "1",
+        asset: "native",
+        merchantName: "disabled-ui",
+        status: "created",
+        correlationId: "journey-disabled-0001",
+        expiresAt: now + 1_000,
+        createdAt: now,
+        updatedAt: now,
+      });
+    });
+    await t.mutation(recordUiMarker, {
+      paymentIntentId,
+      journeyCorrelationId: "journey-disabled-0001",
+      marker: "ui.rendered",
+      durationMs: 1,
+      intakeSecret: "test-secret",
+    });
+    await t.mutation(capture, {});
+
+    const state = await t.run(async (ctx) => ({
+      outbox: await ctx.db.query("telemetryOutbox").collect(),
+      stages: await ctx.db.query("journeyStages").collect(),
+    }));
+    expect(state.outbox).toHaveLength(0);
+    expect(state.stages.map((stage) => stage.name)).toEqual(["ui.rendered"]);
+  } finally {
+    if (previousEnabled === undefined) delete process.env.VELO_CONVEX_TELEMETRY_ENABLED;
+    else process.env.VELO_CONVEX_TELEMETRY_ENABLED = previousEnabled;
+    if (previousSecret === undefined) delete process.env.VELO_UI_TELEMETRY_INTAKE_SECRET;
+    else process.env.VELO_UI_TELEMETRY_INTAKE_SECRET = previousSecret;
+  }
+});
+
+test("disabled Convex exporter leaves queued rows unclaimed", async () => {
+  const previousEnabled = process.env.VELO_CONVEX_TELEMETRY_ENABLED;
+  process.env.VELO_CONVEX_TELEMETRY_ENABLED = "false";
+
+  try {
+    const t = convexTest(schema, modules);
+    const id = await t.run(async (ctx) => {
+      const now = Date.now();
+      return await ctx.db.insert("telemetryOutbox", {
+        kind: "metric",
+        name: "velo_request_total",
+        operation: "existing",
+        stage: "mutation",
+        outcome: "success",
+        value: 1,
+        state: "pending",
+        attemptCount: 0,
+        nextAttemptAt: now,
+        leaseGeneration: 0,
+        expiresAt: now + 1_000,
+        createdAt: now,
+      });
+    });
+
+    expect(await t.action(exportBatch, {})).toEqual({ exported: 0 });
+    expect(await t.run(async (ctx) => await ctx.db.get(id))).toMatchObject({
+      state: "pending",
+      attemptCount: 0,
+      leaseGeneration: 0,
+    });
+  } finally {
+    if (previousEnabled === undefined) delete process.env.VELO_CONVEX_TELEMETRY_ENABLED;
+    else process.env.VELO_CONVEX_TELEMETRY_ENABLED = previousEnabled;
+  }
+});
 
 test("builds separate valid OTLP trace and metric payloads", () => {
   const base = {
