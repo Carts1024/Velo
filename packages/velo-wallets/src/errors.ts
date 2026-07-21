@@ -29,7 +29,17 @@ export class VeloWalletError extends Error {
 }
 
 export function errorMessage(error: unknown) {
-  return error instanceof Error ? error.message : "Unknown wallet error";
+  if (error instanceof Error) return error.message;
+  if (typeof error === "string") return error;
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "message" in error &&
+    typeof error.message === "string"
+  ) {
+    return error.message;
+  }
+  return "Unknown wallet error";
 }
 
 export function normalizeWalletError(

@@ -51,7 +51,7 @@ export class StellarWalletsKitAdapter implements WalletKitAdapter {
         this.emit({
           type: "changed",
           address: event.payload.address ?? null,
-          walletId: StellarWalletsKit.selectedModule?.productId ?? null,
+          walletId: null,
           networkPassphrase: event.payload.networkPassphrase,
         });
       }),

@@ -2,6 +2,8 @@
 
 Hosted, project-configured multi-wallet integration for Stellar applications. Velo Wallets wraps Stellar Wallets Kit 2.3.0; it does not replace it.
 
+The npm package bundles its pinned Wallets Kit runtime, so consumers do not need a JSR registry configuration.
+
 ## HTML
 
 ```html

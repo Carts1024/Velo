@@ -15,12 +15,7 @@ export default defineConfig({
     },
     outDir: "dist",
     rollupOptions: {
-      external: [
-        "react",
-        "react/jsx-runtime",
-        "@creit-tech/stellar-wallets-kit",
-        "@creit-tech/stellar-wallets-kit/modules/utils",
-      ],
+      external: ["react", "react/jsx-runtime"],
     },
     sourcemap: true,
   },

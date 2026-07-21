@@ -36,3 +36,29 @@ test("isolated diagnostics exercises local message and Testnet transaction signi
   assert.match(preview, /horizon-testnet\.stellar\.org/);
   assert.match(preview, /NOT submitted/);
 });
+
+test("isolated diagnostics emits valid inline JavaScript", () => {
+  const template = preview.match(/new Response\(\s*(`[^]*?`),\s*\{ headers:/)?.[1];
+  assert.ok(template, "diagnostics document template was not found");
+
+  const render = new Function(
+    "cdnBase",
+    "safeKey",
+    "appBase",
+    "scriptData",
+    `return ${template}`,
+  ) as (...values: string[]) => string;
+  const document = render(
+    "http://localhost:3000/wallets",
+    "vw_pk_00000000000000000000000000000000",
+    "http://localhost:3000",
+    JSON.stringify({
+      publicKey: "vw_pk_00000000000000000000000000000000",
+      appBase: "http://localhost:3000",
+    }),
+  );
+  const inlineModule = document.match(/<script type="module">([^]*?)<\/script>/)?.[1];
+  assert.ok(inlineModule, "diagnostics inline module was not found");
+
+  assert.doesNotThrow(() => new Function(inlineModule));
+});

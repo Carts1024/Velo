@@ -45,13 +45,13 @@ body{font:15px ui-sans-serif,system-ui;margin:0;background:#f4f4f5;color:#18181b
 <script type="module">
 const settings=${scriptData}; const wallet=document.querySelector('#wallet'); const log=document.querySelector('#log');
 const buttons={connect:document.querySelector('#connect'),message:document.querySelector('#message'),transaction:document.querySelector('#transaction'),disconnect:document.querySelector('#disconnect')};
-function report(label,value){log.textContent=new Date().toISOString()+' '+label+(value?'\n'+value:'')+'\n\n'+log.textContent}
+function report(label,value){log.textContent=new Date().toISOString()+' '+label+(value?'\\n'+value:'')+'\\n\\n'+log.textContent}
 function connected(value){buttons.message.disabled=!value;buttons.transaction.disabled=!value;buttons.disconnect.disabled=!value}
 wallet.addEventListener('velo:wallet-ready',()=>{document.querySelector('#ready').textContent='Success';report('Configuration loaded','Runtime major 1')});
 wallet.addEventListener('velo:wallet-connected',(event)=>{connected(true);report('Connected',event.detail.address)});
 wallet.addEventListener('velo:wallet-disconnected',()=>{connected(false);report('Disconnected','Click Connect to verify recovery.')});
 wallet.addEventListener('velo:wallet-error',(event)=>report('Wallet error',event.detail.error?.message??String(event.detail.error)));
-buttons.connect.onclick=async()=>{try{const address=await wallet.connect();connected(true);report('Account confirmed',address+'\nConfigured network is shown by the wallet selector.')}catch(error){report('Connection rejected',error.message)}};
+buttons.connect.onclick=async()=>{try{const address=await wallet.connect();connected(true);report('Account confirmed',address+'\\nConfigured network is shown by the wallet selector.')}catch(error){report('Connection rejected',error.message)}};
 buttons.message.onclick=async()=>{try{const signature=await wallet.signMessage('Velo Wallets diagnostic — '+new Date().toISOString());report('Message signed locally',signature)}catch(error){report('Message signing rejected',error.message)}};
 buttons.transaction.onclick=async()=>{try{const address=await wallet.getAddress();if(!address)throw new Error('Connect first');const sdk=await import('https://esm.sh/@stellar/stellar-sdk@14.2.0');const accountResponse=await fetch('https://horizon-testnet.stellar.org/accounts/'+address);if(!accountResponse.ok)throw new Error('The connected account must exist on Testnet');const accountJson=await accountResponse.json();const account=new sdk.Account(address,accountJson.sequence);const tx=new sdk.TransactionBuilder(account,{fee:sdk.BASE_FEE,networkPassphrase:sdk.Networks.TESTNET}).addOperation(sdk.Operation.manageData({name:'velo-wallets-diagnostic',value:'not-submitted'})).setTimeout(300).build();const signed=await wallet.signTransaction(tx.toXDR());report('Testnet transaction signed locally — NOT submitted',signed)}catch(error){report('Transaction signing rejected',error.message)}};
 buttons.disconnect.onclick=async()=>{try{await wallet.disconnect()}catch(error){report('Disconnect failed',error.message)}};
