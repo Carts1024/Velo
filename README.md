@@ -21,7 +21,7 @@ Velo connects the workflows teams use to build, verify, observe, pay, and settle
 ![Rust](https://img.shields.io/badge/Rust-Soroban-dea584?style=flat-square&logo=rust&logoColor=black)
 ![License](https://img.shields.io/badge/License-MIT-22c55e?style=flat-square)
 
-[Open Velo](https://run-velo.vercel.app) · [Try the Velo Pay demo](https://velo-pay-demo.vercel.app) · [Platform guide](docs/velo-master-context.md) · [Velo Pay guide](docs/velo-pay-checkout.md) · [SDK](packages/velo-sdk/README.md) · [Deploy contracts](#-deploy-smart-contracts) · [Run locally](#-run-velo-locally)
+[Open Velo](https://www.velo-build.dev) · [Try the Velo Pay demo](https://pay-demo.velo-build.dev) · [Watch Velo Demo](https://drive.google.com/file/d/107x4hT5K62JJQgdY86fTTpYWtwDVUQF0/view?usp=drive_link) · [Platform guide](docs/velo-master-context.md) · [Velo Pay guide](docs/velo-pay-checkout.md) · [SDK](packages/velo-sdk/README.md) · [Deploy contracts](#-deploy-smart-contracts) · [Run locally](#-run-velo-locally)
 
 </div>
 
