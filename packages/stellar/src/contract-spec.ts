@@ -155,13 +155,14 @@ export class ContractSpecError extends Error {
   readonly stage: ContractSpecStage;
   readonly retryable: boolean;
   readonly cause?: unknown;
+  readonly diagnostics?: JsonSafeValue;
 
   constructor(
     code: string,
     stage: ContractSpecStage,
     message: string,
     retryable = false,
-    options?: { cause?: unknown },
+    options?: { cause?: unknown; diagnostics?: JsonSafeValue },
   ) {
     super(message);
     this.name = "ContractSpecError";
@@ -169,6 +170,7 @@ export class ContractSpecError extends Error {
     this.stage = stage;
     this.retryable = retryable;
     this.cause = options?.cause;
+    this.diagnostics = options?.diagnostics;
   }
 }
 

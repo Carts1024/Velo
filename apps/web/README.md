@@ -49,11 +49,29 @@ addresses are classified as account, contract, or invalid. The read-only preview
 shown only when every argument is valid and contains a JSON object of per-parameter
 base64 `ScVal` XDR values.
 
-Sprint 2 is **IMPLEMENTED AND TESTED** with 110 web tests, web typechecking, and a
-production build. It prepares arbitrary function arguments but does not send them
-to the transaction service. The existing Testnet `hello(Symbol)` HTTP, simulation,
-signing, and submission contracts are unchanged; generalized simulation is Sprint 3. See the
+Sprint 2 is **IMPLEMENTED AND TESTED**. It established the canonical arguments and
+editor later consumed by Sprint 3. See the
 [Sprint 2 dynamic argument reference](../../docs/architecture/sprint-2-playground-dynamic-argument-system.md).
+
+## Sprint 3 Playground simulation and preflight
+
+Any supported Testnet function can now be simulated from the selected function's
+canonical arguments. The server reloads the contract, rejects Wasm/spec drift,
+encodes ordered `ScVal` arguments, loads the wallet source account, and returns a
+300-second decision record with decoded/raw result, fees, authorization, read-only
+and read-write footprint, diagnostics, state changes, and restore evidence.
+
+Changing the contract, source account, function, arguments, base fee, or CPU leeway
+marks the retained result stale. Expired and restore-required results remain
+inspectable but cannot be signed. Mainnet remains inspection-only, and only a fresh
+simulation for the configured hello fixture exposes the existing signing/submission
+path.
+
+Sprint 3 is **IMPLEMENTED AND TESTED — LIVE FIXTURE EVIDENCE PENDING**. All 122 web
+tests, lint/typechecks, the production build, and fixture contract tests pass. Live
+generalized simulation for every deployed fixture awaits a funded Testnet source
+account. See the
+[Sprint 3 architecture and API](../../docs/architecture/sprint-3-playground-simulation-preflight.md).
 
 ## Sprint 10 observability
 

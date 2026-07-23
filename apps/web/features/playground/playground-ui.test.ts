@@ -3,6 +3,10 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const client = readFileSync("features/playground/playground-client.tsx", "utf8");
+const transactionService = readFileSync(
+  "features/playground/server/transaction-service.ts",
+  "utf8",
+);
 const page = readFileSync("app/playground/page.tsx", "utf8");
 const shell = readFileSync("core/app-shell.tsx", "utf8");
 const sidebar = readFileSync(
@@ -41,6 +45,22 @@ test("Playground distinguishes Mainnet, wallet, pending, success, and failure st
   assert.match(client, /Transaction succeeded/);
   assert.match(client, /Contract transaction failed/);
   assert.match(client, /assertWalletEnvelopeMatchesReview/);
+});
+
+test("Sprint 3 preflight uses canonical arguments and guards stale signing", () => {
+  assert.match(client, /Simulation and preflight/);
+  assert.match(client, /expectedWasmHash: contract\.wasmHash/);
+  assert.match(client, /expectedSpecHash: contract\.specHash/);
+  assert.match(client, /arguments: selectedDraft\.value/);
+  assert.match(client, /createSimulationContextKey/);
+  assert.match(client, /simulationFreshness/);
+  assert.match(client, /simulationAbort\.current\?\.abort/);
+  assert.match(client, /requestNumber !== simulationRequest\.current/);
+  assert.match(client, /freshness !== "fresh"/);
+  assert.match(client, /simulation\?\.signingEligible/);
+  assert.match(transactionService, /No writes detected in this simulation/);
+  assert.match(client, /Raw simulation evidence/);
+  assert.match(client, /Copy diagnostics/);
 });
 
 const argumentEditor = readFileSync("features/playground/argument-editor.tsx", "utf8");

@@ -21,6 +21,7 @@ export type PlaygroundErrorEnvelope = {
     message: string;
     retryable: boolean;
     correlationId: string;
+    diagnostics?: import("@repo/stellar").JsonSafeValue;
   };
 };
 export type PlaygroundContractSource = {
@@ -96,6 +97,7 @@ function publicError(error: unknown, id: string): PlaygroundErrorEnvelope {
       message: safe.message,
       retryable: safe.retryable,
       correlationId: id,
+      ...(safe.diagnostics ? { diagnostics: safe.diagnostics } : {}),
     },
   };
 }
@@ -116,11 +118,15 @@ export function contractLoadErrorStatus(code: string) {
     code === "INVALID_ARGUMENT" ||
     code === "INVALID_SOURCE_ACCOUNT" ||
     code === "INVALID_TRANSACTION_HASH" ||
-    code === "MALFORMED_ENVELOPE"
+    code === "MALFORMED_ENVELOPE" ||
+    code === "INVALID_SIMULATION_SETTINGS" ||
+    code === "INVALID_FUNCTION"
   ) {
     return 400;
   }
   if (code === "CONTRACT_NOT_FOUND") return 404;
+  if (code === "SOURCE_ACCOUNT_NOT_FOUND") return 404;
+  if (code === "CONTRACT_CHANGED") return 409;
   if (code === "MAINNET_INVOCATION_DISABLED" || code === "CONTRACT_NOT_ALLOWLISTED") return 403;
   if (code === "FIXTURE_NOT_CONFIGURED") return 503;
   if (
@@ -131,7 +137,8 @@ export function contractLoadErrorStatus(code: string) {
     code === "INVALID_SIGNATURE" ||
     code === "FEE_BUMP_NOT_ALLOWED" ||
     code === "UNBOUNDED_TRANSACTION" ||
-    code === "SIMULATION_EXPIRED"
+    code === "SIMULATION_EXPIRED" ||
+    code === "SIMULATION_FAILED"
   ) {
     return 422;
   }
@@ -176,7 +183,7 @@ function rpcStatus(error: unknown) {
 }
 
 export async function withRpcPolicy<T>(
-  stage: "resolve-instance" | "fetch-wasm",
+  stage: "resolve-instance" | "fetch-wasm" | "simulate",
   operation: () => Promise<T>,
 ): Promise<T> {
   for (let attempt = 0; attempt < 2; attempt += 1) {
@@ -184,6 +191,17 @@ export async function withRpcPolicy<T>(
       return await operation();
     } catch (error) {
       const status = rpcStatus(error);
+      if (
+        stage === "simulate" &&
+        error instanceof Error &&
+        /account not found/i.test(error.message)
+      ) {
+        throw new ContractSpecError(
+          "SOURCE_ACCOUNT_NOT_FOUND",
+          "simulate",
+          "The Testnet source account could not be loaded.",
+        );
+      }
       if (status === 404) {
         throw new ContractSpecError(
           "CONTRACT_NOT_FOUND",

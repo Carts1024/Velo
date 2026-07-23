@@ -12,6 +12,13 @@ For the successor canonical argument API and browser editor, see the
 [Sprint 2 dynamic argument reference](../architecture/sprint-2-playground-dynamic-argument-system.md).
 The HTTP routes in this Sprint 1 reference remain unchanged by Sprint 2.
 
+Sprint 3 supersedes the simulation response and adds the generalized request
+documented in the
+[Sprint 3 simulation reference](../architecture/sprint-3-playground-simulation-preflight.md).
+The Sprint 1 request below remains accepted only as a deprecated compatibility body
+for the configured hello fixture. Signing, submission, and status contracts in this
+document remain current.
+
 ## HTTP conventions
 
 The Playground routes are anonymous and return JSON. Successful and failed responses
@@ -39,6 +46,7 @@ type PlaygroundErrorEnvelope = {
     message: string;
     retryable: boolean;
     correlationId: string;
+    diagnostics?: JsonSafeValue;
   };
 };
 ```
@@ -92,7 +100,7 @@ Success is HTTP 200. The normalized response includes:
 | `errors`        | `NormalizedContractErrorEnum[]`  | Contract error enums                                |
 | `events`        | `NormalizedContractSpecEvent[]`  | Event definitions                                   |
 
-## Simulate the allowlisted hello call
+## Simulate the allowlisted hello call (deprecated compatibility body)
 
 `POST /api/v1/playground/simulations`
 
@@ -109,7 +117,11 @@ type HelloSimulationRequest = {
 ASCII letters, digits, or underscores. The contract must be the configured fixture
 and its current Testnet Wasm hash must match configuration.
 
-Success is HTTP 200:
+Sprint 3 returns its generalized decision-record response rather than the historical
+`HelloSimulationResponse` below. The old response shape is retained here only as the
+Sprint 1 implementation record; consumers must migrate to the Sprint 3 response.
+
+Historical Sprint 1 success shape:
 
 ```ts
 type HelloSimulationResponse = {
@@ -205,16 +217,17 @@ Soroban return value is converted through `scValToNative` and then into the
 
 | HTTP status | Stable codes                                                                                                                                                                                                                                                                                                 |
 | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 400         | `INVALID_REQUEST`, `INVALID_NETWORK`, `INVALID_CONTRACT_ID`, `INVALID_ARGUMENT`, `INVALID_SOURCE_ACCOUNT`, `INVALID_TRANSACTION_HASH`, `MALFORMED_ENVELOPE`                                                                                                                                                  |
+| 400         | `INVALID_REQUEST`, `INVALID_NETWORK`, `INVALID_CONTRACT_ID`, `INVALID_ARGUMENT`, `INVALID_FUNCTION`, `INVALID_SIMULATION_SETTINGS`, `INVALID_SOURCE_ACCOUNT`, `INVALID_TRANSACTION_HASH`, `MALFORMED_ENVELOPE`                                                                                                 |
 | 403         | `MAINNET_INVOCATION_DISABLED`, `CONTRACT_NOT_ALLOWLISTED`                                                                                                                                                                                                                                                    |
-| 404         | `CONTRACT_NOT_FOUND`                                                                                                                                                                                                                                                                                         |
-| 422         | `SPEC_TOO_LARGE`, `MALFORMED_SPEC`, `UNSUPPORTED_SPEC_ENTRY`, `UNSUPPORTED_SPEC_TYPE`, `ENVELOPE_OPERATION_MISMATCH`, `ENVELOPE_CALL_MISMATCH`, `ENVELOPE_HASH_MISMATCH`, `MISSING_SIGNATURE`, `INVALID_SIGNATURE`, `FEE_BUMP_NOT_ALLOWED`, `UNBOUNDED_TRANSACTION`, `SIMULATION_EXPIRED`                    |
+| 404         | `CONTRACT_NOT_FOUND`, `SOURCE_ACCOUNT_NOT_FOUND`                                                                                                                                                                                                                                                             |
+| 409         | `CONTRACT_CHANGED`                                                                                                                                                                                                                                                                                           |
+| 422         | `SPEC_TOO_LARGE`, `MALFORMED_SPEC`, `UNSUPPORTED_SPEC_ENTRY`, `UNSUPPORTED_SPEC_TYPE`, `SIMULATION_FAILED`, `ENVELOPE_OPERATION_MISMATCH`, `ENVELOPE_CALL_MISMATCH`, `ENVELOPE_HASH_MISMATCH`, `MISSING_SIGNATURE`, `INVALID_SIGNATURE`, `FEE_BUMP_NOT_ALLOWED`, `UNBOUNDED_TRANSACTION`, `SIMULATION_EXPIRED` |
 | 503         | `FIXTURE_NOT_CONFIGURED`                                                                                                                                                                                                                                                                                     |
 | 504         | `RPC_TIMEOUT`                                                                                                                                                                                                                                                                                                |
-| 502         | `RPC_UPSTREAM` and implemented codes without a dedicated mapping, including `RPC_CONFIGURATION_ERROR`, `SOURCE_ACCOUNT_NOT_FOUND`, `FIXTURE_DRIFT`, `SIMULATION_FAILED`, `RESULT_DECODE_FAILED`, `UNSUPPORTED_CONTRACT_VALUE`, `SUBMISSION_HASH_MISMATCH`, `SUBMISSION_REJECTED`, and `SUBMISSION_RETRYABLE` |
+| 502         | `RPC_UPSTREAM` and implemented codes without a dedicated mapping, including `RPC_CONFIGURATION_ERROR`, `FIXTURE_DRIFT`, `RESULT_DECODE_FAILED`, `UNSUPPORTED_CONTRACT_VALUE`, `SUBMISSION_HASH_MISMATCH`, `SUBMISSION_REJECTED`, and `SUBMISSION_RETRYABLE`                                                        |
 
-`retryable` is true for retryable upstream failures, simulation failure, and
-`SUBMISSION_RETRYABLE`; clients must still re-check state before resubmitting.
+`retryable` is true for retryable upstream failures and `SUBMISSION_RETRYABLE`;
+clients must still re-check state before resubmitting.
 
 ## `@repo/stellar` public surface
 

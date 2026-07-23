@@ -187,6 +187,10 @@ Sprint 2 subsequently implements general-purpose argument form generation,
 canonical JSON, and typed `ScVal` round trips, but not generalized simulation. See
 the [Sprint 2 dynamic argument reference](sprint-2-playground-dynamic-argument-system.md).
 
+Sprint 3 subsequently generalizes Testnet simulation and preflight while retaining
+the hello-only signing/submission boundary. See the
+[Sprint 3 simulation and preflight reference](sprint-3-playground-simulation-preflight.md).
+
 ## Source traceability
 
 | Decision                                              | Source of truth                                                                           |

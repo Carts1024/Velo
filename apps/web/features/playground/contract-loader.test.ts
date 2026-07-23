@@ -100,9 +100,28 @@ test("resolving a new wasm hash invalidates the prior cache identity", async () 
 test("maps stable errors to public HTTP statuses", () => {
   assert.equal(contractLoadErrorStatus("INVALID_CONTRACT_ID"), 400);
   assert.equal(contractLoadErrorStatus("CONTRACT_NOT_FOUND"), 404);
+  assert.equal(contractLoadErrorStatus("SOURCE_ACCOUNT_NOT_FOUND"), 404);
+  assert.equal(contractLoadErrorStatus("CONTRACT_CHANGED"), 409);
+  assert.equal(contractLoadErrorStatus("SIMULATION_FAILED"), 422);
   assert.equal(contractLoadErrorStatus("SPEC_TOO_LARGE"), 422);
   assert.equal(contractLoadErrorStatus("RPC_TIMEOUT"), 504);
   assert.equal(contractLoadErrorStatus("RPC_UPSTREAM"), 502);
+});
+
+test("simulation policy distinguishes a missing account from upstream failures", async () => {
+  await assert.rejects(
+    withRpcPolicy("simulate", async () => {
+      throw new Error("Account not found: G...");
+    }),
+    (error) =>
+      error instanceof Error && "code" in error && error.code === "SOURCE_ACCOUNT_NOT_FOUND",
+  );
+  await assert.rejects(
+    withRpcPolicy("simulate", async () => {
+      throw { code: 500 };
+    }),
+    (error) => error instanceof Error && "code" in error && error.code === "RPC_UPSTREAM",
+  );
 });
 
 test("retries 429/5xx once and does not retry ordinary failures", async () => {

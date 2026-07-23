@@ -1,7 +1,9 @@
 # Velo Playground — Sprint Plan
 
 Status: Sprint 1 **IMPLEMENTED — LIVE EVIDENCE PENDING**; Sprint 2
-**IMPLEMENTED AND TESTED**; Sprints 3–6 proposed and unimplemented
+**IMPLEMENTED AND TESTED**; Sprint 3
+**IMPLEMENTED AND TESTED — LIVE FIXTURE EVIDENCE PENDING**; Sprints 4–6 proposed
+and unimplemented
 Created: 2026-07-23  
 Source: `docs/plans/Velo_Playground_Feature_Plan.md`  
 Duration: 6 sprints / 12 weeks  
@@ -30,6 +32,11 @@ Sprint 2 implements and tests the dynamic argument model and editor described in
 [Sprint 2 architecture and reference](../architecture/sprint-2-playground-dynamic-argument-system.md).
 It prepares arbitrary typed arguments but deliberately leaves generalized simulation
 to Sprint 3.
+
+Sprint 3 implements generalized Testnet simulation, result/fee/auth/footprint
+explanation, freshness invalidation, and allowlisted diagnostic evidence. See the
+[Sprint 3 architecture and API](../architecture/sprint-3-playground-simulation-preflight.md).
+Signing and submission remain restricted to the Sprint 1 hello fixture.
 
 ## 1. Product Outcome
 
@@ -341,7 +348,7 @@ Acceptance criteria:
 
 ## 8. Sprint 3 — Simulation and Preflight
 
-**Status:** Proposed and unimplemented beyond the narrow Sprint 1 hello slice.
+**Status:** **IMPLEMENTED AND TESTED — LIVE FIXTURE EVIDENCE PENDING**
 
 **Goal:** Make simulation the primary, trustworthy decision point before wallet
 signing.
@@ -408,10 +415,21 @@ Acceptance criteria:
 
 ### Sprint 3 exit gate
 
-- All fixture requests can be simulated or fail with the expected diagnostic.
-- The result panel covers fees, auth, footprint, raw data, and decoded errors.
-- Every specified context change invalidates simulation.
-- Signing cannot begin without a fresh successful simulation.
+- **Implemented:** arbitrary supported Testnet functions use the Sprint 2 canonical
+  argument encoder and a freshly requalified contract specification.
+- **Implemented:** the result panel covers decoded/raw results, fees, auth,
+  read-only/read-write footprint, diagnostics, state changes, restore evidence, and
+  RPC-fact versus inferred warnings.
+- **Implemented:** arguments, source/wallet account, contract and hashes, function,
+  base fee, CPU leeway, expiry, and restore status participate in freshness.
+- **Implemented:** stale, expired, and restore-required records remain inspectable
+  but cannot start signing; generalized signing remains deferred to Sprint 4.
+- **Verified:** 122 web tests, web/Stellar lint and typechecks, the production
+  web build, and 11 Playground fixture integration tests pass.
+- **Known baseline:** the unrelated `transaction-debugger.test.ts` process failure
+  remains in the full Stellar suite; all other Stellar test files pass.
+- **Pending live gate:** run generalized simulation for every deployed fixture with
+  a funded Testnet source account and retain the expected success/failure evidence.
 
 ## 9. Sprint 4 — Wallet, Review, Submission, and Results
 

@@ -23,7 +23,7 @@ import {
   WalletIcon,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import type {
   ContractSpecDocumentV1,
@@ -34,6 +34,12 @@ import type {
 import { ArgumentEditor } from "./argument-editor";
 import { createFunctionDraft, type FunctionArgumentDraft } from "./argument-editor-state";
 import { assertWalletEnvelopeMatchesReview } from "./client-integrity";
+import {
+  createSimulationContextKey,
+  simulationFreshness,
+  type SimulationContext,
+  type SimulationFreshness,
+} from "./simulation-state";
 
 type Network = "testnet" | "mainnet";
 type LoadedContract = ContractSpecDocumentV1 & {
@@ -44,24 +50,50 @@ type LoadedContract = ContractSpecDocumentV1 & {
   };
 };
 type Simulation = {
+  schemaVersion: 1;
+  status: "success" | "restore_required";
+  simulationId: string;
+  correlationId: string;
+  identity: string;
+  contextKey: string;
+  simulatedAt: string;
   unsignedXdr: string;
   transactionHash: string;
   expiresAt: string;
-  fee: { base: string; resource: string; total: string };
-  review: {
+  latestLedger: number;
+  request: {
     network: "testnet";
-    sourceAccount: string;
     contractId: string;
-    wasmHash: string;
-    functionName: "hello";
-    arguments: Array<{ name: string; type: string; value: string }>;
-    sequence: string;
-    timeBounds: { minTime: string; maxTime: string };
-    baseFee: string;
-    resourceFee: string;
-    totalFee: string;
-    transactionHash: string;
+    expectedWasmHash: string;
+    expectedSpecHash: string;
+    sourceAccount: string;
+    functionName: string;
+    settings: { baseFee: string; cpuInstructions: number };
+    argumentNames: string[];
   };
+  result: { decoded: unknown; rawXdr: string | null };
+  fee: {
+    base: string;
+    minimumResource: string;
+    total: string;
+    excessiveThreshold: string;
+  };
+  authorization: {
+    required: boolean;
+    entries: Array<{ credentials: string; xdr: string }>;
+  };
+  footprint: {
+    readOnly: Array<{ type: string; xdr: string }>;
+    readWrite: Array<{ type: string; xdr: string }>;
+  };
+  warnings: Array<{
+    code: string;
+    severity: "info" | "warning";
+    source: "rpc" | "inference";
+    message: string;
+  }>;
+  evidence: unknown;
+  signingEligible: boolean;
 };
 type TransactionResult =
   | { status: "pending"; transactionHash: string }
@@ -146,18 +178,27 @@ export function PlaygroundClient({
   const [contract, setContract] = useState<LoadedContract | null>(null);
   const [selectedFunction, setSelectedFunction] = useState("");
   const [search, setSearch] = useState("");
-  const [argument, setArgument] = useState("Velo");
   const [argumentDrafts, setArgumentDrafts] = useState<Record<string, FunctionArgumentDraft>>({});
+  const [baseFee, setBaseFee] = useState("100");
+  const [cpuInstructions, setCpuInstructions] = useState("0");
   const [simulation, setSimulation] = useState<Simulation | null>(null);
   const [transaction, setTransaction] = useState<TransactionResult | null>(null);
   const [busy, setBusy] = useState<"load" | "simulate" | "sign" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [clock, setClock] = useState(Date.now());
   const [announcement, setAnnouncement] = useState("Enter a contract ID to inspect its spec.");
+  const simulationAbort = useRef<AbortController | null>(null);
+  const simulationRequest = useRef(0);
 
   useEffect(() => {
-    setSimulation(null);
     setTransaction(null);
-  }, [network, contractId, argument, wallet.address]);
+  }, [network, contractId, wallet.address]);
+
+  useEffect(() => {
+    if (!simulation) return;
+    const timer = window.setInterval(() => setClock(Date.now()), 1_000);
+    return () => window.clearInterval(timer);
+  }, [simulation]);
 
   const functions = useMemo(
     () =>
@@ -173,6 +214,44 @@ export function PlaygroundClient({
     selected && contract
       ? (argumentDrafts[selected.name] ?? createFunctionDraft(selected, contract))
       : null;
+  const parsedCpuInstructions = Number(cpuInstructions);
+  const settingsValid =
+    /^[0-9]+$/.test(baseFee) &&
+    BigInt(baseFee || "0") >= 100n &&
+    BigInt(baseFee || "0") <= 10_000_000n &&
+    Number.isSafeInteger(parsedCpuInstructions) &&
+    parsedCpuInstructions >= 0 &&
+    parsedCpuInstructions <= 100_000_000;
+  const simulationContext: SimulationContext | null =
+    network === "testnet" &&
+    contract &&
+    selected &&
+    selectedDraft &&
+    selectedDraft.issues.length === 0 &&
+    !selectedDraft.jsonError &&
+    wallet.address &&
+    settingsValid
+      ? {
+          network: "testnet",
+          contractId: contract.contractId,
+          expectedWasmHash: contract.wasmHash,
+          expectedSpecHash: contract.specHash,
+          sourceAccount: wallet.address,
+          functionName: selected.name,
+          arguments: selectedDraft.value,
+          settings: {
+            baseFee: BigInt(baseFee).toString(),
+            cpuInstructions: parsedCpuInstructions,
+          },
+        }
+      : null;
+  const currentContextKey = simulationContext ? createSimulationContextKey(simulationContext) : "";
+  const freshness: SimulationFreshness | null =
+    simulation && currentContextKey
+      ? simulationFreshness(simulation, currentContextKey, clock)
+      : simulation
+        ? "stale"
+        : null;
 
   async function load(event?: FormEvent) {
     event?.preventDefault();
@@ -204,7 +283,11 @@ export function PlaygroundClient({
   }
 
   async function simulate() {
-    if (!contract || !wallet.address) return;
+    if (!simulationContext) return;
+    simulationAbort.current?.abort();
+    const controller = new AbortController();
+    simulationAbort.current = controller;
+    const requestNumber = ++simulationRequest.current;
     setBusy("simulate");
     setError(null);
     try {
@@ -212,23 +295,22 @@ export function PlaygroundClient({
         await fetch("/api/v1/playground/simulations", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            network,
-            contractId: contract.contractId,
-            sourceAccount: wallet.address,
-            argument,
-          }),
+          body: JSON.stringify(simulationContext),
+          signal: controller.signal,
         }),
       );
+      if (requestNumber !== simulationRequest.current) return;
       setSimulation(result);
+      setClock(Date.now());
       setAnnouncement("Simulation ready for review.");
     } catch (simulationError) {
+      if (controller.signal.aborted || requestNumber !== simulationRequest.current) return;
       const message =
         simulationError instanceof Error ? simulationError.message : "Simulation failed.";
       setError(message);
       setAnnouncement(message);
     } finally {
-      setBusy(null);
+      if (requestNumber === simulationRequest.current) setBusy(null);
     }
   }
 
@@ -245,7 +327,7 @@ export function PlaygroundClient({
   }
 
   async function signAndSubmit() {
-    if (!simulation) return;
+    if (!simulation || freshness !== "fresh" || !simulation.signingEligible) return;
     setBusy("sign");
     setError(null);
     try {
@@ -289,11 +371,11 @@ export function PlaygroundClient({
       <div>
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="text-3xl font-semibold">Contract Playground</h1>
-          <Badge variant="info">Sprint 1</Badge>
+          <Badge variant="info">Sprint 3</Badge>
         </div>
         <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
-          Inspect normalized Soroban contract specifications on Testnet or Mainnet. Invocation is
-          limited to the configured Testnet hello fixture.
+          Inspect normalized Soroban contracts and run a trustworthy Testnet preflight before
+          signing. General signing remains limited to the configured hello fixture.
         </p>
       </div>
 
@@ -474,11 +556,10 @@ export function PlaygroundClient({
 
           <Card>
             <CardHeader>
-              <CardTitle>Testnet invocation</CardTitle>
+              <CardTitle>Simulation and preflight</CardTitle>
               <CardDescription>
-                {contract.invocation.eligible
-                  ? "Invoke hello(Symbol) using the existing Velo wallet connection."
-                  : contract.invocation.reason}
+                Simulate the selected function with its canonical arguments, fee, and CPU-resource
+                settings.
               </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-4">
@@ -487,24 +568,44 @@ export function PlaygroundClient({
                   <AlertCircleIcon />
                   <AlertTitle>Mainnet is inspection-only</AlertTitle>
                   <AlertDescription>
-                    Simulation, signing, and submission are unavailable in Sprint 1.
+                    Simulation, signing, and submission remain unavailable until Sprint 4 safeguards
+                    are implemented.
                   </AlertDescription>
                 </Alert>
-              ) : contract.invocation.eligible ? (
+              ) : selected ? (
                 <>
-                  <label
-                    htmlFor="playground-symbol"
-                    className="grid max-w-md gap-1 text-sm font-medium"
-                  >
-                    Symbol argument
-                    <Input
-                      id="playground-symbol"
-                      value={argument}
-                      onChange={(event) => setArgument(event.target.value)}
-                      maxLength={32}
-                      pattern="[A-Za-z0-9_]+"
-                    />
-                  </label>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <label htmlFor="playground-base-fee" className="grid gap-1 text-sm font-medium">
+                      Base fee (stroops)
+                      <Input
+                        id="playground-base-fee"
+                        value={baseFee}
+                        onChange={(event) => setBaseFee(event.target.value)}
+                        inputMode="numeric"
+                        maxLength={8}
+                        aria-invalid={!settingsValid}
+                      />
+                    </label>
+                    <label
+                      htmlFor="playground-cpu-leeway"
+                      className="grid gap-1 text-sm font-medium"
+                    >
+                      Additional CPU instructions
+                      <Input
+                        id="playground-cpu-leeway"
+                        value={cpuInstructions}
+                        onChange={(event) => setCpuInstructions(event.target.value)}
+                        inputMode="numeric"
+                        maxLength={9}
+                        aria-invalid={!settingsValid}
+                      />
+                    </label>
+                  </div>
+                  {!settingsValid ? (
+                    <p role="alert" className="text-sm text-destructive">
+                      Base fee must be 100–10,000,000 stroops and CPU leeway must be 0–100,000,000.
+                    </p>
+                  ) : null}
                   <div className="flex flex-wrap gap-2">
                     {!wallet.address ? (
                       <Button type="button" onClick={() => void wallet.connect()}>
@@ -514,7 +615,7 @@ export function PlaygroundClient({
                       <Button
                         type="button"
                         onClick={() => void simulate()}
-                        disabled={busy !== null || !/^[A-Za-z0-9_]{1,32}$/.test(argument)}
+                        disabled={busy !== null || !simulationContext}
                       >
                         {busy === "simulate" ? (
                           <Loader2Icon className="animate-spin" />
@@ -524,11 +625,11 @@ export function PlaygroundClient({
                         Simulate
                       </Button>
                     )}
-                    {simulation ? (
+                    {simulation?.signingEligible ? (
                       <Button
                         type="button"
                         onClick={() => void signAndSubmit()}
-                        disabled={busy !== null}
+                        disabled={busy !== null || freshness !== "fresh"}
                       >
                         {busy === "sign" ? (
                           <Loader2Icon className="animate-spin" />
@@ -539,13 +640,15 @@ export function PlaygroundClient({
                       </Button>
                     ) : null}
                   </div>
-                  {simulation ? <SimulationReview simulation={simulation} /> : null}
+                  {simulation && freshness ? (
+                    <SimulationReview simulation={simulation} freshness={freshness} />
+                  ) : null}
                   {transaction ? <TransactionOutcome transaction={transaction} /> : null}
                 </>
               ) : (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <RefreshCwIcon className="size-4" />
-                  Load the configured hello fixture to enable invocation.
+                  Select a function to prepare its simulation.
                 </div>
               )}
             </CardContent>
@@ -604,36 +707,121 @@ function SpecRow({
   );
 }
 
-function SimulationReview({ simulation }: { simulation: Simulation }) {
+function SimulationReview({
+  simulation,
+  freshness,
+}: {
+  simulation: Simulation;
+  freshness: SimulationFreshness;
+}) {
   const rows = [
-    ["Network", simulation.review.network],
-    ["Source", simulation.review.sourceAccount],
-    ["Contract", simulation.review.contractId],
-    ["Wasm hash", simulation.review.wasmHash],
-    ["Function", simulation.review.functionName],
-    ["Arguments", JSON.stringify(simulation.review.arguments)],
-    ["Sequence", simulation.review.sequence],
+    ["Status", simulation.status],
+    ["Freshness", freshness],
+    ["Network", simulation.request.network],
+    ["Source", simulation.request.sourceAccount],
+    ["Contract", simulation.request.contractId],
+    ["Wasm hash", simulation.request.expectedWasmHash],
+    ["Function", simulation.request.functionName],
+    ["Arguments", simulation.request.argumentNames.join(", ") || "None"],
+    ["Latest ledger", String(simulation.latestLedger)],
     [
-      "Time bounds",
-      `${simulation.review.timeBounds.minTime} → ${simulation.review.timeBounds.maxTime}`,
+      "Fees",
+      `${simulation.fee.total} stroops (${simulation.fee.minimumResource} minimum resource)`,
     ],
-    ["Fees", `${simulation.fee.total} stroops (${simulation.fee.resource} resource)`],
     ["Transaction hash", simulation.transactionHash],
   ];
+  const diagnosticBundle = JSON.stringify(
+    {
+      schemaVersion: simulation.schemaVersion,
+      stage: "simulate",
+      simulationId: simulation.simulationId,
+      correlationId: simulation.correlationId,
+      identity: simulation.identity,
+      status: simulation.status,
+      latestLedger: simulation.latestLedger,
+      request: simulation.request,
+      result: simulation.result,
+      fee: simulation.fee,
+      authorization: simulation.authorization,
+      footprint: simulation.footprint,
+      warnings: simulation.warnings,
+      evidence: simulation.evidence,
+      unsignedXdr: simulation.unsignedXdr,
+    },
+    null,
+    2,
+  );
   return (
     <div className="grid gap-2 rounded-lg border p-4">
       <div className="flex items-center gap-2">
-        <CheckCircle2Icon className="size-4 text-emerald-600" />
-        <h3 className="font-medium">Exact unsigned-XDR review</h3>
+        {freshness === "fresh" ? (
+          <CheckCircle2Icon className="size-4 text-emerald-600" />
+        ) : (
+          <AlertCircleIcon className="size-4 text-amber-600" />
+        )}
+        <h3 className="font-medium">Simulation decision record</h3>
       </div>
+      {freshness !== "fresh" ? (
+        <Alert>
+          <AlertCircleIcon />
+          <AlertTitle>
+            {freshness === "restore_required"
+              ? "Archived state requires restoration"
+              : freshness === "expired"
+                ? "Simulation expired"
+                : "Simulation is stale"}
+          </AlertTitle>
+          <AlertDescription>Re-simulate before review or signing.</AlertDescription>
+        </Alert>
+      ) : null}
       {rows.map(([label, value]) => (
         <div key={label} className="grid min-w-0 gap-1 sm:grid-cols-[9rem_minmax(0,1fr)]">
           <span className="text-xs text-muted-foreground">{label}</span>
           <span className="font-mono text-xs break-all">{value}</span>
         </div>
       ))}
+      <div className="grid gap-2 rounded-md bg-muted/30 p-3">
+        <h4 className="text-sm font-medium">Predicted result</h4>
+        <pre className="overflow-x-auto text-xs">
+          {JSON.stringify(simulation.result.decoded, null, 2)}
+        </pre>
+      </div>
+      <div className="grid gap-2 sm:grid-cols-3">
+        <Overview label="Required auth" value={simulation.authorization.required ? "Yes" : "No"} />
+        <Overview label="Read-only keys" value={String(simulation.footprint.readOnly.length)} />
+        <Overview label="Read-write keys" value={String(simulation.footprint.readWrite.length)} />
+      </div>
+      <div className="grid gap-2">
+        {simulation.warnings.map((warning) => (
+          <Alert key={warning.code}>
+            <AlertCircleIcon />
+            <AlertTitle>
+              {warning.code.replaceAll("_", " ")} ·{" "}
+              {warning.source === "rpc" ? "RPC fact" : "Velo inference"}
+            </AlertTitle>
+            <AlertDescription>{warning.message}</AlertDescription>
+          </Alert>
+        ))}
+      </div>
+      <details className="rounded-md border p-3">
+        <summary className="cursor-pointer text-sm font-medium">Raw simulation evidence</summary>
+        <div className="mt-3 grid gap-3">
+          <Button
+            type="button"
+            variant="outline"
+            className="w-fit"
+            onClick={() => void navigator.clipboard.writeText(diagnosticBundle)}
+          >
+            Copy diagnostics
+          </Button>
+          <pre className="max-h-96 overflow-auto text-xs whitespace-pre-wrap break-all">
+            {diagnosticBundle}
+          </pre>
+        </div>
+      </details>
       <p className="text-xs text-muted-foreground">
-        Expires {new Date(simulation.expiresAt).toLocaleString()}.
+        Simulated {new Date(simulation.simulatedAt).toLocaleString()}; expires{" "}
+        {new Date(simulation.expiresAt).toLocaleString()}.
       </p>
     </div>
   );
