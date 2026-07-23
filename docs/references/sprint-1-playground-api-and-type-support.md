@@ -16,8 +16,12 @@ Sprint 3 supersedes the simulation response and adds the generalized request
 documented in the
 [Sprint 3 simulation reference](../architecture/sprint-3-playground-simulation-preflight.md).
 The Sprint 1 request below remains accepted only as a deprecated compatibility body
-for the configured hello fixture. Signing, submission, and status contracts in this
-document remain current.
+for the configured hello fixture.
+
+Sprint 4 supersedes the signing, submission, and status contracts in this historical
+reference with generalized Testnet verification, pending recovery, decoded
+results/events, and acknowledged Mainnet simulation. See the current
+[Sprint 4 API/lifecycle reference](sprint-4-playground-api-and-lifecycle.md).
 
 ## HTTP conventions
 
@@ -160,7 +164,7 @@ type HelloSimulationResponse = {
 Fees are decimal strings in stroops. Review fields and `transactionHash` are derived
 from the assembled unsigned transaction, not copied from request fields.
 
-## Submit a signed hello transaction
+## Submit a signed hello transaction (historical compatibility shape)
 
 `POST /api/v1/playground/transactions/submit`
 
@@ -180,7 +184,7 @@ operation count, and time bound. Fee-bump envelopes are rejected.
 Success returns one of the transaction-status shapes below. A pending response uses
 HTTP 202; terminal responses use HTTP 200.
 
-## Get transaction status
+## Get transaction status (historical Sprint 1 shape)
 
 `GET /api/v1/playground/transactions/{hash}`
 
@@ -212,6 +216,10 @@ type PlaygroundTransactionStatus =
 A pending result is HTTP 202. Success and contract failure are HTTP 200. A successful
 Soroban return value is converted through `scValToNative` and then into the
 `JsonSafeValue` representation described below.
+
+Sprint 4 retains these routes but expands success/failure evidence and generalizes
+submission when `expectedWasmHash` is supplied. New consumers must use the Sprint 4
+reference rather than these historical shapes.
 
 ## HTTP error mapping
 

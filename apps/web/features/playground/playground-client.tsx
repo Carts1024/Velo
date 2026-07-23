@@ -23,7 +23,7 @@ import {
   WalletIcon,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useEffect, useMemo, useReducer, useRef, useState } from "react";
 
 import type {
   ContractSpecDocumentV1,
@@ -40,6 +40,13 @@ import {
   type SimulationContext,
   type SimulationFreshness,
 } from "./simulation-state";
+import {
+  PLAYGROUND_PENDING_STORAGE_KEY,
+  initialTransactionLifecycle,
+  parsePendingTransaction,
+  pollPendingTransaction,
+  transactionLifecycleReducer,
+} from "./transaction-lifecycle";
 
 type Network = "testnet" | "mainnet";
 type LoadedContract = ContractSpecDocumentV1 & {
@@ -62,7 +69,7 @@ type Simulation = {
   expiresAt: string;
   latestLedger: number;
   request: {
-    network: "testnet";
+    network: Network;
     contractId: string;
     expectedWasmHash: string;
     expectedSpecHash: string;
@@ -94,14 +101,48 @@ type Simulation = {
   }>;
   evidence: unknown;
   signingEligible: boolean;
+  review: {
+    network: Network;
+    sourceAccount: string;
+    contractId: string;
+    wasmHash: string;
+    functionName: string;
+    arguments: Array<{ name: string; type: string; value: unknown }>;
+    sequence: string;
+    timeBounds: { minTime: string; maxTime: string };
+    baseFee: string;
+    resourceFee: string;
+    totalFee: string;
+    authorization: Array<{ credentials: string; xdr: string }>;
+    predictedWrites: Array<{ type: string; xdr: string }>;
+    unsignedXdr: string;
+    transactionHash: string;
+  };
+  safeguard?: { acknowledgementRequired: true; message: string };
 };
 type TransactionResult =
   | { status: "pending"; transactionHash: string }
+  | { status: "unknown"; transactionHash: string }
   | {
       status: "success";
       transactionHash: string;
       ledger: number;
-      result: unknown;
+      result: { decoded: unknown; rawXdr: string | null };
+      feeCharged: string;
+      events: Array<{
+        order: number;
+        contractId: string | null;
+        topics: unknown[];
+        data: unknown;
+        rawXdr: string;
+        ledger: number;
+        transactionHash: string;
+      }>;
+      evidence: {
+        resultXdr: string;
+        resultMetaXdr: string;
+        diagnosticEventsXdr: string[];
+      };
       explorerUrl: string;
     }
   | {
@@ -110,6 +151,12 @@ type TransactionResult =
       ledger: number;
       code: string;
       message: string;
+      stage: "execution";
+      evidence: {
+        resultXdr: string;
+        resultMetaXdr: string;
+        diagnosticEventsXdr: string[];
+      };
     };
 
 function typeLabel(type: NormalizedContractSpecType): string {
@@ -154,14 +201,31 @@ function customReferences(functionSpec: NormalizedContractFunction) {
 
 async function responseJson<T>(response: Response): Promise<T> {
   const body = (await response.json()) as T & {
-    error?: { message?: string; code?: string };
+    error?: { message?: string; code?: string; stage?: string; correlationId?: string };
   };
   if (!response.ok) {
     const error = new Error(body.error?.message ?? "Playground request failed.");
     error.name = body.error?.code ?? "PLAYGROUND_ERROR";
+    Object.assign(error, {
+      stage: body.error?.stage,
+      correlationId: body.error?.correlationId,
+    });
     throw error;
   }
   return body;
+}
+
+function requestErrorDetails(error: unknown, fallback: string) {
+  const message = error instanceof Error ? error.message : fallback;
+  const correlationId =
+    error && typeof error === "object" && "correlationId" in error
+      ? String(error.correlationId)
+      : undefined;
+  return {
+    message,
+    correlationId,
+    display: correlationId ? `${message} Correlation ID: ${correlationId}.` : message,
+  };
 }
 
 export function PlaygroundClient({
@@ -183,16 +247,72 @@ export function PlaygroundClient({
   const [cpuInstructions, setCpuInstructions] = useState("0");
   const [simulation, setSimulation] = useState<Simulation | null>(null);
   const [transaction, setTransaction] = useState<TransactionResult | null>(null);
+  const [lifecycle, dispatchLifecycle] = useReducer(
+    transactionLifecycleReducer,
+    initialTransactionLifecycle,
+  );
+  const [reviewedFingerprint, setReviewedFingerprint] = useState<string | null>(null);
+  const [mainnetAcknowledged, setMainnetAcknowledged] = useState(false);
   const [busy, setBusy] = useState<"load" | "simulate" | "sign" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [clock, setClock] = useState(Date.now());
   const [announcement, setAnnouncement] = useState("Enter a contract ID to inspect its spec.");
   const simulationAbort = useRef<AbortController | null>(null);
   const simulationRequest = useRef(0);
+  const priorContextKey = useRef("");
 
   useEffect(() => {
     setTransaction(null);
+    setReviewedFingerprint(null);
+    setMainnetAcknowledged(false);
+    dispatchLifecycle({ type: "RESET" });
   }, [network, contractId, wallet.address]);
+
+  useEffect(() => {
+    const stored = parsePendingTransaction(
+      window.sessionStorage.getItem(PLAYGROUND_PENDING_STORAGE_KEY),
+    );
+    if (!stored) {
+      window.sessionStorage.removeItem(PLAYGROUND_PENDING_STORAGE_KEY);
+      return;
+    }
+    let cancelled = false;
+    setTransaction({ status: "pending", transactionHash: stored.transactionHash });
+    dispatchLifecycle({ type: "PENDING", transactionHash: stored.transactionHash });
+    void (async () => {
+      for (let attempt = 0; attempt < 15 && !cancelled; attempt += 1) {
+        try {
+          const result = await responseJson<TransactionResult>(
+            await fetch(`/api/v1/playground/transactions/${stored.transactionHash}`, {
+              cache: "no-store",
+            }),
+          );
+          if (cancelled) return;
+          setTransaction(result);
+          if (result.status === "success") {
+            window.sessionStorage.removeItem(PLAYGROUND_PENDING_STORAGE_KEY);
+            dispatchLifecycle({ type: "SUCCESS" });
+            return;
+          }
+          if (result.status === "failed") {
+            window.sessionStorage.removeItem(PLAYGROUND_PENDING_STORAGE_KEY);
+            dispatchLifecycle({ type: "FAIL", stage: "execution", message: result.message });
+            return;
+          }
+        } catch {
+          // A transient lookup error must never cause automatic resubmission.
+        }
+        await new Promise((resolve) => setTimeout(resolve, 2_000));
+      }
+      if (!cancelled) {
+        setTransaction({ status: "unknown", transactionHash: stored.transactionHash });
+        dispatchLifecycle({ type: "UNKNOWN" });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (!simulation) return;
@@ -223,16 +343,16 @@ export function PlaygroundClient({
     parsedCpuInstructions >= 0 &&
     parsedCpuInstructions <= 100_000_000;
   const simulationContext: SimulationContext | null =
-    network === "testnet" &&
     contract &&
     selected &&
     selectedDraft &&
     selectedDraft.issues.length === 0 &&
     !selectedDraft.jsonError &&
     wallet.address &&
+    wallet.status === "connected" &&
     settingsValid
       ? {
-          network: "testnet",
+          network,
           contractId: contract.contractId,
           expectedWasmHash: contract.wasmHash,
           expectedSpecHash: contract.specHash,
@@ -252,6 +372,27 @@ export function PlaygroundClient({
       : simulation
         ? "stale"
         : null;
+  const reviewConfirmed =
+    freshness === "fresh" &&
+    reviewedFingerprint === simulation?.transactionHash &&
+    simulation.review.transactionHash === simulation.transactionHash &&
+    simulation.review.unsignedXdr === simulation.unsignedXdr;
+
+  useEffect(() => {
+    if (priorContextKey.current && priorContextKey.current !== currentContextKey) {
+      setReviewedFingerprint(null);
+      dispatchLifecycle({ type: "RESET" });
+    }
+    priorContextKey.current = currentContextKey;
+  }, [currentContextKey]);
+
+  useEffect(() => {
+    if (!reviewConfirmed && reviewedFingerprint) setReviewedFingerprint(null);
+  }, [reviewConfirmed, reviewedFingerprint]);
+
+  useEffect(() => {
+    if (freshness === "expired") dispatchLifecycle({ type: "EXPIRE" });
+  }, [freshness]);
 
   async function load(event?: FormEvent) {
     event?.preventDefault();
@@ -274,9 +415,9 @@ export function PlaygroundClient({
       setSelectedFunction(loaded.functions[0]?.name ?? "");
       setAnnouncement(`Loaded ${loaded.functions.length} functions from ${loaded.contractId}.`);
     } catch (loadError) {
-      const message = loadError instanceof Error ? loadError.message : "Contract load failed.";
-      setError(message);
-      setAnnouncement(message);
+      const details = requestErrorDetails(loadError, "Contract load failed.");
+      setError(details.display);
+      setAnnouncement(details.display);
     } finally {
       setBusy(null);
     }
@@ -290,6 +431,8 @@ export function PlaygroundClient({
     const requestNumber = ++simulationRequest.current;
     setBusy("simulate");
     setError(null);
+    setReviewedFingerprint(null);
+    dispatchLifecycle({ type: "SIMULATE" });
     try {
       const result = await responseJson<Simulation>(
         await fetch("/api/v1/playground/simulations", {
@@ -301,42 +444,77 @@ export function PlaygroundClient({
       );
       if (requestNumber !== simulationRequest.current) return;
       setSimulation(result);
+      dispatchLifecycle({ type: "REVIEW", transactionHash: result.transactionHash });
       setClock(Date.now());
       setAnnouncement("Simulation ready for review.");
     } catch (simulationError) {
       if (controller.signal.aborted || requestNumber !== simulationRequest.current) return;
-      const message =
-        simulationError instanceof Error ? simulationError.message : "Simulation failed.";
-      setError(message);
-      setAnnouncement(message);
+      const details = requestErrorDetails(simulationError, "Simulation failed.");
+      setError(details.display);
+      dispatchLifecycle({
+        type: "FAIL",
+        stage: "simulation",
+        message: details.message,
+        correlationId: details.correlationId,
+      });
+      setAnnouncement(details.display);
     } finally {
       if (requestNumber === simulationRequest.current) setBusy(null);
     }
   }
 
   async function poll(hash: string) {
-    for (let attempt = 0; attempt < 15; attempt += 1) {
-      const result = await responseJson<TransactionResult>(
-        await fetch(`/api/v1/playground/transactions/${hash}`, { cache: "no-store" }),
-      );
-      setTransaction(result);
-      if (result.status !== "pending") return result;
-      await new Promise((resolve) => setTimeout(resolve, 2_000));
+    const result = await pollPendingTransaction(
+      async () =>
+        responseJson<TransactionResult>(
+          await fetch(`/api/v1/playground/transactions/${hash}`, { cache: "no-store" }),
+        ),
+      (candidate) => candidate.status === "pending",
+      { onResult: setTransaction },
+    );
+    if (result?.status === "success") {
+      window.sessionStorage.removeItem(PLAYGROUND_PENDING_STORAGE_KEY);
+      dispatchLifecycle({ type: "SUCCESS" });
+      return result;
     }
-    throw new Error("Transaction is still pending. Use the transaction hash to check again.");
+    if (result?.status === "failed") {
+      window.sessionStorage.removeItem(PLAYGROUND_PENDING_STORAGE_KEY);
+      dispatchLifecycle({ type: "FAIL", stage: "execution", message: result.message });
+      return result;
+    }
+    const unknown = { status: "unknown" as const, transactionHash: hash };
+    setTransaction(unknown);
+    dispatchLifecycle({ type: "UNKNOWN" });
+    return unknown;
   }
 
   async function signAndSubmit() {
-    if (!simulation || freshness !== "fresh" || !simulation.signingEligible) return;
+    if (!simulation || !reviewConfirmed || !simulation.signingEligible || network !== "testnet")
+      return;
     setBusy("sign");
     setError(null);
+    dispatchLifecycle({ type: "REQUEST_SIGNATURE" });
+    let failureStage: "signing" | "review" | "submission" = "signing";
     try {
       const signedXdr = await wallet.signTransaction(simulation.unsignedXdr);
+      dispatchLifecycle({ type: "SIGNED" });
+      failureStage = "review";
       assertWalletEnvelopeMatchesReview(
         simulation.unsignedXdr,
         signedXdr,
         simulation.transactionHash,
       );
+      window.sessionStorage.setItem(
+        PLAYGROUND_PENDING_STORAGE_KEY,
+        JSON.stringify({
+          schemaVersion: 1,
+          network: "testnet",
+          transactionHash: simulation.transactionHash,
+          startedAt: new Date().toISOString(),
+        }),
+      );
+      failureStage = "submission";
+      dispatchLifecycle({ type: "SUBMIT" });
       const submitted = await responseJson<TransactionResult>(
         await fetch("/api/v1/playground/transactions/submit", {
           method: "POST",
@@ -345,22 +523,43 @@ export function PlaygroundClient({
             network: "testnet",
             signedXdr,
             reviewedTransactionHash: simulation.transactionHash,
+            expectedWasmHash: simulation.request.expectedWasmHash,
           }),
         }),
       );
       setTransaction(submitted);
+      if (submitted.status === "pending") {
+        dispatchLifecycle({ type: "PENDING", transactionHash: submitted.transactionHash });
+      } else if (submitted.status === "success") {
+        window.sessionStorage.removeItem(PLAYGROUND_PENDING_STORAGE_KEY);
+        dispatchLifecycle({ type: "SUCCESS" });
+      } else if (submitted.status === "failed") {
+        window.sessionStorage.removeItem(PLAYGROUND_PENDING_STORAGE_KEY);
+        dispatchLifecycle({ type: "FAIL", stage: "execution", message: submitted.message });
+      }
       const finalResult =
         submitted.status === "pending" ? await poll(submitted.transactionHash) : submitted;
       setAnnouncement(
         finalResult.status === "success"
           ? "Transaction succeeded."
-          : "Transaction reached a terminal state.",
+          : finalResult.status === "unknown"
+            ? "Transaction is unresolved. Check again by hash."
+            : "Transaction reached a terminal state.",
       );
     } catch (signError) {
-      const message =
-        signError instanceof Error ? signError.message : "Wallet signing or submission failed.";
-      setError(/reject|denied|cancel/i.test(message) ? "Wallet request rejected." : message);
-      setAnnouncement(message);
+      const details = requestErrorDetails(signError, "Wallet signing or submission failed.");
+      setError(
+        /reject|denied|cancel/i.test(details.message)
+          ? "Wallet request rejected."
+          : details.display,
+      );
+      dispatchLifecycle({
+        type: "FAIL",
+        stage: failureStage,
+        message: details.message,
+        correlationId: details.correlationId,
+      });
+      setAnnouncement(details.display);
     } finally {
       setBusy(null);
     }
@@ -371,11 +570,14 @@ export function PlaygroundClient({
       <div>
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="text-3xl font-semibold">Contract Playground</h1>
-          <Badge variant="info">Sprint 3</Badge>
+          <Badge variant="info">Sprint 4</Badge>
+          <Badge variant={network === "mainnet" ? "warning" : "gray"}>
+            {network === "mainnet" ? "Mainnet · simulation only" : "Testnet"}
+          </Badge>
         </div>
         <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
-          Inspect normalized Soroban contracts and run a trustworthy Testnet preflight before
-          signing. General signing remains limited to the configured hello fixture.
+          Simulate any supported contract call, review its exact envelope, sign on Testnet, and
+          recover pending results after refresh.
         </p>
       </div>
 
@@ -414,6 +616,30 @@ export function PlaygroundClient({
           </Button>
         </div>
       </form>
+
+      <div className="flex flex-wrap items-center gap-3 rounded-xl border bg-card p-4 text-sm">
+        <WalletIcon className="size-4" />
+        <Badge variant={wallet.address ? "success" : "gray"}>{wallet.status}</Badge>
+        <span className="font-mono break-all">
+          {wallet.address ?? wallet.staleAddress ?? "No wallet account connected"}
+        </span>
+        {wallet.walletName ? <span>{wallet.walletName}</span> : null}
+        {wallet.error ? (
+          <span role="alert" className="text-destructive">
+            {wallet.errorCode ? `${wallet.errorCode}: ` : ""}
+            {wallet.error}
+          </span>
+        ) : null}
+        {wallet.address ? (
+          <Button type="button" variant="outline" onClick={() => void wallet.disconnect()}>
+            Disconnect
+          </Button>
+        ) : (
+          <Button type="button" onClick={() => void wallet.connect()}>
+            {wallet.staleAddress ? "Reconnect wallet" : "Connect wallet"}
+          </Button>
+        )}
+      </div>
 
       <p className="sr-only" aria-live="polite">
         {announcement}
@@ -563,17 +789,31 @@ export function PlaygroundClient({
               </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-4">
-              {network === "mainnet" ? (
-                <Alert>
-                  <AlertCircleIcon />
-                  <AlertTitle>Mainnet is inspection-only</AlertTitle>
-                  <AlertDescription>
-                    Simulation, signing, and submission remain unavailable until Sprint 4 safeguards
-                    are implemented.
-                  </AlertDescription>
-                </Alert>
-              ) : selected ? (
+              {selected ? (
                 <>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm text-muted-foreground">Lifecycle</span>
+                    <Badge variant="gray">{lifecycle.status.replaceAll("_", " ")}</Badge>
+                  </div>
+                  {network === "mainnet" ? (
+                    <Alert>
+                      <AlertCircleIcon />
+                      <AlertTitle>Mainnet · simulation only</AlertTitle>
+                      <AlertDescription>
+                        Contract <span className="font-mono break-all">{contract.contractId}</span>{" "}
+                        on Mainnet can be simulated, but Velo will never sign or submit it.
+                        <label className="mt-3 flex items-start gap-2 font-medium">
+                          <input
+                            type="checkbox"
+                            aria-label="Acknowledge Mainnet simulation-only safeguard"
+                            checked={mainnetAcknowledged}
+                            onChange={(event) => setMainnetAcknowledged(event.target.checked)}
+                          />
+                          I understand this request targets Mainnet and is simulation-only.
+                        </label>
+                      </AlertDescription>
+                    </Alert>
+                  ) : null}
                   <div className="grid gap-3 sm:grid-cols-2">
                     <label htmlFor="playground-base-fee" className="grid gap-1 text-sm font-medium">
                       Base fee (stroops)
@@ -615,7 +855,11 @@ export function PlaygroundClient({
                       <Button
                         type="button"
                         onClick={() => void simulate()}
-                        disabled={busy !== null || !simulationContext}
+                        disabled={
+                          busy !== null ||
+                          !simulationContext ||
+                          (network === "mainnet" && !mainnetAcknowledged)
+                        }
                       >
                         {busy === "simulate" ? (
                           <Loader2Icon className="animate-spin" />
@@ -629,7 +873,7 @@ export function PlaygroundClient({
                       <Button
                         type="button"
                         onClick={() => void signAndSubmit()}
-                        disabled={busy !== null || freshness !== "fresh"}
+                        disabled={busy !== null || !reviewConfirmed}
                       >
                         {busy === "sign" ? (
                           <Loader2Icon className="animate-spin" />
@@ -643,7 +887,36 @@ export function PlaygroundClient({
                   {simulation && freshness ? (
                     <SimulationReview simulation={simulation} freshness={freshness} />
                   ) : null}
-                  {transaction ? <TransactionOutcome transaction={transaction} /> : null}
+                  {simulation && freshness === "fresh" ? (
+                    <label className="flex items-start gap-2 rounded-md border p-3 text-sm">
+                      <input
+                        type="checkbox"
+                        aria-label="Confirm exact transaction review"
+                        checked={reviewConfirmed}
+                        onChange={(event) => {
+                          if (event.target.checked) {
+                            setReviewedFingerprint(simulation.transactionHash);
+                            dispatchLifecycle({ type: "CONFIRM_REVIEW" });
+                          } else {
+                            setReviewedFingerprint(null);
+                            dispatchLifecycle({ type: "UNCONFIRM_REVIEW" });
+                          }
+                        }}
+                      />
+                      I reviewed the exact network, contract, arguments, fees, authorization,
+                      predicted writes, expiry, and transaction fingerprint.
+                    </label>
+                  ) : null}
+                  {transaction ? (
+                    <TransactionOutcome
+                      transaction={transaction}
+                      onCheck={(hash) => {
+                        setTransaction({ status: "pending", transactionHash: hash });
+                        dispatchLifecycle({ type: "PENDING", transactionHash: hash });
+                        void poll(hash);
+                      }}
+                    />
+                  ) : null}
                 </>
               ) : (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -714,21 +987,23 @@ function SimulationReview({
   simulation: Simulation;
   freshness: SimulationFreshness;
 }) {
+  const review = simulation.review;
   const rows = [
     ["Status", simulation.status],
     ["Freshness", freshness],
-    ["Network", simulation.request.network],
-    ["Source", simulation.request.sourceAccount],
-    ["Contract", simulation.request.contractId],
-    ["Wasm hash", simulation.request.expectedWasmHash],
-    ["Function", simulation.request.functionName],
-    ["Arguments", simulation.request.argumentNames.join(", ") || "None"],
+    ["Network", review.network],
+    ["Source", review.sourceAccount],
+    ["Contract", review.contractId],
+    ["Wasm hash", review.wasmHash],
+    ["Function", review.functionName],
+    ["Arguments", JSON.stringify(review.arguments)],
+    ["Sequence", review.sequence],
+    ["Time bounds", `${review.timeBounds.minTime}–${review.timeBounds.maxTime}`],
     ["Latest ledger", String(simulation.latestLedger)],
-    [
-      "Fees",
-      `${simulation.fee.total} stroops (${simulation.fee.minimumResource} minimum resource)`,
-    ],
-    ["Transaction hash", simulation.transactionHash],
+    ["Fees", `${review.totalFee} stroops (${review.resourceFee} resource)`],
+    ["Required auth", `${review.authorization.length} entries`],
+    ["Predicted writes", `${review.predictedWrites.length} ledger keys`],
+    ["Fingerprint", review.transactionHash],
   ];
   const diagnosticBundle = JSON.stringify(
     {
@@ -746,7 +1021,7 @@ function SimulationReview({
       footprint: simulation.footprint,
       warnings: simulation.warnings,
       evidence: simulation.evidence,
-      unsignedXdr: simulation.unsignedXdr,
+      review,
     },
     null,
     2,
@@ -786,6 +1061,12 @@ function SimulationReview({
           {JSON.stringify(simulation.result.decoded, null, 2)}
         </pre>
       </div>
+      <details className="rounded-md border p-3">
+        <summary className="cursor-pointer text-sm font-medium">Exact unsigned XDR</summary>
+        <pre className="mt-3 max-h-48 overflow-auto text-xs whitespace-pre-wrap break-all">
+          {review.unsignedXdr}
+        </pre>
+      </details>
       <div className="grid gap-2 sm:grid-cols-3">
         <Overview label="Required auth" value={simulation.authorization.required ? "Yes" : "No"} />
         <Overview label="Read-only keys" value={String(simulation.footprint.readOnly.length)} />
@@ -827,7 +1108,13 @@ function SimulationReview({
   );
 }
 
-function TransactionOutcome({ transaction }: { transaction: TransactionResult }) {
+function TransactionOutcome({
+  transaction,
+  onCheck,
+}: {
+  transaction: TransactionResult;
+  onCheck: (hash: string) => void;
+}) {
   if (transaction.status === "pending") {
     return (
       <Alert>
@@ -839,12 +1126,40 @@ function TransactionOutcome({ transaction }: { transaction: TransactionResult })
       </Alert>
     );
   }
+  if (transaction.status === "unknown") {
+    return (
+      <Alert>
+        <AlertCircleIcon />
+        <AlertTitle>Transaction status unresolved</AlertTitle>
+        <AlertDescription>
+          <p className="font-mono break-all">{transaction.transactionHash}</p>
+          <p>Polling stopped without cancelling or resubmitting the transaction.</p>
+          <Button
+            type="button"
+            variant="outline"
+            className="mt-2"
+            onClick={() => onCheck(transaction.transactionHash)}
+          >
+            Check again
+          </Button>
+        </AlertDescription>
+      </Alert>
+    );
+  }
   if (transaction.status === "failed") {
     return (
       <Alert variant="destructive">
         <AlertCircleIcon />
         <AlertTitle>Contract transaction failed</AlertTitle>
-        <AlertDescription>{transaction.message}</AlertDescription>
+        <AlertDescription>
+          {transaction.message}
+          <details className="mt-2">
+            <summary className="cursor-pointer">Raw execution evidence</summary>
+            <pre className="mt-2 max-h-48 overflow-auto text-xs whitespace-pre-wrap break-all">
+              {JSON.stringify(transaction.evidence, null, 2)}
+            </pre>
+          </details>
+        </AlertDescription>
       </Alert>
     );
   }
@@ -854,8 +1169,36 @@ function TransactionOutcome({ transaction }: { transaction: TransactionResult })
       <AlertTitle>Transaction succeeded</AlertTitle>
       <AlertDescription>
         <pre className="mt-2 overflow-x-auto text-xs">
-          {JSON.stringify(transaction.result, null, 2)}
+          {JSON.stringify(transaction.result.decoded, null, 2)}
         </pre>
+        <div className="mt-2 grid gap-1 text-xs">
+          <span>Ledger: {transaction.ledger}</span>
+          <span>Fee charged: {transaction.feeCharged} stroops</span>
+          <span>Events: {transaction.events.length}</span>
+        </div>
+        {transaction.events.map((event) => (
+          <details key={event.order} className="mt-2 rounded border p-2">
+            <summary className="cursor-pointer">
+              Event #{event.order} · {event.contractId ?? "system"}
+            </summary>
+            <pre className="mt-2 overflow-x-auto text-xs">
+              {JSON.stringify({ topics: event.topics, data: event.data }, null, 2)}
+            </pre>
+            <pre className="mt-2 overflow-x-auto text-xs break-all whitespace-pre-wrap">
+              {event.rawXdr}
+            </pre>
+          </details>
+        ))}
+        <details className="mt-2">
+          <summary className="cursor-pointer">Raw final XDR evidence</summary>
+          <pre className="mt-2 max-h-48 overflow-auto text-xs whitespace-pre-wrap break-all">
+            {JSON.stringify(
+              { rawResult: transaction.result.rawXdr, ...transaction.evidence },
+              null,
+              2,
+            )}
+          </pre>
+        </details>
         <a
           href={transaction.explorerUrl}
           target="_blank"

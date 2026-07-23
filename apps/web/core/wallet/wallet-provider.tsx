@@ -23,6 +23,26 @@ type WalletStatus =
   | "stale"
   | "error";
 
+export type WalletErrorCode =
+  | "WALLET_NOT_CONNECTED"
+  | "WALLET_UNAVAILABLE"
+  | "WALLET_REJECTED"
+  | "WALLET_UNSUPPORTED"
+  | "WALLET_STALE_SESSION"
+  | "WALLET_NETWORK_MISMATCH"
+  | "WALLET_SIGNING_FAILED";
+
+export class WalletError extends Error {
+  constructor(
+    public readonly code: WalletErrorCode,
+    message: string,
+    options?: ErrorOptions,
+  ) {
+    super(message, options);
+    this.name = "WalletError";
+  }
+}
+
 type SupportedWallet = {
   id: string;
   name: string;
@@ -35,6 +55,7 @@ type WalletState = {
   walletName: string | null;
   status: WalletStatus;
   error: string | null;
+  errorCode: WalletErrorCode | null;
   supportedWallets: SupportedWallet[];
   staleAddress: string | null;
   connect: () => Promise<void>;
@@ -86,6 +107,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const [walletId, setWalletId] = useState<string | null>(null);
   const [status, setStatus] = useState<WalletStatus>("initializing");
   const [error, setError] = useState<string | null>(null);
+  const [errorCode, setErrorCode] = useState<WalletErrorCode | null>(null);
   const [supportedWallets, setSupportedWallets] = useState<SupportedWallet[]>([]);
   const [staleAddress, setStaleAddress] = useState<string | null>(null);
 
@@ -133,6 +155,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
           setStaleAddress(storedSession.address ?? null);
           setWalletId(storedSession.walletId ?? null);
           setStatus("stale");
+          setErrorCode("WALLET_STALE_SESSION");
         } else {
           setStatus("ready");
         }
@@ -141,9 +164,11 @@ export function WalletProvider({ children }: { children: ReactNode }) {
           StellarWalletsKit.on(KitEventType.STATE_UPDATED, (event) => {
             setAddress(event.payload.address ?? null);
             setError(null);
+            setErrorCode(null);
 
             if (event.payload.networkPassphrase !== STELLAR_TESTNET_NETWORK_PASSPHRASE) {
               setStatus("unsupported");
+              setErrorCode("WALLET_NETWORK_MISMATCH");
               setError(`Switch wallet network to ${stellarConfig.networkLabel}.`);
               return;
             }
@@ -160,6 +185,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
             setAddress(null);
             setStaleAddress(null);
             setStatus("disconnected");
+            setError(null);
+            setErrorCode(null);
             window.localStorage.removeItem(LAST_SESSION_KEY);
           }),
         );
@@ -169,6 +196,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         }
 
         setStatus("unavailable");
+        setErrorCode("WALLET_UNAVAILABLE");
         setError(getErrorMessage(initError));
       }
     }
@@ -196,6 +224,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
     setStatus("connecting");
     setError(null);
+    setErrorCode(null);
 
     try {
       const { StellarWalletsKit } = await import("@creit-tech/stellar-wallets-kit");
@@ -211,7 +240,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         JSON.stringify({ address: result.address, walletId: selectedWalletId }),
       );
     } catch (connectError) {
-      setStatus(isRejected(connectError) ? "rejected" : "error");
+      const rejected = isRejected(connectError);
+      setStatus(rejected ? "rejected" : "error");
+      setErrorCode(rejected ? "WALLET_REJECTED" : "WALLET_UNAVAILABLE");
       setError(getErrorMessage(connectError));
     }
   }, [walletId]);
@@ -228,6 +259,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       setAddress(null);
       setStaleAddress(null);
       setStatus("disconnected");
+      setError(null);
+      setErrorCode(null);
       window.localStorage.removeItem(LAST_SESSION_KEY);
     }
   }, []);
@@ -235,16 +268,25 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const signTransaction = useCallback(
     async (xdr: string) => {
       if (!address) {
-        throw new Error("Connect a wallet before signing");
+        throw new WalletError("WALLET_NOT_CONNECTED", "Connect a wallet before signing.");
       }
 
-      const { StellarWalletsKit } = await import("@creit-tech/stellar-wallets-kit");
-      const result = await StellarWalletsKit.signTransaction(xdr, {
-        networkPassphrase: STELLAR_TESTNET_NETWORK_PASSPHRASE,
-        address,
-      });
-
-      return result.signedTxXdr;
+      try {
+        const { StellarWalletsKit } = await import("@creit-tech/stellar-wallets-kit");
+        const result = await StellarWalletsKit.signTransaction(xdr, {
+          networkPassphrase: STELLAR_TESTNET_NETWORK_PASSPHRASE,
+          address,
+        });
+        return result.signedTxXdr;
+      } catch (signError) {
+        throw new WalletError(
+          isRejected(signError) ? "WALLET_REJECTED" : "WALLET_SIGNING_FAILED",
+          isRejected(signError)
+            ? "Wallet request rejected."
+            : "The wallet could not sign this Testnet transaction.",
+          { cause: signError },
+        );
+      }
     },
     [address],
   );
@@ -273,6 +315,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       walletName: walletName(supportedWallets, walletId),
       status,
       error,
+      errorCode,
       supportedWallets,
       staleAddress,
       connect,
@@ -285,6 +328,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       walletId,
       status,
       error,
+      errorCode,
       supportedWallets,
       staleAddress,
       connect,

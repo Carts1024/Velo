@@ -48,6 +48,7 @@ export type SimulationWarning = {
     | "EXCESSIVE_FEE"
     | "NO_WRITES"
     | "DECODE_FALLBACK"
+    | "MAINNET_SIMULATION_ONLY"
     | "EXECUTION_NOT_GUARANTEED";
   severity: "info" | "warning";
   source: "rpc" | "inference";
@@ -82,6 +83,7 @@ export type PlaygroundSimulationResult = {
   };
   unsignedXdr: string;
   transactionHash: string;
+  review: PlaygroundTransactionReview;
   result: { decoded: JsonSafeValue | null; rawXdr: string | null };
   fee: {
     base: string;
@@ -100,21 +102,35 @@ export type PlaygroundSimulationResult = {
   warnings: SimulationWarning[];
   evidence: SimulationEvidence;
   signingEligible: boolean;
+  safeguard?: {
+    acknowledgementRequired: true;
+    message: string;
+  };
 };
 
-export type HelloTransactionReview = {
-  network: "testnet";
+export type PlaygroundTransactionReview = {
+  network: "testnet" | "mainnet";
   sourceAccount: string;
   contractId: string;
   wasmHash: string;
-  functionName: "hello";
-  arguments: Array<{ name: "to"; type: "symbol"; value: string }>;
+  functionName: string;
+  arguments: Array<{ name: string; type: string; value: JsonSafeValue }>;
   sequence: string;
   timeBounds: { minTime: string; maxTime: string };
   baseFee: string;
   resourceFee: string;
   totalFee: string;
+  authorization: Array<{ credentials: string; xdr: string }>;
+  predictedWrites: Array<{ type: string; xdr: string }>;
+  unsignedXdr: string;
   transactionHash: string;
+};
+
+/** @deprecated Sprint 1 name retained for source compatibility. */
+export type HelloTransactionReview = PlaygroundTransactionReview & {
+  network: "testnet";
+  functionName: "hello";
+  arguments: Array<{ name: "to"; type: "symbol"; value: string }>;
 };
 
 export type PlaygroundTransactionStatus =
@@ -123,7 +139,22 @@ export type PlaygroundTransactionStatus =
       status: "success";
       transactionHash: string;
       ledger: number;
-      result: unknown;
+      result: { decoded: JsonSafeValue | null; rawXdr: string | null };
+      feeCharged: string;
+      events: Array<{
+        order: number;
+        contractId: string | null;
+        topics: JsonSafeValue[];
+        data: JsonSafeValue | null;
+        rawXdr: string;
+        ledger: number;
+        transactionHash: string;
+      }>;
+      evidence: {
+        resultXdr: string;
+        resultMetaXdr: string;
+        diagnosticEventsXdr: string[];
+      };
       explorerUrl: string;
     }
   | {
@@ -132,6 +163,12 @@ export type PlaygroundTransactionStatus =
       ledger: number;
       code: "CONTRACT_FAILED";
       message: string;
+      stage: "execution";
+      evidence: {
+        resultXdr: string;
+        resultMetaXdr: string;
+        diagnosticEventsXdr: string[];
+      };
     };
 
 export function assertHelloSymbol(value: unknown) {
@@ -204,7 +241,7 @@ export function normalizeSimulationRequest(
   if (!record(input)) {
     throw new ContractSpecError("INVALID_REQUEST", "validate", "A JSON request body is required.");
   }
-  assertTestnet(input.network);
+  const network = assertSimulationNetwork(input.network);
   const contractId =
     typeof input.contractId === "string" ? input.contractId.trim().toUpperCase() : "";
   if (!StrKey.isValidContract(contractId)) {
@@ -226,6 +263,13 @@ export function normalizeSimulationRequest(
 
   const legacy = Object.hasOwn(input, "argument");
   if (legacy) {
+    if (network !== "testnet") {
+      throw new ContractSpecError(
+        "MAINNET_INVOCATION_DISABLED",
+        "validate",
+        "The legacy hello request is Testnet-only. Use the generalized Mainnet simulation body.",
+      );
+    }
     const fixture = legacyFixture ?? configuredHelloFixture();
     if (contractId !== fixture.contractId) {
       throw new ContractSpecError(
@@ -235,7 +279,7 @@ export function normalizeSimulationRequest(
       );
     }
     return {
-      network: "testnet",
+      network,
       contractId,
       expectedWasmHash: fixture.wasmHash,
       expectedSpecHash: "",
@@ -262,7 +306,7 @@ export function normalizeSimulationRequest(
     );
   }
   return {
-    network: "testnet",
+    network,
     contractId,
     expectedWasmHash: normalizedHash(input.expectedWasmHash, "Expected Wasm hash"),
     expectedSpecHash: normalizedHash(input.expectedSpecHash, "Expected spec hash"),
@@ -316,12 +360,23 @@ export function redactSimulationEvidence(
   return redact(value);
 }
 
-function assertTestnet(value: unknown) {
+function assertSimulationNetwork(value: unknown): "testnet" | "mainnet" {
+  if (value !== "testnet" && value !== "mainnet") {
+    throw new ContractSpecError(
+      "INVALID_NETWORK",
+      "validate",
+      "Network must be testnet or mainnet.",
+    );
+  }
+  return value;
+}
+
+function assertTestnetSubmission(value: unknown) {
   if (value !== "testnet") {
     throw new ContractSpecError(
       "MAINNET_INVOCATION_DISABLED",
       "validate",
-      "Sprint 1 invocation is available on Testnet only.",
+      "Mainnet signing and submission are disabled. Mainnet is simulation-only.",
     );
   }
 }
@@ -398,14 +453,103 @@ export function parseHelloTransactionReview(
     baseFee: BASE_FEE,
     resourceFee: (totalFee > baseFee ? totalFee - baseFee : 0n).toString(),
     totalFee: tx.fee,
+    authorization: [],
+    predictedWrites: [],
+    unsignedXdr: tx.toXDR(),
     transactionHash: tx.hash().toString("hex"),
   };
 }
 
-function parseTransaction(xdr: string) {
+function specTypeLabel(type: import("@repo/stellar").NormalizedContractSpecType) {
+  return type.kind === "custom" ? type.name : type.kind;
+}
+
+export function parseTransactionReview(
+  tx: Transaction,
+  network: "testnet" | "mainnet",
+  document: ContractSpecDocumentV1,
+  authorization: PlaygroundTransactionReview["authorization"] = [],
+  predictedWrites: PlaygroundTransactionReview["predictedWrites"] = [],
+  exactBaseFee = BASE_FEE,
+): PlaygroundTransactionReview {
+  const invocation = transactionOperation(tx);
+  const contractId = Address.fromScAddress(invocation.contractAddress()).toString();
+  const functionName = invocation.functionName().toString();
+  if (contractId !== document.contractId) {
+    throw new ContractSpecError(
+      "ENVELOPE_CALL_MISMATCH",
+      "verify",
+      "The transaction contract does not match the reviewed contract.",
+    );
+  }
+  const functionSpec = functionFromDocument(document, functionName);
+  const args = invocation.args();
+  if (args.length !== functionSpec.parameters.length) {
+    throw new ContractSpecError(
+      "ENVELOPE_CALL_MISMATCH",
+      "verify",
+      "The transaction arguments do not match the reviewed function.",
+    );
+  }
+  if (!StrKey.isValidEd25519PublicKey(tx.source)) {
+    throw new ContractSpecError(
+      "INVALID_SOURCE_ACCOUNT",
+      "verify",
+      "The transaction source account is invalid.",
+    );
+  }
+  const timeBounds = tx.timeBounds;
+  if (!timeBounds || timeBounds.maxTime === "0") {
+    throw new ContractSpecError(
+      "UNBOUNDED_TRANSACTION",
+      "verify",
+      "The transaction must have a bounded expiry.",
+    );
+  }
+  const argumentsReview = functionSpec.parameters.map((parameter, index) => {
+    const encoded = args[index]!;
+    let value: JsonSafeValue;
+    try {
+      value = decodeArgumentValue(parameter.type, encoded, document);
+    } catch {
+      value = {
+        rawXdr: encoded.toXDR("base64"),
+      };
+    }
+    return {
+      name: parameter.name,
+      type: specTypeLabel(parameter.type),
+      value,
+    };
+  });
+  const totalFee = BigInt(tx.fee);
+  const baseFee = BigInt(exactBaseFee);
+  return {
+    network,
+    sourceAccount: tx.source,
+    contractId,
+    wasmHash: document.wasmHash.toLowerCase(),
+    functionName,
+    arguments: argumentsReview,
+    sequence: tx.sequence,
+    timeBounds,
+    baseFee: exactBaseFee,
+    resourceFee: (totalFee > baseFee ? totalFee - baseFee : 0n).toString(),
+    totalFee: tx.fee,
+    authorization,
+    predictedWrites,
+    unsignedXdr: tx.toXDR(),
+    transactionHash: tx.hash().toString("hex"),
+  };
+}
+
+function parseTransaction(xdr: string, network: "testnet" | "mainnet" = "testnet") {
   let parsed: Transaction | FeeBumpTransaction;
   try {
-    parsed = TransactionBuilder.fromXDR(xdr, Networks.TESTNET);
+    parsed = TransactionBuilder.fromXDR(
+      xdr,
+      network === "testnet" ? Networks.TESTNET : Networks.PUBLIC,
+    );
   } catch (error) {
     throw new ContractSpecError(
       "MALFORMED_ENVELOPE",
@@ -428,7 +572,7 @@ function parseTransaction(xdr: string) {
 export function verifySignedTransaction(
   signedXdr: string,
   reviewedTransactionHash: string,
-  fixture: HelloFixtureCapability,
+  fixtureOrDocument: HelloFixtureCapability | ContractSpecDocumentV1,
 ) {
   if (!/^[a-f0-9]{64}$/.test(reviewedTransactionHash)) {
     throw new ContractSpecError(
@@ -464,9 +608,23 @@ export function verifySignedTransaction(
       "The signed envelope does not contain a valid source-account signature.",
     );
   }
-  const review = parseHelloTransactionReview(tx, fixture);
+  const legacyFixture =
+    "functionName" in fixtureOrDocument && !("functions" in fixtureOrDocument)
+      ? fixtureOrDocument
+      : null;
+  const review = legacyFixture
+    ? parseHelloTransactionReview(tx, legacyFixture)
+    : parseTransactionReview(tx, "testnet", fixtureOrDocument as ContractSpecDocumentV1);
   const nowSeconds = Math.floor(Date.now() / 1_000);
+  const minTime = Number(review.timeBounds.minTime);
   const maxTime = Number(review.timeBounds.maxTime);
+  if (minTime > nowSeconds) {
+    throw new ContractSpecError(
+      "UNBOUNDED_TRANSACTION",
+      "verify",
+      "The transaction is not valid yet. Simulate again before signing.",
+    );
+  }
   if (maxTime <= nowSeconds) {
     throw new ContractSpecError(
       "SIMULATION_EXPIRED",
@@ -498,12 +656,32 @@ async function assertFixtureCurrent(fixture: HelloFixtureCapability, correlation
   }
 }
 
+async function assertContractCurrent(
+  contractId: string,
+  expectedWasmHash: string,
+  correlationId: string,
+) {
+  const document = await contractSpecLoader.load({ network: "testnet", contractId }, correlationId);
+  if (document.wasmHash.toLowerCase() !== expectedWasmHash) {
+    throw new ContractSpecError(
+      "CONTRACT_CHANGED",
+      "resolve-instance",
+      "The contract Wasm changed after review. Reload and simulate again.",
+    );
+  }
+  return document;
+}
+
 export type SimulationServiceDependencies = {
   loadContract(input: unknown, correlationId: string): Promise<ContractSpecDocumentV1>;
-  loadSourceAccount(sourceAccount: string): Promise<{ account: Account; balance: bigint | null }>;
+  loadSourceAccount(
+    sourceAccount: string,
+    network: "testnet" | "mainnet",
+  ): Promise<{ account: Account; balance: bigint | null }>;
   simulate(
     transaction: Transaction,
     cpuInstructions: number,
+    network: "testnet" | "mainnet",
   ): Promise<rpc.Api.SimulateTransactionResponse>;
   assemble(
     transaction: Transaction,
@@ -515,8 +693,8 @@ export type SimulationServiceDependencies = {
 
 const defaultSimulationDependencies: SimulationServiceDependencies = {
   loadContract: (input, correlationId) => contractSpecLoader.load(input, correlationId),
-  async loadSourceAccount(sourceAccount) {
-    const server = getPlaygroundRpcServer("testnet");
+  async loadSourceAccount(sourceAccount, network) {
+    const server = getPlaygroundRpcServer(network);
     try {
       const entry = await withRpcPolicy("simulate", () => server.getAccountEntry(sourceAccount));
       return {
@@ -528,14 +706,14 @@ const defaultSimulationDependencies: SimulationServiceDependencies = {
       throw new ContractSpecError(
         "SOURCE_ACCOUNT_NOT_FOUND",
         "simulate",
-        "The Testnet source account could not be loaded.",
+        `The ${network === "testnet" ? "Testnet" : "Mainnet"} source account could not be loaded.`,
         false,
       );
     }
   },
-  simulate: (transaction, cpuInstructions) =>
+  simulate: (transaction, cpuInstructions, network) =>
     withRpcPolicy("simulate", () =>
-      getPlaygroundRpcServer("testnet").simulateTransaction(
+      getPlaygroundRpcServer(network).simulateTransaction(
         transaction,
         cpuInstructions > 0 ? { cpuInstructions } : undefined,
       ),
@@ -695,10 +873,13 @@ export class PlaygroundSimulationService {
         "The function arguments do not match the contract specification.",
       );
     }
-    const { account, balance } = await this.dependencies.loadSourceAccount(request.sourceAccount);
+    const { account, balance } = await this.dependencies.loadSourceAccount(
+      request.sourceAccount,
+      request.network,
+    );
     const transaction = new TransactionBuilder(account, {
       fee: request.settings.baseFee,
-      networkPassphrase: Networks.TESTNET,
+      networkPassphrase: request.network === "testnet" ? Networks.TESTNET : Networks.PUBLIC,
     })
       .addOperation(new Contract(request.contractId).call(request.functionName, ...encoded))
       .setTimeout(PLAYGROUND_SIMULATION_TTL_SECONDS)
@@ -706,6 +887,7 @@ export class PlaygroundSimulationService {
     const simulation = await this.dependencies.simulate(
       transaction,
       request.settings.cpuInstructions,
+      request.network,
     );
     const simulationIdentity = {
       rpcRequestId: simulation.id,
@@ -820,15 +1002,23 @@ export class PlaygroundSimulationService {
       message: "A successful simulation does not guarantee final execution.",
     });
     const restoreRequired = rpc.Api.isSimulationRestore(simulation);
-    const signingFixture = legacyFixture ?? this.dependencies.helloFixture();
-    const signingEligible =
-      !restoreRequired &&
-      Boolean(
-        signingFixture &&
-        request.contractId === signingFixture.contractId &&
-        request.expectedWasmHash === signingFixture.wasmHash &&
-        request.functionName === signingFixture.functionName,
-      );
+    const signingEligible = !restoreRequired && request.network === "testnet";
+    if (request.network === "mainnet") {
+      warnings.push({
+        code: "MAINNET_SIMULATION_ONLY",
+        severity: "warning",
+        source: "inference",
+        message: "Mainnet signing and submission are disabled. Review this simulation only.",
+      });
+    }
+    const review = parseTransactionReview(
+      assembled,
+      request.network,
+      document,
+      authorizationEntries,
+      readWrite,
+      request.settings.baseFee,
+    );
 
     return {
       schemaVersion: 1,
@@ -852,6 +1042,7 @@ export class PlaygroundSimulationService {
       },
       unsignedXdr: assembled.toXDR(),
       transactionHash: assembled.hash().toString("hex"),
+      review,
       result: { decoded: decodedResult.decoded, rawXdr: decodedResult.rawXdr },
       fee: {
         base: request.settings.baseFee,
@@ -867,6 +1058,15 @@ export class PlaygroundSimulationService {
       warnings,
       evidence: simulationEvidence(simulation),
       signingEligible,
+      ...(request.network === "mainnet"
+        ? {
+            safeguard: {
+              acknowledgementRequired: true as const,
+              message:
+                "I understand this is Mainnet and Velo will not sign or submit this transaction.",
+            },
+          }
+        : {}),
     };
   }
 }
@@ -880,6 +1080,85 @@ export async function simulatePlayground(input: unknown, correlationId: string) 
 /** @deprecated Use simulatePlayground. Retained for the Sprint 1 server contract. */
 export const simulateHello = simulatePlayground;
 
+export function normalizeTransactionStatusResponse(
+  response: rpc.Api.GetTransactionResponse,
+  transactionHash: string,
+): PlaygroundTransactionStatus {
+  if (response.status === rpc.Api.GetTransactionStatus.NOT_FOUND) {
+    return { status: "pending", transactionHash };
+  }
+  if (response.status === rpc.Api.GetTransactionStatus.FAILED) {
+    return {
+      status: "failed",
+      transactionHash,
+      ledger: response.ledger,
+      code: "CONTRACT_FAILED",
+      message: "The contract transaction failed.",
+      stage: "execution",
+      evidence: {
+        resultXdr: response.resultXdr.toXDR("base64"),
+        resultMetaXdr: response.resultMetaXdr.toXDR("base64"),
+        diagnosticEventsXdr: (response.diagnosticEventsXdr ?? []).map((event) =>
+          event.toXDR("base64"),
+        ),
+      },
+    };
+  }
+  const rawReturnValue = response.returnValue?.toXDR("base64") ?? null;
+  let decodedReturnValue: JsonSafeValue | null = null;
+  if (response.returnValue) {
+    try {
+      decodedReturnValue = toJsonSafeContractValue(scValToNative(response.returnValue));
+    } catch {
+      decodedReturnValue = null;
+    }
+  }
+  const events = response.events.contractEventsXdr.flat().map((event, order) => {
+    const body = event.body().v0();
+    const contractAddress = event.contractId();
+    let contractId: string | null = null;
+    try {
+      contractId = contractAddress
+        ? Address.fromScAddress(xdr.ScAddress.scAddressTypeContract(contractAddress)).toString()
+        : null;
+    } catch {
+      contractId = null;
+    }
+    const decode = (value: xdr.ScVal): JsonSafeValue | null => {
+      try {
+        return toJsonSafeContractValue(scValToNative(value));
+      } catch {
+        return null;
+      }
+    };
+    return {
+      order,
+      contractId,
+      topics: body.topics().map(decode),
+      data: decode(body.data()),
+      rawXdr: event.toXDR("base64"),
+      ledger: response.ledger,
+      transactionHash,
+    };
+  });
+  return {
+    status: "success",
+    transactionHash,
+    ledger: response.ledger,
+    result: { decoded: decodedReturnValue, rawXdr: rawReturnValue },
+    feeCharged: response.resultXdr.feeCharged().toString(),
+    events,
+    evidence: {
+      resultXdr: response.resultXdr.toXDR("base64"),
+      resultMetaXdr: response.resultMetaXdr.toXDR("base64"),
+      diagnosticEventsXdr: (response.diagnosticEventsXdr ?? []).map((event) =>
+        event.toXDR("base64"),
+      ),
+    },
+    explorerUrl: `https://stellar.expert/explorer/testnet/tx/${transactionHash}`,
+  };
+}
+
 export async function transactionStatus(
   transactionHash: string,
 ): Promise<PlaygroundTransactionStatus> {
@@ -891,40 +1170,15 @@ export async function transactionStatus(
     );
   }
   const response = await getPlaygroundRpcServer("testnet").getTransaction(transactionHash);
-  if (response.status === rpc.Api.GetTransactionStatus.NOT_FOUND) {
-    return { status: "pending", transactionHash };
-  }
-  if (response.status === rpc.Api.GetTransactionStatus.FAILED) {
-    return {
-      status: "failed",
-      transactionHash,
-      ledger: response.ledger,
-      code: "CONTRACT_FAILED",
-      message: "The contract transaction failed.",
-    };
-  }
-  if (!response.returnValue) {
-    throw new ContractSpecError(
-      "RESULT_DECODE_FAILED",
-      "decode",
-      "The successful transaction did not contain a return value.",
-    );
-  }
-  return {
-    status: "success",
-    transactionHash,
-    ledger: response.ledger,
-    result: toJsonSafeContractValue(scValToNative(response.returnValue)),
-    explorerUrl: `https://stellar.expert/explorer/testnet/tx/${transactionHash}`,
-  };
+  return normalizeTransactionStatusResponse(response, transactionHash);
 }
 
-export async function submitHello(input: unknown, correlationId: string) {
+export async function submitPlaygroundTransaction(input: unknown, correlationId: string) {
   if (!input || typeof input !== "object") {
     throw new ContractSpecError("INVALID_REQUEST", "validate", "A JSON request body is required.");
   }
   const request = input as Record<string, unknown>;
-  assertTestnet(request.network);
+  assertTestnetSubmission(request.network);
   if (typeof request.signedXdr !== "string" || request.signedXdr.length > 200_000) {
     throw new ContractSpecError(
       "MALFORMED_ENVELOPE",
@@ -932,13 +1186,27 @@ export async function submitHello(input: unknown, correlationId: string) {
       "A bounded signed transaction envelope is required.",
     );
   }
-  const fixture = configuredHelloFixture();
   const reviewedHash =
     typeof request.reviewedTransactionHash === "string"
       ? request.reviewedTransactionHash.toLowerCase()
       : "";
-  const { tx, review } = verifySignedTransaction(request.signedXdr, reviewedHash, fixture);
-  await assertFixtureCurrent(fixture, correlationId);
+  const expectedWasmHash =
+    request.expectedWasmHash === undefined
+      ? ""
+      : normalizedHash(request.expectedWasmHash, "Expected Wasm hash");
+  let tx: Transaction;
+  let review: PlaygroundTransactionReview;
+  if (expectedWasmHash) {
+    const preliminary = parseTransaction(request.signedXdr);
+    const invocation = transactionOperation(preliminary);
+    const contractId = Address.fromScAddress(invocation.contractAddress()).toString();
+    const document = await assertContractCurrent(contractId, expectedWasmHash, correlationId);
+    ({ tx, review } = verifySignedTransaction(request.signedXdr, reviewedHash, document));
+  } else {
+    const fixture = configuredHelloFixture();
+    ({ tx, review } = verifySignedTransaction(request.signedXdr, reviewedHash, fixture));
+    await assertFixtureCurrent(fixture, correlationId);
+  }
 
   const server = getPlaygroundRpcServer("testnet");
   const submission = await server.sendTransaction(tx);
@@ -973,3 +1241,6 @@ export async function submitHello(input: unknown, correlationId: string) {
   }
   return { status: "pending" as const, transactionHash: review.transactionHash };
 }
+
+/** @deprecated Sprint 1 name retained for route and consumer compatibility. */
+export const submitHello = submitPlaygroundTransaction;

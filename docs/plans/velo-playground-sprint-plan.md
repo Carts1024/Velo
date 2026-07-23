@@ -2,8 +2,9 @@
 
 Status: Sprint 1 **IMPLEMENTED — LIVE EVIDENCE PENDING**; Sprint 2
 **IMPLEMENTED AND TESTED**; Sprint 3
-**IMPLEMENTED AND TESTED — LIVE FIXTURE EVIDENCE PENDING**; Sprints 4–6 proposed
-and unimplemented
+**IMPLEMENTED AND TESTED — LIVE FIXTURE EVIDENCE PENDING**; Sprint 4
+**IMPLEMENTED AND TESTED — LIVE WALLET/NETWORK EVIDENCE PENDING**; Sprints 5–6
+proposed and unimplemented
 Created: 2026-07-23  
 Source: `docs/plans/Velo_Playground_Feature_Plan.md`  
 Duration: 6 sprints / 12 weeks  
@@ -36,7 +37,12 @@ to Sprint 3.
 Sprint 3 implements generalized Testnet simulation, result/fee/auth/footprint
 explanation, freshness invalidation, and allowlisted diagnostic evidence. See the
 [Sprint 3 architecture and API](../architecture/sprint-3-playground-simulation-preflight.md).
-Signing and submission remain restricted to the Sprint 1 hello fixture.
+
+Sprint 4 generalizes exact-XDR review, Testnet signing and server-owned submission,
+pending recovery, and terminal result/event evidence. It also adds acknowledged
+Mainnet simulation while keeping Mainnet signing and submission disabled. See the
+[Sprint 4 architecture](../architecture/sprint-4-playground-wallet-review-lifecycle.md)
+and [API/lifecycle reference](../references/sprint-4-playground-api-and-lifecycle.md).
 
 ## 1. Product Outcome
 
@@ -423,7 +429,8 @@ Acceptance criteria:
 - **Implemented:** arguments, source/wallet account, contract and hashes, function,
   base fee, CPU leeway, expiry, and restore status participate in freshness.
 - **Implemented:** stale, expired, and restore-required records remain inspectable
-  but cannot start signing; generalized signing remains deferred to Sprint 4.
+  but cannot start signing; generalized signing was deferred at this boundary and is
+  now implemented by Sprint 4.
 - **Verified:** 122 web tests, web/Stellar lint and typechecks, the production
   web build, and 11 Playground fixture integration tests pass.
 - **Known baseline:** the unrelated `transaction-debugger.test.ts` process failure
@@ -433,10 +440,16 @@ Acceptance criteria:
 
 ## 9. Sprint 4 — Wallet, Review, Submission, and Results
 
-**Status:** Proposed and unimplemented beyond the narrow Sprint 1 hello slice.
+**Status:** **IMPLEMENTED AND TESTED — LIVE WALLET/NETWORK EVIDENCE PENDING**
 
 **Goal:** Complete the safe signed-transaction lifecycle and recover it across page
 refresh.
+
+Implemented behavior and wire contracts are documented in the
+[Sprint 4 architecture](../architecture/sprint-4-playground-wallet-review-lifecycle.md)
+and [API/lifecycle reference](../references/sprint-4-playground-api-and-lifecycle.md).
+The anonymous Playground retains the global `WalletProvider` and Stellar Wallets Kit;
+it does not use project-scoped `@carts1024/velo-wallets`.
 
 ### Stories
 
@@ -517,13 +530,28 @@ Acceptance criteria:
 
 ### Sprint 4 exit gate
 
-- Testnet happy paths succeed for simple, complex, authorization-required, and
-  event-emitting fixture functions.
-- Wallet rejection, network mismatch, on-chain failure, timeout, refresh recovery,
-  and unknown submission outcomes pass.
-- The reviewed, signed, and submitted transaction match.
-- A Product/Engineering-approved low-risk Mainnet smoke or documented simulation-only
-  gate validates network safeguards without requiring an unsafe value transfer.
+- **Implemented:** supported Testnet calls use a fresh exact-XDR review and explicit
+  fingerprint confirmation before wallet signing.
+- **Implemented:** the browser submits signed XDR through Velo's API; the server
+  verifies the source signature, reviewed hash, single invocation, time bounds, and
+  current Wasm before its server-selected Testnet RPC submission.
+- **Implemented:** the pure lifecycle reducer covers review, signing, submission,
+  pending, terminal, expiry, and unresolved states while rejecting duplicate
+  signature/submission transitions.
+- **Implemented:** refresh recovery stores only schema version, Testnet network,
+  transaction hash, and start time; recovery checks by hash and never resubmits.
+- **Implemented:** terminal success/failure exposes decoded and raw result evidence,
+  fees, ledger, events, and explorer information where applicable.
+- **Implemented:** acknowledged Mainnet simulation is supported; anonymous Mainnet
+  signing/submission is disabled in both the client and server.
+- **Verified:** 138 of 138 web tests, focused Stellar argument/specification tests,
+  11 Playground fixture integration tests, web lint/typechecks with no warnings, the
+  production web build, and `git diff --check` pass.
+- **Known baseline:** the unrelated `transaction-debugger.test.ts` process failure
+  remains in the full Stellar suite; the other seven Stellar test files pass.
+- **Pending live gate:** Freighter connection/signing, representative Testnet
+  submission and refresh recovery, and acknowledged Mainnet simulation were not run
+  during this implementation pass.
 
 ## 10. Sprint 5 — Standalone Product Alpha
 
@@ -759,7 +787,7 @@ These are part of each story, not cleanup deferred to Sprint 5:
 | Exact supported type matrix                   | PG-201         | Stellar Engineering           | Sprint 1, Day 4   | Support only types with fixture round-trip proof                                                                                              |
 | Existing Velo Wallets suitability             | PG-401         | Wallet Engineering            | Sprint 1, Day 5   | Reuse global `WalletProvider`; do not use `@carts1024/velo-wallets` for anonymous Playground because it requires project-scoped configuration |
 | Simulation freshness window                   | PG-303         | Product + Stellar Engineering | Sprint 3 planning | Require re-simulation after context change and before Mainnet sign                                                                            |
-| Browser vs Velo signed-transaction submission | PG-403         | Architecture + Security       | Sprint 3, Day 5   | Browser submits directly                                                                                                                      |
+| Browser vs Velo signed-transaction submission | PG-403         | Architecture + Security       | Sprint 3, Day 5   | Browser initiates through Velo API; server verifies and owns server-selected RPC submission                                                    |
 | Anonymous Mainnet invocation policy           | PG-405         | Product + Security            | Sprint 4 planning | Simulation allowed; invocation disabled until approved                                                                                        |
 | Raw RPC storage/redaction policy              | PG-304, PG-603 | Security + Operations         | Sprint 3, Day 3   | Do not persist raw anonymous payloads                                                                                                         |
 | Share-link visibility and argument defaults   | PG-606         | Product + Security            | Sprint 6 planning | Private project link; arguments excluded by default                                                                                           |
@@ -838,7 +866,7 @@ Alpha guardrails:
 | Mainnet UI creates false confidence                          | High   | Simulation-first behavior, persistent network identity, exact review, stronger confirmation        | Network or contract identity is absent from any signing state |
 | Raw RPC data leaks user or wallet information                | High   | Default to no anonymous persistence, redact, cap payloads, security review                         | Raw/copy/log path contains signature or secret-looking value  |
 | Deep types make the browser unresponsive                     | Medium | Depth/size limits, collapsed rendering, fixture stress tests                                       | Form interaction exceeds the agreed responsiveness budget     |
-| Project integration expands before the standalone path works | Medium | Keep Sprints 1–5 standalone; begin persistence only after end-to-end gate                          | Sprint 4 happy path is incomplete                             |
+| Project integration expands before the standalone path works | Medium | Keep Sprints 1–5 standalone; begin persistence only after end-to-end gate                          | Sprint 4 live qualification remains incomplete                |
 | “Read-only” labeling misleads users                          | Medium | Describe only observed simulation writes and retain Unclassified before simulation                 | UI assigns permanent mutability without verified metadata     |
 | Six-sprint scope exceeds actual squad capacity               | High   | Commit sprint-by-sprint after decomposition; preserve milestone order; move P1 before weakening P0 | Capacity forecast cannot meet a sprint exit gate              |
 

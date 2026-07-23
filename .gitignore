@@ -58,6 +58,7 @@ docs/architecture/
 docs/architecture/*
 !docs/architecture/sprint-2-playground-dynamic-argument-system.md
 !docs/architecture/sprint-3-playground-simulation-preflight.md
+!docs/architecture/sprint-4-playground-wallet-review-lifecycle.md
 !docs/architecture/sprint-8-durable-financial-reliability.md
 !docs/architecture/sprint-9-real-lifecycle-benchmark-architecture.md
 !docs/architecture/sprint-10-end-to-end-observability-and-redaction.md
@@ -86,6 +87,7 @@ docs/references/*
 !docs/operations/sprint-1-playground-fixture-runbook.md
 !docs/references/sprint-1-playground-api-and-type-support.md
 !docs/references/sprint-1-playground-evidence.md
+!docs/references/sprint-4-playground-api-and-lifecycle.md
 !docs/plans/
 docs/plans/*
 !docs/plans/velo-playground-sprint-plan.md

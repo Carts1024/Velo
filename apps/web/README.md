@@ -25,7 +25,8 @@ the server verifies, submits, and polls it.
 Configure live invocation with server environment values
 `PLAYGROUND_HELLO_CONTRACT_ID` and `PLAYGROUND_HELLO_WASM_HASH`. Optional RPC
 overrides are `STELLAR_TESTNET_RPC_URL` and `STELLAR_MAINNET_RPC_URL`, and must use
-HTTPS. Mainnet remains inspection-only.
+HTTPS. At the Sprint 1 boundary, Mainnet was inspection-only; Sprint 4 now supports
+acknowledged Mainnet simulation while retaining the no-sign/no-submit policy.
 
 Sprint 1 is **IMPLEMENTED — LIVE EVIDENCE PENDING**. The checked-in Testnet fixture
 manifest records all five deployments and the live smoke passes, but no interactive
@@ -63,15 +64,51 @@ and read-write footprint, diagnostics, state changes, and restore evidence.
 
 Changing the contract, source account, function, arguments, base fee, or CPU leeway
 marks the retained result stale. Expired and restore-required results remain
-inspectable but cannot be signed. Mainnet remains inspection-only, and only a fresh
-simulation for the configured hello fixture exposes the existing signing/submission
-path.
+inspectable but cannot be signed. At the Sprint 3 boundary, Mainnet remained
+inspection-only and signing/submission was limited to the hello fixture; Sprint 4
+supersedes those boundaries below.
 
 Sprint 3 is **IMPLEMENTED AND TESTED — LIVE FIXTURE EVIDENCE PENDING**. All 122 web
 tests, lint/typechecks, the production build, and fixture contract tests pass. Live
 generalized simulation for every deployed fixture awaits a funded Testnet source
 account. See the
 [Sprint 3 architecture and API](../../docs/architecture/sprint-3-playground-simulation-preflight.md).
+
+## Sprint 4 Playground wallet and transaction lifecycle
+
+The anonymous Playground now simulates supported contract calls on Testnet or
+Mainnet and returns an exact-XDR review. The review exposes the source, contract and
+Wasm hash, function, decoded arguments, sequence and time bounds, fees,
+authorization, predicted writes, unsigned XDR, and transaction-hash fingerprint.
+Changing the request context invalidates confirmation and requires re-simulation.
+
+On Testnet, a fresh successful review can be explicitly confirmed and signed through
+the existing global `WalletProvider` and Stellar Wallets Kit. The browser initiates
+submission through Velo's API; the server verifies the signature, reviewed hash,
+single contract invocation, expiry, and current Wasm before it submits through its
+selected Testnet RPC. Pending identity survives refresh in `sessionStorage` without
+persisting signed XDR. Final success and failure views include decoded results,
+events, fees, ledger, explorer link, and raw XDR evidence.
+
+Mainnet requires acknowledgement and is simulation-only. The client does not enable
+signing, and the submit API independently rejects Mainnet.
+
+Sprint 4 is **IMPLEMENTED AND TESTED — LIVE WALLET/NETWORK EVIDENCE PENDING**. The
+following checks passed on 2026-07-23:
+
+| Command                      | Result                                                                              |
+| ---------------------------- | ----------------------------------------------------------------------------------- |
+| `pnpm --filter web test`     | 138 of 138 tests passed                                                             |
+| `pnpm --filter web lint:fix` | Oxlint, Oxfmt, route type generation, and TypeScript checks passed with no warnings |
+| `pnpm --filter web build`    | Production build passed                                                             |
+| Focused Stellar tests        | Contract argument and specification test files passed                               |
+| Playground fixture tests     | 11 Cargo integration tests passed                                                    |
+| `git diff --check`           | Passed                                                                              |
+
+No live Freighter, Testnet transaction, refresh-recovery, or Mainnet simulation run
+was performed in this implementation pass. See the
+[Sprint 4 architecture](../../docs/architecture/sprint-4-playground-wallet-review-lifecycle.md)
+and [API/lifecycle reference](../../docs/references/sprint-4-playground-api-and-lifecycle.md).
 
 ## Sprint 10 observability
 

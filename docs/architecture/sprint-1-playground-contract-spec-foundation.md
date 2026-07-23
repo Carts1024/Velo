@@ -188,8 +188,16 @@ canonical JSON, and typed `ScVal` round trips, but not generalized simulation. S
 the [Sprint 2 dynamic argument reference](sprint-2-playground-dynamic-argument-system.md).
 
 Sprint 3 subsequently generalizes Testnet simulation and preflight while retaining
-the hello-only signing/submission boundary. See the
+the hello-only signing/submission boundary for that sprint. See the
 [Sprint 3 simulation and preflight reference](sprint-3-playground-simulation-preflight.md).
+
+Sprint 4 subsequently implements acknowledged Mainnet simulation, generalized
+exact-XDR review and Testnet signing/submission, minimal pending recovery, and final
+result/event evidence. The browser initiates submission through Velo's API; the
+server verifies the signed envelope and owns the server-selected RPC submission.
+See the
+[Sprint 4 wallet/review/lifecycle architecture](sprint-4-playground-wallet-review-lifecycle.md)
+and [API/lifecycle reference](../references/sprint-4-playground-api-and-lifecycle.md).
 
 ## Source traceability
 

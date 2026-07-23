@@ -7,8 +7,12 @@ Last reviewed: 2026-07-23
 
 Sprint 3 makes simulation the decision point between Sprint 2's canonical argument
 editor and the Sprint 4 transaction lifecycle. Any supported Testnet function can
-now be simulated. Signing and submission remain restricted to the repository-owned
-`hello(Symbol)` fixture.
+be simulated. This document records the Sprint 3 boundary; Sprint 4 subsequently
+adds Mainnet simulation, generalized exact-XDR review, Testnet signing/submission,
+pending recovery, and terminal event evidence. See the
+[Sprint 4 architecture](sprint-4-playground-wallet-review-lifecycle.md) and
+[API/lifecycle reference](../references/sprint-4-playground-api-and-lifecycle.md)
+for the current contracts.
 
 ## Request flow and trust boundary
 
@@ -37,7 +41,8 @@ sequenceDiagram
 
 The server selects the HTTPS RPC endpoint. Requests cannot provide an RPC URL or
 network passphrase. RPC calls use the existing eight-second timeout and one bounded
-retry for HTTP 429 and upstream 5xx responses. Mainnet remains inspection-only.
+retry for HTTP 429 and upstream 5xx responses. Sprint 4 extends this server-selected
+simulation path to Mainnet while retaining simulation-only Mainnet behavior.
 
 ## Public simulation request
 
@@ -45,7 +50,7 @@ retry for HTTP 429 and upstream 5xx responses. Mainnet remains inspection-only.
 
 ```ts
 type PlaygroundSimulationRequest = {
-  network: "testnet";
+  network: "testnet" | "mainnet";
   contractId: string;
   expectedWasmHash: string;
   expectedSpecHash: string;
@@ -117,6 +122,7 @@ and is never signable. Sprint 3 does not construct restore transactions.
 | `EXCESSIVE_FEE` | Velo inference | Total fee exceeds 10,000,000 stroops |
 | `NO_WRITES` | RPC | “No writes detected in this simulation.” |
 | `DECODE_FALLBACK` | Velo inference | Typed output decoding was incomplete |
+| `MAINNET_SIMULATION_ONLY` | Velo inference | Mainnet cannot proceed to signing/submission |
 | `EXECUTION_NOT_GUARANTEED` | Velo inference | Simulation cannot guarantee final execution |
 
 The UI labels RPC facts separately from Velo inferences. Missing accounts and
@@ -133,11 +139,11 @@ leeway. The browser computes the same stable context representation for comparis
 - A result expires after 300 seconds.
 - Restore-required results are never fresh.
 - An aborted or superseded request cannot replace a newer browser result.
-- Only a fresh `success` response matching the configured hello contract, Wasm, and
-  function exposes the existing signing action.
+- Sprint 4 permits any fresh, successful, Testnet `signingEligible` response to enter
+  exact-XDR review and signing after explicit fingerprint confirmation.
 
-Generalized signing, Mainnet simulation, automatic restore, and persisted recovery
-remain Sprint 4 work.
+Automatic restore remains deferred. Generalized Testnet signing, Mainnet simulation,
+and minimal pending recovery are implemented by Sprint 4.
 
 ## Diagnostics and disclosure
 

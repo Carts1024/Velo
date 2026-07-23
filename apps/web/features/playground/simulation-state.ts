@@ -4,7 +4,7 @@ export type SimulationSettings = {
 };
 
 export type SimulationContext = {
-  network: "testnet";
+  network: "testnet" | "mainnet";
   contractId: string;
   expectedWasmHash: string;
   expectedSpecHash: string;
