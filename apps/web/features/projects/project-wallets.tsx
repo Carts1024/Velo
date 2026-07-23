@@ -214,8 +214,8 @@ export function ProjectWallets({ projectId }: { projectId: string }) {
     );
 
   return (
-    <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
-      <div className="grid gap-5">
+    <section className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="grid min-w-0 gap-5">
         <header>
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-3xl font-semibold">Velo Wallets</h1>
@@ -473,7 +473,7 @@ export function ProjectWallets({ projectId }: { projectId: string }) {
           </div>
 
           <div className="mt-6">
-            <div className="mb-4 flex gap-2" aria-label="Palette editor">
+            <div className="mb-4 flex flex-wrap gap-2" aria-label="Palette editor">
               {(["light", "dark"] as const).map((mode) => (
                 <Button
                   key={mode}
@@ -583,29 +583,29 @@ export function ProjectWallets({ projectId }: { projectId: string }) {
         </div>
 
         {snippets && stored?.activePublicationId ? (
-          <div className="bg-card text-card-foreground rounded-lg border p-5">
+          <div className="bg-card text-card-foreground min-w-0 max-w-full overflow-hidden rounded-lg border p-4 sm:p-5">
             <div className="mb-4">
               <h2 className="font-semibold">Integration instructions</h2>
               <p className="text-muted-foreground text-sm">
                 Complete these steps after publishing a wallet revision.
               </p>
             </div>
-            <ol className="mb-5 grid gap-3 md:grid-cols-3">
-              <li className="bg-muted/30 rounded-md border p-3">
+            <ol className="mb-5 grid min-w-0 gap-3 md:grid-cols-3">
+              <li className="bg-muted/30 min-w-0 rounded-md border p-3">
                 <p className="text-sm font-medium">1. Allow and publish</p>
                 <p className="text-muted-foreground mt-1 text-xs leading-relaxed">
                   Add each consuming app’s exact origin above, save the draft, then publish the
                   revision.
                 </p>
               </li>
-              <li className="bg-muted/30 rounded-md border p-3">
+              <li className="bg-muted/30 min-w-0 rounded-md border p-3">
                 <p className="text-sm font-medium">2. Mount one integration</p>
                 <p className="text-muted-foreground mt-1 text-xs leading-relaxed">
                   Choose HTML or React below. The public project key is safe to expose in browser
                   code.
                 </p>
               </li>
-              <li className="bg-muted/30 rounded-md border p-3">
+              <li className="bg-muted/30 min-w-0 rounded-md border p-3">
                 <p className="text-sm font-medium">3. Reload and verify</p>
                 <p className="text-muted-foreground mt-1 text-xs leading-relaxed">
                   Reload the consuming app after publishing. Velo loads the published wallets and
@@ -613,7 +613,7 @@ export function ProjectWallets({ projectId }: { projectId: string }) {
                 </p>
               </li>
             </ol>
-            <Tabs defaultValue="html">
+            <Tabs defaultValue="html" className="min-w-0 max-w-full">
               <TabsList>
                 <TabsTrigger value="html">HTML</TabsTrigger>
                 <TabsTrigger value="react">React / Next.js</TabsTrigger>
@@ -633,7 +633,7 @@ export function ProjectWallets({ projectId }: { projectId: string }) {
               />
             </Tabs>
             <p className="text-muted-foreground mt-4 text-xs">
-              CSP: <code>{snippets.csp}</code>
+              CSP: <code className="break-all">{snippets.csp}</code>
             </p>
             <div className="bg-muted/30 mt-4 rounded-md border p-3 text-xs leading-relaxed">
               <p>
@@ -647,7 +647,7 @@ export function ProjectWallets({ projectId }: { projectId: string }) {
                 through Velo.
               </p>
             </div>
-            <div className="mt-4 flex items-center gap-3">
+            <div className="mt-4 flex flex-wrap items-center gap-3">
               <Button asChild variant="outline" size="sm">
                 <Link href={`/wallet-preview/${stored.publicKey}`} target="_blank">
                   Open diagnostics <ExternalLinkIcon />
@@ -661,7 +661,7 @@ export function ProjectWallets({ projectId }: { projectId: string }) {
         ) : null}
       </div>
 
-      <aside className="grid content-start gap-5 xl:sticky xl:top-6">
+      <aside className="grid min-w-0 content-start gap-5 xl:sticky xl:top-6">
         <div className="rounded-lg border bg-white p-5">
           <h2 className="font-semibold">Live wallet preview</h2>
           <div className="mt-3 flex flex-wrap gap-1" aria-label="Preview state">
@@ -757,16 +757,16 @@ function SnippetTab({
   onCopy: () => void;
 }) {
   return (
-    <TabsContent value={value}>
-      <p className="text-muted-foreground mb-3 text-xs leading-relaxed">{hint}</p>
+    <TabsContent value={value} className="min-w-0 max-w-full">
+      <p className="text-muted-foreground mb-3 break-words text-xs leading-relaxed">{hint}</p>
       {command ? (
-        <div className="bg-muted/40 mb-3 flex flex-wrap items-center gap-2 rounded-md border px-3 py-2 text-xs">
+        <div className="bg-muted/40 mb-3 flex min-w-0 flex-wrap items-center gap-2 rounded-md border px-3 py-2 text-xs">
           <span className="text-muted-foreground">Install:</span>
-          <code>{command}</code>
+          <code className="min-w-0 break-all">{command}</code>
         </div>
       ) : null}
-      <div className="relative">
-        <pre className="overflow-x-auto rounded-md bg-zinc-950 p-4 pr-12 text-xs text-zinc-100">
+      <div className="relative min-w-0 max-w-full">
+        <pre className="w-full min-w-0 max-w-full overflow-x-auto rounded-md bg-zinc-950 p-4 pr-12 text-xs text-zinc-100">
           <code>{code}</code>
         </pre>
         <Button

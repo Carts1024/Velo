@@ -203,6 +203,7 @@ html:not(.dark) {
   }
   body {
     @apply bg-background text-foreground;
+    overflow-x: clip;
   }
 }
 
@@ -215,6 +216,16 @@ html:not(.dark) {
   }
   .form-error {
     @apply mt-1 text-sm font-semibold text-red-500 italic;
+  }
+}
+
+@media (pointer: coarse) {
+  [data-slot="button"] {
+    min-height: 2.75rem;
+  }
+
+  [data-slot="button"][data-size^="icon"] {
+    min-width: 2.75rem;
   }
 }
 

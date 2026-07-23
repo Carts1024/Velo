@@ -44,6 +44,13 @@ function formatTimestamp(event: PublicEvent) {
   return new Date(event.timestamp ?? event.observedAt).toLocaleString();
 }
 
+function formatCompactTimestamp(event: PublicEvent) {
+  return new Date(event.timestamp ?? event.observedAt).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  });
+}
+
 export function EventActivityTable({
   events,
   emptyMessage,
@@ -52,13 +59,13 @@ export function EventActivityTable({
   emptyMessage: string;
 }) {
   return (
-    <div className="overflow-x-auto w-full">
-      <Table>
+    <div className="w-full min-w-0 overflow-x-auto">
+      <Table className="table-fixed sm:table-auto">
         <TableHeader>
           <TableRow>
             <TableHead>Event</TableHead>
-            <TableHead>Contract</TableHead>
-            <TableHead className="hidden sm:table-cell">Transaction</TableHead>
+            <TableHead className="hidden sm:table-cell">Contract</TableHead>
+            <TableHead className="hidden lg:table-cell">Transaction</TableHead>
             <TableHead className="hidden md:table-cell">Ledger</TableHead>
             <TableHead className="text-right">Observed</TableHead>
           </TableRow>
@@ -73,7 +80,7 @@ export function EventActivityTable({
           ) : (
             events.map((event) => (
               <TableRow key={event.eventId}>
-                <TableCell>
+                <TableCell className="max-w-44 whitespace-normal break-words">
                   <div className="grid gap-1">
                     <span className="font-medium">{eventLabel(event)}</span>
                     <Badge variant="gray" className="w-fit">
@@ -81,13 +88,13 @@ export function EventActivityTable({
                     </Badge>
                   </div>
                 </TableCell>
-                <TableCell className="font-mono text-xs">
+                <TableCell className="hidden font-mono text-xs sm:table-cell">
                   <div className="flex items-center gap-1">
                     <span title={event.contractId}>{shortValue(event.contractId)}</span>
                     <CopyButton value={event.contractId} label="contract ID" />
                   </div>
                 </TableCell>
-                <TableCell className="hidden sm:table-cell font-mono text-xs">
+                <TableCell className="hidden font-mono text-xs lg:table-cell">
                   <div className="flex items-center gap-1">
                     <span title={event.transactionHash}>{shortValue(event.transactionHash)}</span>
                     <CopyButton value={event.transactionHash} label="transaction hash" />
@@ -96,8 +103,9 @@ export function EventActivityTable({
                 <TableCell className="hidden md:table-cell font-mono text-xs">
                   {event.ledger}
                 </TableCell>
-                <TableCell className="text-right text-sm text-zinc-600">
-                  {formatTimestamp(event)}
+                <TableCell className="text-right text-xs whitespace-normal text-zinc-600 sm:text-sm">
+                  <span className="sm:hidden">{formatCompactTimestamp(event)}</span>
+                  <span className="hidden sm:inline">{formatTimestamp(event)}</span>
                 </TableCell>
               </TableRow>
             ))
