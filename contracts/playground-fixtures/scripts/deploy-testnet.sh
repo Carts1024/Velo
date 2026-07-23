@@ -46,7 +46,7 @@ for command in cargo curl git python3 sha256sum stellar; do
   }
 done
 
-stellar keys address "$identity" >/dev/null || {
+deployer_account="$(stellar keys address "$identity")" || {
   echo "deployment failed [validate-identity]: Stellar CLI identity '$identity' was not found" >&2
   exit 1
 }
@@ -64,7 +64,27 @@ cargo build \
   --locked
 
 records="$(mktemp)"
-trap 'rm -f "$records"' EXIT
+progress="${manifest%.json}.partial.tsv"
+progress_tmp=""
+
+cleanup() {
+  rm -f "$records"
+  if [[ -n "$progress_tmp" ]]; then
+    rm -f "$progress_tmp"
+  fi
+}
+trap cleanup EXIT
+
+if [[ -f "$progress" ]]; then
+  IFS=$'\t' read -r progress_marker progress_account <"$progress"
+  if [[ "$progress_marker" != "#deployerAccount" || "$progress_account" != "$deployer_account" ]]; then
+    echo "deployment failed [resume]: partial progress belongs to another deployer" >&2
+    echo "review or remove $progress before starting a new deployment" >&2
+    exit 1
+  fi
+  tail -n +2 "$progress" >"$records"
+  echo "resuming deployment progress from $progress"
+fi
 
 fixtures=(
   "hello:velo_playground_hello.wasm"
@@ -80,14 +100,30 @@ for fixture in "${fixtures[@]}"; do
   wasm="$workspace/target/wasm32v1-none/release/$wasm_file"
   wasm_hash="$(sha256sum "$wasm" | cut -d ' ' -f 1)"
 
+  existing_record="$(awk -F $'\t' -v fixture_name="$name" '$1 == fixture_name { print; exit }' "$records")"
+  if [[ -n "$existing_record" ]]; then
+    IFS=$'\t' read -r _ existing_contract_id existing_wasm_hash existing_ledger \
+      <<<"$existing_record"
+    if [[
+      ! "$existing_contract_id" =~ ^C[A-Z2-7]{55}$ ||
+      "$existing_wasm_hash" != "$wasm_hash" ||
+      ! "$existing_ledger" =~ ^[0-9]+$
+    ]]; then
+      echo "deployment failed [$name:resume-drift]: partial deployment does not match local Wasm" >&2
+      exit 1
+    fi
+    echo "resumed $name at observed ledger $existing_ledger"
+    continue
+  fi
+
   contract_id="$(
     stellar contract deploy \
       --wasm "$wasm" \
       --source "$identity" \
-      --network testnet \
-      --quiet
+      --network testnet
   )" || {
     echo "deployment failed [$name:deploy]" >&2
+    echo "successful fixture records remain in $progress; rerun the same command to resume" >&2
     exit 1
   }
 
@@ -108,6 +144,13 @@ for fixture in "${fixtures[@]}"; do
   }
 
   printf '%s\t%s\t%s\t%s\n' "$name" "$contract_id" "$wasm_hash" "$latest_ledger" >>"$records"
+  progress_tmp="$(mktemp)"
+  {
+    printf '#deployerAccount\t%s\n' "$deployer_account"
+    cat "$records"
+  } >"$progress_tmp"
+  mv "$progress_tmp" "$progress"
+  progress_tmp=""
   echo "deployed $name at observed ledger $latest_ledger"
 done
 
@@ -153,5 +196,6 @@ path.parent.mkdir(parents=True, exist_ok=True)
 path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
 PY
 
+rm -f "$progress"
 echo "wrote deployment manifest: $manifest"
 echo "live qualification remains pending until the browser/wallet exit gate is retained"

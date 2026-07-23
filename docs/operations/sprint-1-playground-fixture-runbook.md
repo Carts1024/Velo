@@ -82,6 +82,12 @@ On success it replaces `deployments/testnet.json` with:
 - each contract ID, locally computed Wasm SHA-256, and first observed ledger after
   deployment.
 
+The script records ignored partial progress after each successful fixture. If a
+later deployment fails, rerun the same command with the same identity. Recorded
+contracts are checked against the current local Wasm and skipped; the partial file
+is removed only after the complete manifest is written. Review the visible Stellar
+CLI error before retrying.
+
 Review the manifest diff. Confirm that all five entries are non-null and that no key
 material or provider credential appears.
 

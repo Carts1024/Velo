@@ -1,4 +1,5 @@
-import { fetchRecentContractEvents, resolveBackendPayAccessContractId } from "@repo/stellar";
+import { resolveBackendPayAccessContractId } from "@repo/stellar/contract-config";
+import { fetchRecentContractEvents } from "@repo/stellar/event-monitor";
 import { v } from "convex/values";
 
 import { internal } from "./_generated/api";

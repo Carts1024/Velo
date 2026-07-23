@@ -5,13 +5,13 @@ Sprint 1 contract-spec parser. The contracts are deliberately small and their
 public methods are mostly identity operations: their purpose is to expose a
 stable Soroban specification, not to model production business logic.
 
-| Fixture | Specification coverage | Browser invocation |
-| --- | --- | --- |
-| `hello` | symbol input and vector output | Testnet allowlist candidate |
-| `numeric` | signed and unsigned 32/64/128/256-bit integers, timepoint, duration | No |
-| `collections` | bool, string, bytes, fixed bytes, vector, map, tuple, option, result | No |
-| `custom-types` | nested structs, unit enum, integer enum, tuple union | No |
-| `auth-events-errors` | address authorization, event specification, contract errors | No |
+| Fixture              | Specification coverage                                               | Browser invocation          |
+| -------------------- | -------------------------------------------------------------------- | --------------------------- |
+| `hello`              | symbol input and vector output                                       | Testnet allowlist candidate |
+| `numeric`            | signed and unsigned 32/64/128/256-bit integers, timepoint, duration  | No                          |
+| `collections`        | bool, string, bytes, fixed bytes, vector, map, tuple, option, result | No                          |
+| `custom-types`       | nested structs, unit enum, integer enum, tuple union                 | No                          |
+| `auth-events-errors` | address authorization, event specification, contract errors          | No                          |
 
 ## Deterministic checks
 
@@ -47,6 +47,12 @@ Wasm hashes, the first ledger observed after each confirmed deployment, tool
 versions, and the source revision. The checked-in manifest remains explicitly
 undeployed until an operator performs this step. Deployment refuses a dirty
 fixture workspace so the recorded revision can identify the exact source.
+
+After each successful fixture, the tool writes ignored partial progress beside
+the manifest. If a later RPC or deployment step fails, rerun the same command
+with the same identity: already-recorded fixtures are validated against the
+local Wasm and skipped. CLI errors remain visible so transient RPC failures are
+diagnosable. The partial file is removed after all five fixtures are recorded.
 
 Testnet state is reset periodically. Redeploy and rotate the manifest when a
 contract is missing, archived, or its Wasm hash differs from the local build.

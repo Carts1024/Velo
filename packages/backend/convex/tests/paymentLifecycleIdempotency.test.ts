@@ -8,9 +8,8 @@ import schema from "../schema";
 
 const modules = import.meta.glob("../**/*.ts");
 
-vi.mock("@repo/stellar", () => ({
+vi.mock("@repo/stellar/transaction-debugger", () => ({
   lookupTestnetTransaction: vi.fn(),
-  fetchRecentContractEvents: vi.fn(),
 }));
 
 beforeEach(() => {
@@ -119,7 +118,7 @@ test("reportSubmitted same-hash pending replay preserves clocks and schedules on
     const txHash = "a".repeat(64);
     const firstReportedAt = Date.now();
 
-    const stellar = await import("@repo/stellar");
+    const stellar = await import("@repo/stellar/transaction-debugger");
     vi.mocked(stellar.lookupTestnetTransaction).mockResolvedValue(successfulLookup(txHash));
 
     const report = {
@@ -206,7 +205,7 @@ test("verified paid same-hash replay is a no-op and concurrent watchers decremen
     status: "pending",
     txHash: secondTxHash,
   });
-  const stellar = await import("@repo/stellar");
+  const stellar = await import("@repo/stellar/transaction-debugger");
   vi.mocked(stellar.lookupTestnetTransaction).mockResolvedValue(successfulLookup(secondTxHash));
 
   const results = await Promise.all([
@@ -234,7 +233,7 @@ test("ledger payment details must match and one transaction cannot settle two in
     status: "pending",
     txHash: mismatchedHash,
   });
-  const stellar = await import("@repo/stellar");
+  const stellar = await import("@repo/stellar/transaction-debugger");
   vi.mocked(stellar.lookupTestnetTransaction).mockResolvedValue({
     ...successfulLookup(mismatchedHash),
     operations: [
@@ -332,7 +331,7 @@ test("drain recovers an expired lease, fences the stale worker, and resolves pay
       updatedAt: now - 10_000,
     });
   });
-  const stellar = await import("@repo/stellar");
+  const stellar = await import("@repo/stellar/transaction-debugger");
   vi.mocked(stellar.lookupTestnetTransaction).mockResolvedValue(successfulLookup(txHash));
 
   const result = await t.action(internal.payment_reconciliation_jobs.actions.drain, {

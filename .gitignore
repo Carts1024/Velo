@@ -29,6 +29,7 @@ dist
 apps/web/public/wallets/
 artifacts/
 target/
+contracts/playground-fixtures/deployments/*.partial.tsv
 
 
 # Debug

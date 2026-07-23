@@ -1,6 +1,6 @@
 "use node";
 
-import { lookupTestnetTransaction } from "@repo/stellar";
+import { lookupTestnetTransaction } from "@repo/stellar/transaction-debugger";
 import { v } from "convex/values";
 
 import type { Transaction } from "./types";

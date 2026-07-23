@@ -154,19 +154,21 @@ export class ContractSpecError extends Error {
   readonly code: string;
   readonly stage: ContractSpecStage;
   readonly retryable: boolean;
+  readonly cause?: unknown;
 
   constructor(
     code: string,
     stage: ContractSpecStage,
     message: string,
     retryable = false,
-    options?: ErrorOptions,
+    options?: { cause?: unknown },
   ) {
-    super(message, options);
+    super(message);
     this.name = "ContractSpecError";
     this.code = code;
     this.stage = stage;
     this.retryable = retryable;
+    this.cause = options?.cause;
   }
 }
 

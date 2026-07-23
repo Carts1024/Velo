@@ -1,4 +1,4 @@
-import { lookupTestnetTransaction } from "@repo/stellar";
+import { lookupTestnetTransaction } from "@repo/stellar/transaction-debugger";
 import { makeFunctionReference } from "convex/server";
 import { v } from "convex/values";
 
