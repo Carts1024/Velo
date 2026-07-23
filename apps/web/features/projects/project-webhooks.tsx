@@ -391,7 +391,7 @@ export function ProjectWebhooks({ projectId }: { projectId: string }) {
   }
 
   return (
-    <section className="grid gap-6">
+    <section className="grid min-w-0 gap-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <div className="flex flex-wrap items-center gap-2">
@@ -482,13 +482,13 @@ export function ProjectWebhooks({ projectId }: { projectId: string }) {
         {settings?.signingSecret && (
           <div className="grid gap-2 border-t border-zinc-100 pt-3">
             <Label htmlFor="webhook-secret">Signing secret</Label>
-            <div className="flex items-center gap-2">
+            <div className="flex min-w-0 items-center gap-2">
               <Input
                 id="webhook-secret"
                 type={showSecret ? "text" : "password"}
                 value={settings.signingSecret}
                 readOnly
-                className="font-mono text-xs bg-zinc-50 flex-1"
+                className="min-w-0 flex-1 bg-zinc-50 font-mono text-xs"
               />
               <Button
                 type="button"
@@ -530,7 +530,7 @@ export function ProjectWebhooks({ projectId }: { projectId: string }) {
                   Rotate secret
                 </Button>
               ) : (
-                <div className="flex items-center gap-2 bg-red-50 border border-red-200 p-2 rounded text-xs">
+                <div className="flex flex-col items-stretch gap-2 rounded border border-red-200 bg-red-50 p-2 text-xs sm:flex-row sm:items-center">
                   <span className="text-red-700 font-medium">
                     Are you sure? Old secret will immediately stop working.
                   </span>
@@ -669,16 +669,16 @@ export function ProjectWebhooks({ projectId }: { projectId: string }) {
           <p className="text-xs text-zinc-500">Showing the latest 50 bounded attempts.</p>
         </div>
         <div className="overflow-x-auto w-full">
-          <Table>
+          <Table className="table-fixed sm:table-auto">
             <TableHeader>
               <TableRow>
-                <TableHead>Time</TableHead>
+                <TableHead className="hidden sm:table-cell">Time</TableHead>
                 <TableHead>Event type</TableHead>
                 <TableHead className="hidden md:table-cell">Destination</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead className="hidden sm:table-cell">HTTP</TableHead>
-                <TableHead className="hidden sm:table-cell">Latency</TableHead>
-                <TableHead className="hidden md:table-cell">Attempts</TableHead>
+                <TableHead className="hidden md:table-cell">HTTP</TableHead>
+                <TableHead className="hidden lg:table-cell">Latency</TableHead>
+                <TableHead className="hidden lg:table-cell">Attempts</TableHead>
                 <TableHead className="text-right">Payload</TableHead>
               </TableRow>
             </TableHeader>
@@ -694,23 +694,25 @@ export function ProjectWebhooks({ projectId }: { projectId: string }) {
               ) : (
                 deliveries.map((delivery) => (
                   <TableRow key={delivery._id}>
-                    <TableCell className="text-sm">
+                    <TableCell className="hidden text-sm sm:table-cell">
                       {formatTimestamp(delivery.lastAttemptAt)}
                     </TableCell>
-                    <TableCell className="font-mono text-xs">{delivery.eventType}</TableCell>
+                    <TableCell className="max-w-36 whitespace-normal break-words font-mono text-xs">
+                      {delivery.eventType}
+                    </TableCell>
                     <TableCell className="hidden md:table-cell max-w-64 font-mono text-xs truncate break-all">
                       <span title={delivery.destinationHost}>{delivery.destinationHost}</span>
                     </TableCell>
                     <TableCell>
                       <Badge variant={deliveryVariant[delivery.status]}>{delivery.status}</Badge>
                     </TableCell>
-                    <TableCell className="hidden sm:table-cell font-mono text-xs">
+                    <TableCell className="hidden font-mono text-xs md:table-cell">
                       {delivery.httpStatus ?? "-"}
                     </TableCell>
-                    <TableCell className="hidden sm:table-cell font-mono text-xs">
+                    <TableCell className="hidden font-mono text-xs lg:table-cell">
                       {delivery.responseTimeMs ? `${delivery.responseTimeMs} ms` : "-"}
                     </TableCell>
-                    <TableCell className="hidden md:table-cell font-mono text-xs">
+                    <TableCell className="hidden font-mono text-xs lg:table-cell">
                       {delivery.attemptCount}
                     </TableCell>
                     <TableCell className="text-right">

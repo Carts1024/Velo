@@ -180,7 +180,7 @@ export function ProjectApiKeys({ projectId }: { projectId: string }) {
   const activeKeys = apiKeys.filter((key) => !key.revoked);
 
   return (
-    <section className="grid gap-6">
+    <section className="grid min-w-0 gap-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-3xl font-semibold tracking-normal">API keys</h1>
@@ -263,23 +263,25 @@ export function ProjectApiKeys({ projectId }: { projectId: string }) {
               No API keys generated yet. Create a labeled key to start using Velo APIs.
             </div>
           ) : (
-            <Table>
+            <Table className="table-fixed sm:table-auto">
               <TableHeader>
                 <TableRow>
                   <TableHead>Label</TableHead>
-                  <TableHead>Prefix</TableHead>
+                  <TableHead className="hidden sm:table-cell">Prefix</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Payment Anchor</TableHead>
-                  <TableHead>Created</TableHead>
-                  <TableHead>Usage</TableHead>
+                  <TableHead className="hidden md:table-cell">Payment Anchor</TableHead>
+                  <TableHead className="hidden lg:table-cell">Created</TableHead>
+                  <TableHead className="hidden md:table-cell">Usage</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {apiKeys.map((key) => (
                   <TableRow key={key._id}>
-                    <TableCell className="font-medium text-sm">{key.label}</TableCell>
-                    <TableCell className="font-mono text-xs text-muted-foreground">
+                    <TableCell className="max-w-40 whitespace-normal break-words text-sm font-medium">
+                      {key.label}
+                    </TableCell>
+                    <TableCell className="hidden font-mono text-xs text-muted-foreground sm:table-cell">
                       {key.prefix}
                     </TableCell>
                     <TableCell>
@@ -287,15 +289,15 @@ export function ProjectApiKeys({ projectId }: { projectId: string }) {
                         {key.revoked ? "revoked" : "active"}
                       </Badge>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="hidden md:table-cell">
                       <Badge variant={key.paymentAnchor === "pdax" ? "warning" : "info"}>
                         {key.paymentAnchor === "pdax" ? "PDAX" : "In-house"}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
+                    <TableCell className="hidden text-xs text-muted-foreground lg:table-cell">
                       {formatTimestamp(key.createdAt)}
                     </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
+                    <TableCell className="hidden text-xs text-muted-foreground md:table-cell">
                       <div>{key.requestCount} requests</div>
                       {key.lastUsedAt ? (
                         <div className="mt-0.5 text-[10px] text-muted-foreground/75">
@@ -307,12 +309,13 @@ export function ProjectApiKeys({ projectId }: { projectId: string }) {
                       {!key.revoked ? (
                         <Button
                           variant="destructive"
-                          size="xs"
+                          size="sm"
+                          aria-label={`Revoke API key ${key.label}`}
                           onClick={() => void handleRevokeKey(key._id)}
                           disabled={isRevokingKey}
                         >
                           <Trash2Icon className="size-3" />
-                          Revoke
+                          <span className="hidden sm:inline">Revoke</span>
                         </Button>
                       ) : null}
                     </TableCell>

@@ -14,7 +14,10 @@ function Tabs({
       data-slot="tabs"
       data-orientation={orientation}
       orientation={orientation}
-      className={cn("group/tabs flex gap-2 data-[orientation=horizontal]:flex-col", className)}
+      className={cn(
+        "group/tabs flex min-w-0 max-w-full gap-2 data-[orientation=horizontal]:flex-col",
+        className,
+      )}
       {...props}
     />
   );
@@ -70,7 +73,7 @@ function TabsContent({ className, ...props }: React.ComponentProps<typeof TabsPr
   return (
     <TabsPrimitive.Content
       data-slot="tabs-content"
-      className={cn("flex-1 outline-none", className)}
+      className={cn("min-w-0 max-w-full flex-1 outline-none", className)}
       {...props}
     />
   );

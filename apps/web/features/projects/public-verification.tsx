@@ -75,12 +75,14 @@ export function PublicVerification({ slug }: PublicVerificationProps) {
   }
 
   return (
-    <div className="mx-auto grid w-full max-w-5xl gap-6">
+    <div className="mx-auto grid w-full min-w-0 max-w-5xl gap-6">
       <header className="flex flex-col gap-3 border-b border-zinc-200 pb-5 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <ShieldCheckIcon className="size-7 text-emerald-600" />
-            <h1 className="text-3xl font-semibold tracking-normal">{proof.name}</h1>
+            <h1 className="min-w-0 break-words text-3xl font-semibold tracking-normal">
+              {proof.name}
+            </h1>
             <Badge variant={proof.active ? "success" : "warning"}>
               {proof.active ? "Active" : "Needs sync"}
             </Badge>
@@ -161,7 +163,7 @@ export function PublicVerification({ slug }: PublicVerificationProps) {
               ) : (
                 proof.officialContractIds.map((contractId) => (
                   <TableRow key={contractId}>
-                    <TableCell className="font-mono text-xs break-all">
+                    <TableCell className="whitespace-normal break-all font-mono text-xs">
                       <div className="flex items-start gap-1">
                         <span className="min-w-0 flex-1">{contractId}</span>
                         <CopyButton value={contractId} label="contract ID" />
