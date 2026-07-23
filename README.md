@@ -30,6 +30,95 @@ Velo connects the workflows teams use to build, verify, observe, pay, and settle
 
 ---
 
+## 📱 Velo on Mobile
+
+A compact tour of Velo's Testnet alpha—from project setup and registry proof to observability,
+developer integration, and settlement. Select any screen to view it at full resolution.
+
+<details open>
+<summary><strong>Start and configure</strong></summary>
+<br>
+<table>
+  <tr>
+    <td align="center" width="33%">
+      <a href="screenshots/mobile_landing.png"><img src="screenshots/mobile_landing.png" alt="Velo mobile landing page with Testnet launch calls to action" width="250" /></a>
+      <br><strong>Landing page</strong>
+    </td>
+    <td align="center" width="33%">
+      <a href="screenshots/mobile_dashboard.png"><img src="screenshots/mobile_dashboard.png" alt="Velo mobile project dashboard showing contracts, events, webhook health, and payments" width="250" /></a>
+      <br><strong>Project dashboard</strong>
+    </td>
+    <td align="center" width="33%">
+      <a href="screenshots/mobile_apikeys.png"><img src="screenshots/mobile_apikeys.png" alt="Velo mobile API key management and available endpoint list" width="250" /></a>
+      <br><strong>API keys</strong>
+    </td>
+  </tr>
+</table>
+</details>
+
+<details>
+<summary><strong>Verify and connect</strong></summary>
+<br>
+<table>
+  <tr>
+    <td align="center" width="33%">
+      <a href="screenshots/mobile_public_proof.png"><img src="screenshots/mobile_public_proof.png" alt="Velo mobile public proof page showing registry-backed project details" width="250" /></a>
+      <br><strong>Public project proof</strong>
+    </td>
+    <td align="center" width="33%">
+      <a href="screenshots/mobile_contracts.png"><img src="screenshots/mobile_contracts.png" alt="Velo mobile official contracts page listing active Soroban contracts" width="250" /></a>
+      <br><strong>Official contracts</strong>
+    </td>
+    <td align="center" width="33%">
+      <a href="screenshots/mobile_wallets.png"><img src="screenshots/mobile_wallets.png" alt="Velo mobile wallet configuration with supported Stellar wallets selected" width="250" /></a>
+      <br><strong>Wallet configuration</strong>
+    </td>
+  </tr>
+</table>
+</details>
+
+<details>
+<summary><strong>Observe and deliver</strong></summary>
+<br>
+<table>
+  <tr>
+    <td align="center" width="33%">
+      <a href="screenshots/mobile_events.png"><img src="screenshots/mobile_events.png" alt="Velo mobile events page with contract filters and recent activity" width="250" /></a>
+      <br><strong>Contract events</strong>
+    </td>
+    <td align="center" width="33%">
+      <a href="screenshots/mobile_debug.png"><img src="screenshots/mobile_debug.png" alt="Velo mobile transaction debugger awaiting a Stellar Testnet transaction hash" width="250" /></a>
+      <br><strong>Transaction debugger</strong>
+    </td>
+    <td align="center" width="33%">
+      <a href="screenshots/mobile_webhooks.png"><img src="screenshots/mobile_webhooks.png" alt="Velo mobile webhook settings with endpoint, signing secret, and event controls" width="250" /></a>
+      <br><strong>Webhook delivery</strong>
+    </td>
+  </tr>
+</table>
+</details>
+
+<details>
+<summary><strong>Integrate and settle</strong></summary>
+<br>
+<table>
+  <tr>
+    <td align="center" width="33%">
+      <a href="screenshots/mobile_integration.png"><img src="screenshots/mobile_integration.png" alt="Velo mobile developer integration page with server-side checkout code" width="250" /></a>
+      <br><strong>Developer integration</strong>
+    </td>
+    <td align="center" width="33%">
+      <a href="screenshots/mobile_docs.png"><img src="screenshots/mobile_docs.png" alt="Velo mobile SDK documentation introduction with Node.js example" width="250" /></a>
+      <br><strong>SDK documentation</strong>
+    </td>
+    <td align="center" width="33%">
+      <a href="screenshots/mobile_settlement.png"><img src="screenshots/mobile_settlement.png" alt="Velo mobile PDAX sandbox settlement page with balances and quote form" width="250" /></a>
+      <br><strong>PDAX settlement</strong>
+    </td>
+  </tr>
+</table>
+</details>
+
 ## 🧩 Why Velo
 
 Building a Stellar application is only the beginning. Teams still need to prove which contracts are official, inspect live behavior, accept payments, verify settlement against the ledger, notify merchant systems, and coordinate regional payout workflows.
