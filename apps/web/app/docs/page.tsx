@@ -324,7 +324,7 @@ export function ConnectedAccount() {
     const isCopied = copiedText === id;
     return (
       <div className="group relative my-4 overflow-hidden rounded-lg border border-border bg-muted/70 backdrop-blur-sm">
-        <div className="absolute right-2 top-2 z-10 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+        <div className="absolute top-2 right-2 z-10 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100">
           <button
             onClick={() => handleCopy(code, id)}
             aria-label="Copy code to clipboard"
@@ -350,10 +350,32 @@ export function ConnectedAccount() {
 
   return (
     <AppShell>
-      <div className="flex flex-col gap-8 rounded-xl border border-border bg-card p-6 font-sans text-card-foreground selection:bg-primary selection:text-primary-foreground md:flex-row md:p-8">
+      <div className="flex min-w-0 flex-col gap-6 rounded-xl border border-border bg-card p-4 font-sans text-card-foreground selection:bg-primary selection:text-primary-foreground md:flex-row md:gap-8 md:p-8">
         {/* Left Sidebar */}
-        <aside className="w-full shrink-0 overflow-y-auto border-b border-border pb-6 md:sticky md:top-24 md:h-[calc(100vh-220px)] md:w-64 md:border-r md:border-b-0 md:pr-6 md:pb-0">
-          <nav className="space-y-6" aria-label="Documentation sections">
+        <aside className="w-full min-w-0 shrink-0 border-b border-border pb-5 md:sticky md:top-24 md:h-[calc(100dvh-220px)] md:w-64 md:overflow-y-auto md:border-r md:border-b-0 md:pr-6 md:pb-0">
+          <label
+            htmlFor="mobile-doc-section"
+            className="mb-2 block font-mono text-xs font-semibold tracking-wider text-muted-foreground uppercase md:hidden"
+          >
+            Documentation section
+          </label>
+          <select
+            id="mobile-doc-section"
+            value={activeSection}
+            onChange={(event) => selectSection(event.target.value as SectionId)}
+            className="flex min-h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:hidden"
+          >
+            {categories.map((category) => (
+              <optgroup key={category} label={category}>
+                {SECTIONS.filter((section) => section.category === category).map((section) => (
+                  <option key={section.id} value={section.id}>
+                    {section.title}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+          <nav className="hidden space-y-6 md:block" aria-label="Documentation sections">
             {categories.map((cat) => (
               <div key={cat} className="space-y-2">
                 <h3 className="font-mono text-xs font-semibold tracking-wider text-muted-foreground uppercase">
@@ -391,8 +413,8 @@ export function ConnectedAccount() {
         </aside>
 
         {/* Content Panel */}
-        <div className="flex-1 min-w-0 pb-16">
-          <div className="mb-2 flex items-center gap-1.5 font-mono text-xs text-muted-foreground">
+        <div className="min-w-0 flex-1 pb-16">
+          <div className="mb-2 flex flex-wrap items-center gap-1.5 font-mono text-xs text-muted-foreground">
             <span>Docs</span>
             <ChevronRightIcon size={10} />
             <span>{currentSection.category}</span>

@@ -294,7 +294,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   if (showSidebar) {
     return (
-      <SidebarProvider>
+      <SidebarProvider className="min-h-dvh overflow-x-clip">
         <SelectedProjectContext
           value={{
             selectedProjectId: activeProjectId,
@@ -318,13 +318,13 @@ export function AppShell({ children }: { children: ReactNode }) {
             onConnect={wallet.connect}
             isConnecting={wallet.status === "connecting"}
           />
-          <SidebarInset className="flex flex-col min-h-svh bg-background text-foreground">
+          <SidebarInset className="flex min-h-dvh min-w-0 max-w-full flex-col overflow-x-clip bg-background text-foreground">
             {/* Top Bar for Protected Pages */}
-            <header className="flex h-16 shrink-0 items-center gap-4 border-b border-border px-4 sm:px-6 bg-card">
-              <SidebarTrigger className="-ml-1" />
+            <header className="flex min-h-16 shrink-0 items-center gap-2 border-b border-border bg-card px-4 py-2 pt-[max(0.5rem,env(safe-area-inset-top))] sm:gap-4 sm:px-6">
+              <SidebarTrigger className="-ml-1 size-9 sm:size-7" />
               <Separator orientation="vertical" className="mr-2 h-4" />
 
-              <div className="flex flex-wrap items-center gap-2 ml-auto">
+              <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-2">
                 <Badge variant="info">{stellarConfig.networkLabel}</Badge>
                 <Badge
                   variant={
@@ -334,7 +334,10 @@ export function AppShell({ children }: { children: ReactNode }) {
                 >
                   {wallet.walletName ?? "No wallet"}
                 </Badge>
-                <Badge variant={wallet.address ? "success" : "warning"}>
+                <Badge
+                  variant={wallet.address ? "success" : "warning"}
+                  className="max-w-36 truncate sm:max-w-none"
+                >
                   {wallet.address
                     ? shortenAddress(wallet.address)
                     : walletStatusCopy[wallet.status]}
@@ -342,7 +345,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               </div>
             </header>
 
-            <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto">
+            <main className="min-w-0 max-w-full flex-1 overflow-x-clip overflow-y-auto p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-6 lg:p-8">
               {showWalletNotice ? (
                 <Alert className="mb-6">
                   <PlugZapIcon />
@@ -378,8 +381,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   }
 
   return (
-    <main className="min-h-svh bg-background text-foreground flex flex-col justify-center">
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-5 sm:px-6 lg:px-8">
+    <main className="flex min-h-dvh max-w-full flex-col justify-center overflow-x-clip bg-background text-foreground">
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 pt-[max(1.25rem,env(safe-area-inset-top))] pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:px-6 lg:px-8">
         {showWalletNotice ? (
           <Alert>
             <PlugZapIcon />

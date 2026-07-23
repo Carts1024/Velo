@@ -243,7 +243,7 @@ export function ProjectEvents({ projectId }: ProjectEventsProps) {
   }
 
   return (
-    <section className="grid gap-6">
+    <section className="grid min-w-0 gap-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <div className="flex flex-wrap items-center gap-2">
@@ -365,14 +365,14 @@ export function ProjectEvents({ projectId }: ProjectEventsProps) {
           </span>
         </div>
         <div className="overflow-x-auto w-full">
-          <Table>
+          <Table className="table-fixed sm:table-auto">
             <TableHeader>
               <TableRow>
                 <TableHead>Event/topic</TableHead>
-                <TableHead>Contract</TableHead>
-                <TableHead>Transaction</TableHead>
-                <TableHead>Ledger</TableHead>
-                <TableHead>Observed</TableHead>
+                <TableHead className="hidden sm:table-cell">Contract</TableHead>
+                <TableHead className="hidden lg:table-cell">Transaction</TableHead>
+                <TableHead className="hidden md:table-cell">Ledger</TableHead>
+                <TableHead className="hidden md:table-cell">Observed</TableHead>
                 <TableHead className="text-right">Data</TableHead>
               </TableRow>
             </TableHeader>
@@ -388,7 +388,7 @@ export function ProjectEvents({ projectId }: ProjectEventsProps) {
               ) : (
                 filteredEvents.map((event) => (
                   <TableRow key={event._id}>
-                    <TableCell>
+                    <TableCell className="max-w-44 whitespace-normal break-words">
                       <div className="grid gap-1">
                         <span className="font-medium">{displayTopic(event.topic)}</span>
                         <Badge variant="gray" className="w-fit">
@@ -396,13 +396,13 @@ export function ProjectEvents({ projectId }: ProjectEventsProps) {
                         </Badge>
                       </div>
                     </TableCell>
-                    <TableCell className="font-mono text-xs">
+                    <TableCell className="hidden font-mono text-xs sm:table-cell">
                       <div className="flex items-center gap-1">
                         <span title={event.contractId}>{shortValue(event.contractId)}</span>
                         <CopyButton value={event.contractId} label="contract ID" />
                       </div>
                     </TableCell>
-                    <TableCell className="font-mono text-xs">
+                    <TableCell className="hidden font-mono text-xs lg:table-cell">
                       <div className="flex items-center gap-1">
                         <span title={event.transactionHash}>
                           {shortValue(event.transactionHash)}
@@ -410,8 +410,10 @@ export function ProjectEvents({ projectId }: ProjectEventsProps) {
                         <CopyButton value={event.transactionHash} label="transaction hash" />
                       </div>
                     </TableCell>
-                    <TableCell className="font-mono text-xs">{event.ledger}</TableCell>
-                    <TableCell className="text-sm text-zinc-600">
+                    <TableCell className="hidden font-mono text-xs md:table-cell">
+                      {event.ledger}
+                    </TableCell>
+                    <TableCell className="hidden text-sm text-zinc-600 md:table-cell">
                       {formatTimestamp(event.timestamp ?? event.observedAt)}
                     </TableCell>
                     <TableCell className="text-right">

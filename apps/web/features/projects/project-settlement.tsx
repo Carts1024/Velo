@@ -673,11 +673,11 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
   const isConnected = connection && connection.status === "connected";
 
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 space-y-6">
       {/* Title Header */}
       <div className="flex flex-col gap-1.5">
-        <div className="flex items-center gap-3">
-          <h1 className="text-3xl font-bold tracking-tight">Settlement Layer</h1>
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="break-words text-3xl font-bold tracking-tight">Settlement Layer</h1>
           <Badge variant={isConnected ? "success" : "gray"} className="text-sm font-medium">
             {isConnected ? "Connected to PDAX UAT" : "Disconnected"}
           </Badge>
@@ -703,11 +703,11 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
         <button
           type="button"
           onClick={() => setShowDemoGuide(!showDemoGuide)}
-          className="w-full flex items-center justify-between p-5 text-left font-medium hover:bg-zinc-50/50 dark:hover:bg-zinc-900/50 transition-colors rounded-t-xl"
+          className="flex w-full items-start justify-between gap-3 p-4 text-left font-medium transition-colors hover:bg-zinc-50/50 sm:p-5 dark:hover:bg-zinc-900/50"
         >
-          <div className="flex items-center gap-2.5">
-            <BookOpenIcon className="size-5 text-primary" />
-            <div>
+          <div className="flex min-w-0 items-start gap-2.5">
+            <BookOpenIcon className="mt-0.5 size-5 shrink-0 text-primary" />
+            <div className="min-w-0">
               <span className="text-base font-semibold block text-zinc-900 dark:text-zinc-100">
                 Stellar Hackathon Demo Guide & Fallback Manual
               </span>
@@ -718,9 +718,9 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
             </div>
           </div>
           {showDemoGuide ? (
-            <ChevronUpIcon className="size-5 text-zinc-400" />
+            <ChevronUpIcon className="size-5 shrink-0 text-zinc-400" />
           ) : (
-            <ChevronDownIcon className="size-5 text-zinc-400" />
+            <ChevronDownIcon className="size-5 shrink-0 text-zinc-400" />
           )}
         </button>
 
@@ -874,19 +874,19 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
             <CardDescription>Integrate regional settlement brokers.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex items-center justify-between border-b pb-2">
+            <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 border-b pb-2">
               <span className="text-sm text-muted-foreground">Active Broker</span>
               <span className="font-medium">PDAX</span>
             </div>
             {isConnected ? (
               <>
-                <div className="flex items-center justify-between border-b pb-2">
+                <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 border-b pb-2">
                   <span className="text-sm text-muted-foreground">Sandbox User</span>
-                  <span className="text-xs font-mono">
+                  <span className="max-w-40 break-all text-right font-mono text-xs">
                     {connection.username || "UAT Institution"}
                   </span>
                 </div>
-                <div className="flex items-center justify-between">
+                <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
                   <span className="text-sm text-muted-foreground">Last Synced</span>
                   <span className="text-xs text-muted-foreground">
                     {connection.updatedAt
@@ -929,8 +929,8 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
 
         {/* Balances Grid Card */}
         <Card className="md:col-span-2 shadow-sm border bg-card/60 backdrop-blur-sm">
-          <CardHeader className="pb-3 flex flex-row items-center justify-between">
-            <div>
+          <CardHeader className="flex flex-row items-start justify-between gap-3 pb-3">
+            <div className="min-w-0">
               <CardTitle className="text-lg font-medium flex items-center gap-2">
                 <CoinsIcon className="size-4 text-primary" />
                 PDAX Sandbox Balances
@@ -945,7 +945,7 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
                 size="icon"
                 onClick={() => refreshBalances(true)}
                 disabled={balancesLoading}
-                className="size-8"
+                className="size-10 sm:size-8"
               >
                 <RefreshCwIcon className={`size-3.5 ${balancesLoading ? "animate-spin" : ""}`} />
               </Button>
@@ -971,7 +971,7 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
               </Alert>
             ) : balances && balances.length > 0 ? (
               <div className="space-y-3">
-                <div className="flex items-center gap-2 relative max-w-[240px]">
+                <div className="relative flex w-full items-center gap-2 sm:max-w-[240px]">
                   <SearchIcon className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
                   <Input
                     placeholder="Search assets by ticker..."
@@ -982,7 +982,7 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
                 </div>
 
                 <div className="rounded-lg border border-zinc-200 dark:border-zinc-800 [&_[data-slot=table-container]]:max-h-[280px] [&_[data-slot=table-container]]:overflow-y-auto">
-                  <Table>
+                  <Table className="table-fixed sm:table-auto">
                     <TableHeader className="sticky top-0 z-10">
                       <TableRow className="hover:bg-transparent">
                         <TableHead
@@ -996,11 +996,11 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
                             />
                           </div>
                         </TableHead>
-                        <TableHead className="sticky top-0 bg-card z-10 font-semibold text-zinc-900 dark:text-zinc-100">
+                        <TableHead className="sticky top-0 z-10 hidden bg-card font-semibold text-zinc-900 md:table-cell dark:text-zinc-100">
                           Type
                         </TableHead>
                         <TableHead
-                          className="sticky top-0 bg-card z-10 font-semibold text-zinc-900 dark:text-zinc-100 cursor-pointer select-none group py-2 text-right"
+                          className="sticky top-0 z-10 cursor-pointer bg-card py-2 text-right font-semibold text-zinc-900 select-none group dark:text-zinc-100"
                           onClick={() => handleSort("available")}
                         >
                           <div className="flex items-center justify-end gap-1">
@@ -1011,7 +1011,7 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
                           </div>
                         </TableHead>
                         <TableHead
-                          className="sticky top-0 bg-card z-10 font-semibold text-zinc-900 dark:text-zinc-100 cursor-pointer select-none group py-2 text-right"
+                          className="sticky top-0 z-10 hidden cursor-pointer bg-card py-2 text-right font-semibold text-zinc-900 select-none group sm:table-cell dark:text-zinc-100"
                           onClick={() => handleSort("hold")}
                         >
                           <div className="flex items-center justify-end gap-1">
@@ -1053,7 +1053,7 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
                             <TableCell className="font-bold text-sm tracking-wide text-zinc-900 dark:text-zinc-100">
                               {item.currency}
                             </TableCell>
-                            <TableCell>
+                            <TableCell className="hidden md:table-cell">
                               <Badge
                                 variant={item.asset_type === "FIAT" ? "info" : "success"}
                                 className="text-[10px] px-1.5 py-0"
@@ -1067,7 +1067,7 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
                                 maximumFractionDigits: 4,
                               })}
                             </TableCell>
-                            <TableCell className="text-right font-mono text-sm text-muted-foreground">
+                            <TableCell className="hidden text-right font-mono text-sm text-muted-foreground sm:table-cell">
                               {parseFloat(item.hold).toLocaleString(undefined, {
                                 minimumFractionDigits: 2,
                                 maximumFractionDigits: 4,
@@ -1285,7 +1285,7 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
                 <CardDescription>Payout PHP to supported sandbox test banks.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4 pt-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="withdrawBank">Test Destination Bank</Label>
                     <Select value={withdrawBank} onValueChange={handleBankChange}>
@@ -1310,7 +1310,7 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="withdrawFirstName">Beneficiary First Name</Label>
                     <Input
@@ -1392,9 +1392,9 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
       {/* Webhook Simulator (Sandbox testing helper widget) */}
       {isConnected && (
         <Card className="shadow-sm border bg-card/60 backdrop-blur-sm border-dashed">
-          <CardHeader className="pb-3 flex flex-row items-center gap-3">
-            <SendIcon className="size-5 text-amber-500 animate-pulse" />
-            <div>
+          <CardHeader className="flex flex-row items-start gap-3 pb-3">
+            <SendIcon className="mt-0.5 size-5 shrink-0 animate-pulse text-amber-500" />
+            <div className="min-w-0">
               <CardTitle className="text-lg font-medium">
                 PDAX Webhook Simulator (Sandbox Testing Helper)
               </CardTitle>
@@ -1469,8 +1469,8 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
         <div className="grid gap-6 md:grid-cols-2">
           {/* Action History */}
           <Card className="shadow-sm border bg-card/60 backdrop-blur-sm">
-            <CardHeader className="pb-3 border-b flex flex-row items-center justify-between">
-              <div>
+            <CardHeader className="flex flex-col items-stretch justify-between gap-3 border-b pb-3 sm:flex-row sm:items-center">
+              <div className="min-w-0">
                 <CardTitle className="text-lg font-medium flex items-center gap-2">
                   <HistoryIcon className="size-4 text-primary" />
                   Settlement History
@@ -1513,8 +1513,12 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
                   <Table className="min-w-full">
                     <TableHeader className="bg-muted/30">
                       <TableRow>
-                        <TableHead className="text-xs py-2">Date/Time</TableHead>
-                        <TableHead className="text-xs py-2">Idempotency ID</TableHead>
+                        <TableHead className="hidden py-2 text-xs sm:table-cell">
+                          Date/Time
+                        </TableHead>
+                        <TableHead className="hidden py-2 text-xs lg:table-cell">
+                          Idempotency ID
+                        </TableHead>
                         <TableHead className="text-xs py-2">Status</TableHead>
                         <TableHead className="text-xs py-2">Details</TableHead>
                       </TableRow>
@@ -1522,16 +1526,16 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
                     <TableBody>
                       {transactions.map((tx) => (
                         <TableRow key={tx._id} className="hover:bg-muted/10">
-                          <TableCell className="text-xs py-2">
+                          <TableCell className="hidden py-2 text-xs sm:table-cell">
                             {new Date(tx.createdAt).toLocaleTimeString()}
                           </TableCell>
                           <TableCell
-                            className="text-xs py-2 font-mono max-w-[120px] truncate"
+                            className="hidden max-w-[120px] truncate py-2 font-mono text-xs lg:table-cell"
                             title={tx.idempotencyId}
                           >
                             {tx.idempotencyId}
                           </TableCell>
-                          <TableCell className="text-xs py-2">
+                          <TableCell className="py-2 text-xs">
                             <div className="flex items-center gap-1.5">
                               <Badge
                                 variant={
@@ -1587,7 +1591,7 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
                               )}
                             </div>
                           </TableCell>
-                          <TableCell className="text-xs py-2">
+                          <TableCell className="max-w-52 whitespace-normal break-words py-2 text-xs">
                             {tx.tradeDetails && (
                               <span className="text-[10px]">
                                 Quote Executed: Sell {tx.tradeDetails.quantity} USDC @{" "}
@@ -1635,19 +1639,19 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
                   <Table className="min-w-full">
                     <TableHeader className="bg-muted/30">
                       <TableRow>
-                        <TableHead className="text-xs py-2">Time</TableHead>
+                        <TableHead className="hidden py-2 text-xs sm:table-cell">Time</TableHead>
                         <TableHead className="text-xs py-2">Event</TableHead>
                         <TableHead className="text-xs py-2">HTTP Status</TableHead>
-                        <TableHead className="text-xs py-2">Latency</TableHead>
+                        <TableHead className="hidden py-2 text-xs md:table-cell">Latency</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {webhookDeliveries.map((delivery) => (
                         <TableRow key={delivery._id} className="hover:bg-muted/10">
-                          <TableCell className="text-xs py-2">
+                          <TableCell className="hidden py-2 text-xs sm:table-cell">
                             {new Date(delivery.createdAt).toLocaleTimeString()}
                           </TableCell>
-                          <TableCell className="text-xs py-2 font-mono text-[10px]">
+                          <TableCell className="max-w-36 whitespace-normal break-words py-2 font-mono text-[10px]">
                             {delivery.eventType}
                           </TableCell>
                           <TableCell className="text-xs py-2">
@@ -1660,7 +1664,7 @@ export function ProjectSettlement({ projectId }: ProjectSettlementProps) {
                                 : delivery.status.toUpperCase()}
                             </Badge>
                           </TableCell>
-                          <TableCell className="text-xs py-2 font-mono text-[10px]">
+                          <TableCell className="hidden py-2 font-mono text-[10px] md:table-cell">
                             {delivery.responseTimeMs ? `${delivery.responseTimeMs}ms` : "n/a"}
                           </TableCell>
                         </TableRow>

@@ -13,6 +13,7 @@ const nativeSelect = fs.readFileSync(
   "../../packages/ui/src/components/ui/native-select.tsx",
   "utf8",
 );
+const tabs = fs.readFileSync("../../packages/ui/src/components/ui/tabs.tsx", "utf8");
 
 test("Wallets panel exposes configuration and publication lifecycle", () => {
   assert.match(panel, /Guided Testnet preset/);
@@ -41,6 +42,15 @@ test("Wallets dropdowns remain legible in light and dark modes", () => {
   assert.match(nativeSelect, /bg-background/);
   assert.match(nativeSelect, /dark:\[color-scheme:dark\]/);
   assert.match(nativeSelect, /var\(--popover-foreground\)/);
+});
+
+test("Wallets integration instructions contain long snippets on mobile", () => {
+  assert.match(tabs, /group\/tabs flex min-w-0 max-w-full/);
+  assert.match(tabs, /min-w-0 max-w-full flex-1 outline-none/);
+  assert.match(panel, /<Tabs defaultValue="html" className="min-w-0 max-w-full">/);
+  assert.match(panel, /<TabsContent value=\{value\} className="min-w-0 max-w-full">/);
+  assert.match(panel, /<pre className="w-full min-w-0 max-w-full overflow-x-auto/);
+  assert.match(panel, /CSP: <code className="break-all">/);
 });
 
 test("Wallets route is project-scoped and navigable", () => {

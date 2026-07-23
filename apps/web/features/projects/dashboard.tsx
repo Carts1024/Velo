@@ -477,7 +477,7 @@ export function ProjectDashboard() {
   }));
 
   return (
-    <section className="grid gap-6">
+    <section className="grid min-w-0 gap-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <div className="flex flex-wrap items-center gap-2">
@@ -607,7 +607,7 @@ export function ProjectDashboard() {
             <ActivityIcon className="size-5 text-zinc-700" />
             <h2 className="text-lg font-semibold tracking-normal">Payment activity</h2>
           </div>
-          <div className="mt-5 grid grid-cols-2 gap-3 text-sm">
+          <div className="mt-5 grid grid-cols-1 gap-3 text-sm min-[360px]:grid-cols-2">
             <div className="rounded-md bg-zinc-50 p-3">
               <p className="text-zinc-600">Paid</p>
               <p className="mt-1 text-2xl font-semibold">{paidPayments}</p>
@@ -661,9 +661,9 @@ export function ProjectDashboard() {
                 {webhookSummary?.enabled ? "Enabled" : "Disabled"}
               </Badge>
             </div>
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center justify-between gap-3">
               <span className="text-zinc-600">Destination</span>
-              <span className="max-w-64 truncate text-right font-mono text-xs text-zinc-950">
+              <span className="min-w-0 max-w-64 truncate text-right font-mono text-xs text-zinc-950">
                 {webhookSummary?.destinationHost ?? "No host"}
               </span>
             </div>

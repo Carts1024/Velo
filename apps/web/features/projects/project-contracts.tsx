@@ -295,7 +295,7 @@ export function ProjectContracts({ projectId }: ProjectContractsProps) {
   }
 
   return (
-    <section className="grid gap-6">
+    <section className="grid min-w-0 gap-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-3xl font-semibold tracking-normal">Official contracts</h1>
@@ -367,7 +367,7 @@ export function ProjectContracts({ projectId }: ProjectContractsProps) {
 
       <div className="rounded-lg border border-zinc-200 bg-white">
         <div className="overflow-x-auto w-full">
-          <Table>
+          <Table className="table-fixed sm:table-auto">
             <TableHeader>
               <TableRow>
                 <TableHead>Contract ID</TableHead>
@@ -387,7 +387,7 @@ export function ProjectContracts({ projectId }: ProjectContractsProps) {
               ) : (
                 currentContracts.map((link) => (
                   <TableRow key={link._id}>
-                    <TableCell className="max-w-[18rem] break-all font-mono text-xs">
+                    <TableCell className="max-w-40 whitespace-normal break-all font-mono text-xs sm:max-w-[18rem]">
                       <div className="flex items-start gap-1">
                         <span className="min-w-0 flex-1">{link.contractId}</span>
                         <CopyButton value={link.contractId} label="contract ID" />
@@ -419,10 +419,11 @@ export function ProjectContracts({ projectId }: ProjectContractsProps) {
                           <Button
                             variant="ghost"
                             size="sm"
+                            aria-label={`Remove contract ${link.contractId}`}
                             disabled={!canManage || link.status !== "active" || busyId === link._id}
                           >
                             <Trash2Icon />
-                            Remove
+                            <span className="hidden sm:inline">Remove</span>
                           </Button>
                         </AlertDialogTrigger>
                         <AlertDialogContent>
