@@ -28,6 +28,10 @@ test("Playground renders responsive load, retry, inspection, and accessibility s
   assert.match(client, /aria-live="polite"/);
   assert.match(client, /sm:grid-cols-2/);
   assert.match(client, /lg:grid-cols/);
+  assert.match(client, /ArgumentEditor/);
+  assert.match(client, /useState<Record<string, FunctionArgumentDraft>>/);
+  assert.match(client, /argumentDrafts\[selected\.name\]/);
+  assert.match(client, /setArgumentDrafts\(\{\}\)/);
 });
 
 test("Playground distinguishes Mainnet, wallet, pending, success, and failure states", () => {
@@ -37,4 +41,25 @@ test("Playground distinguishes Mainnet, wallet, pending, success, and failure st
   assert.match(client, /Transaction succeeded/);
   assert.match(client, /Contract transaction failed/);
   assert.match(client, /assertWalletEnvelopeMatchesReview/);
+});
+
+const argumentEditor = readFileSync("features/playground/argument-editor.tsx", "utf8");
+
+test("argument editor exposes synchronized Form/JSON, accessible actions, and guarded preview", () => {
+  assert.match(argumentEditor, /Argument builder/);
+  assert.match(argumentEditor, /\bForm\b/);
+  assert.match(argumentEditor, /\bJSON\b/);
+  assert.match(argumentEditor, /Reset .* arguments to examples/);
+  assert.match(argumentEditor, /Copy value/);
+  assert.match(argumentEditor, /aria-live="polite"/);
+  assert.match(argumentEditor, /role="alert"/);
+  assert.match(argumentEditor, /readOnly/);
+  assert.match(argumentEditor, /Encoded ScVal preview/);
+  assert.match(argumentEditor, /Move .* up/);
+  assert.match(argumentEditor, /Remove/);
+  assert.match(argumentEditor, /Address classification/);
+  assert.match(argumentEditor, /depth > ARGUMENT_LIMITS\.depth/);
+  assert.match(argumentEditor, /disabled=\{values\.length >= ARGUMENT_LIMITS\.collectionEntries\}/);
+  assert.match(argumentEditor, /data-argument-struct-field=\{field\.name\}/);
+  assert.doesNotMatch(argumentEditor, /<label key=\{field\.name\}/);
 });

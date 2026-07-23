@@ -28,11 +28,32 @@ overrides are `STELLAR_TESTNET_RPC_URL` and `STELLAR_MAINNET_RPC_URL`, and must 
 HTTPS. Mainnet remains inspection-only.
 
 Sprint 1 is **IMPLEMENTED — LIVE EVIDENCE PENDING**. The checked-in Testnet fixture
-manifest has no deployed IDs or hashes, and no wallet run is recorded. See the
+manifest records all five deployments and the live smoke passes, but no interactive
+wallet transaction is recorded. See the
 [architecture](../../docs/architecture/sprint-1-playground-contract-spec-foundation.md),
 [API/type reference](../../docs/references/sprint-1-playground-api-and-type-support.md),
 [fixture runbook](../../docs/operations/sprint-1-playground-fixture-runbook.md), and
 [evidence report](../../docs/references/sprint-1-playground-evidence.md).
+
+## Sprint 2 Playground argument builder
+
+Selecting a function now opens a recursive argument builder. Form and JSON modes
+share a parameter-keyed canonical value, preserve large integers as strings, and
+support the Sprint 2 primitive, collection, and custom-type matrix. Invalid JSON or
+invalid field drafts remain editable without replacing the last valid value.
+
+Drafts are retained while switching functions and cleared when another contract is
+loaded. Vector and map controls support accessible add, remove, and reorder actions;
+reset restores type-derived examples, copy writes the last valid canonical JSON, and
+addresses are classified as account, contract, or invalid. The read-only preview is
+shown only when every argument is valid and contains a JSON object of per-parameter
+base64 `ScVal` XDR values.
+
+Sprint 2 is **IMPLEMENTED AND TESTED** with 110 web tests, web typechecking, and a
+production build. It prepares arbitrary function arguments but does not send them
+to the transaction service. The existing Testnet `hello(Symbol)` HTTP, simulation,
+signing, and submission contracts are unchanged; generalized simulation is Sprint 3. See the
+[Sprint 2 dynamic argument reference](../../docs/architecture/sprint-2-playground-dynamic-argument-system.md).
 
 ## Sprint 10 observability
 

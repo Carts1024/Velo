@@ -37,6 +37,52 @@ for the complete public surface, version 1 type matrix, and JSON-safe value rule
 The architecture and trust boundaries are in the
 [Sprint 1 architecture record](../../docs/architecture/sprint-1-playground-contract-spec-foundation.md).
 
+## Sprint 2 dynamic argument API
+
+The package root and `@repo/stellar/contract-arguments` subpath export the canonical
+argument model:
+
+```ts
+import {
+  ARGUMENT_LIMITS,
+  ArgumentValueError,
+  argumentCustomType,
+  argumentErrorEnums,
+  classifyContractAddress,
+  createArgumentExample,
+  createFunctionArgumentExamples,
+  decodeArgumentValue,
+  decodeFunctionArguments,
+  encodeArgumentValue,
+  encodeFunctionArguments,
+  scValPreview,
+  validateArgumentValue,
+  validateFunctionArguments,
+  type ArgumentLimits,
+  type ArgumentSpecContext,
+  type ArgumentValidationIssue,
+  type CanonicalArgumentValue,
+  type ContractAddressClassification,
+  type TaggedBytesValue,
+} from "@repo/stellar";
+```
+
+Function values are objects keyed by parameter name. Integers, timepoints, and
+durations remain decimal strings; bytes use
+`{ "encoding": "base64", "value": "..." }`; maps use ordered `{ key, value }`
+arrays; and custom structs, enums, unions, and named errors resolve from the
+normalized contract document. `value` and `muxedAddress` are inspection-only.
+
+Validation returns exact `{ path, code, message }` issues. Encoding throws
+`ArgumentValueError` for invalid values, including duplicate keys after `ScVal`
+encoding. The fixed limits are depth 8, 100 collection entries, 64 KiB decoded
+bytes, and 256 KiB serialized canonical JSON.
+
+See the
+[Sprint 2 dynamic argument reference](../../docs/architecture/sprint-2-playground-dynamic-argument-system.md)
+for canonical JSON examples, public API behavior, editor synchronization, preview
+format, and the Sprint 3 boundary.
+
 ## Verify
 
 From the repository root:
@@ -44,6 +90,9 @@ From the repository root:
 ```bash
 pnpm --filter @repo/stellar test
 ```
+
+The verified Sprint 2 package suite contains 78 tests. Sprint 2 status:
+**IMPLEMENTED AND TESTED**.
 
 Fixture snapshot qualification also requires building the isolated
 `contracts/playground-fixtures` Cargo workspace; follow the

@@ -6,18 +6,25 @@ Reviewed: 2026-07-23
 ## Truth statement
 
 The Sprint 1 implementation and deterministic test assets exist in the repository.
-Live Testnet evidence is pending. The checked-in
-`contracts/playground-fixtures/deployments/testnet.json` has:
+The checked-in `contracts/playground-fixtures/deployments/testnet.json` records a
+complete five-contract Testnet deployment generated at `2026-07-23T08:25:16Z` from
+source revision `9254a8a1cf7fc4556f7e804395a0d5a84650b752`.
 
-- `status: "undeployed"`;
-- `liveQualification: "pending"`;
-- null source revision and generation time;
-- null contract IDs, Wasm hashes, and deployment ledgers;
-- null recorded tool versions.
+At `2026-07-23T08:41:26Z`, the live smoke loaded all five specifications through the
+Velo API, matched their deployed Wasm hashes, and simulated both `hello` and the
+nested `custom-types` profile without submission.
 
-No interactive browser/wallet run, transaction hash, terminal ledger, or decoded live
-result is recorded. This report therefore makes no claim that the full Testnet path
-has run successfully.
+`liveQualification` remains `pending`. No interactive browser/wallet transaction
+hash, terminal ledger, or decoded live result is recorded, so this report does not
+claim completion of the full Testnet exit gate.
+
+| Fixture              | Contract ID                                                | Wasm hash                                                          | Deployment ledger |
+| -------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------ | ----------------: |
+| `hello`              | `CCTVBDL3OUNZXS2F6KUNPG4RGCKMI3F57SQ7YHFLG6TIK4NKDEDKMAG3` | `0c85c9f875dec390c4168f238869e6eb1ef7e7f0041af7392de037ee22b37c0e` |           3754794 |
+| `numeric`            | `CBYINBKV52V5J7FQGLFQHFPNWKGW3ACXASGEKWCFNCMLEESOKBACZ5NY` | `bcbdd76fa14459f2cddab680fe47ea6062064ead12cf13ff673c4a97a50c809f` |           3754809 |
+| `collections`        | `CBTYOCIVGJ2QGREMT6OXVBSGWGJASPNEXJORM34IPS2PBBRLQLXZNTHY` | `3e3d3578673cacd8bb029202e4ca022a6927e06f3ec136afa87981a68c525162` |           3754823 |
+| `custom-types`       | `CDE5XAK4N5JCGWNPGCXPEWV4VWBAPT2J7RTHLPNUFD6N5PURJCDYVLYK` | `d69929e9ce25bb4f23e3e7d2aa0bceb853018c1c20568aa5cf5cffef5b16bd14` |           3755439 |
+| `auth-events-errors` | `CDT3DBQMKRMWDOOXODNYD6ZP27LEZS5JMN2FMSL5OYXVDJJVI34U2TSQ` | `5f19b0b10cec803d6df7a25bbaebbe1cf56c0c1ebf876f43bd6d81516450491b` |           3755446 |
 
 ## Deterministic implementation evidence
 
@@ -62,17 +69,17 @@ work. The aggregate package result must not be reported as passing.
 
 ## Live evidence checklist
 
-| Evidence                                      | Current state |
-| --------------------------------------------- | ------------- |
-| Five Testnet fixture deployments recorded     | Pending       |
-| Deployed Wasm hashes matched to local builds  | Pending       |
-| All five specs loaded through the Velo API    | Pending       |
-| Hello and nested custom-type live simulations | Pending       |
-| Interactive Testnet wallet connection         | Pending       |
-| Exact reviewed XDR signed                     | Pending       |
-| Server-submitted transaction reached success  | Pending       |
-| Transaction hash and terminal ledger retained | Pending       |
-| Decoded hello result retained                 | Pending       |
+| Evidence                                      | Current state       |
+| --------------------------------------------- | ------------------- |
+| Five Testnet fixture deployments recorded     | Verified 2026-07-23 |
+| Deployed Wasm hashes matched to local builds  | Verified 2026-07-23 |
+| All five specs loaded through the Velo API    | Verified 2026-07-23 |
+| Hello and nested custom-type live simulations | Verified 2026-07-23 |
+| Interactive Testnet wallet connection         | Pending             |
+| Exact reviewed XDR signed                     | Pending             |
+| Server-submitted transaction reached success  | Pending             |
+| Transaction hash and terminal ledger retained | Pending             |
+| Decoded hello result retained                 | Pending             |
 
 ## How to close the evidence gap
 

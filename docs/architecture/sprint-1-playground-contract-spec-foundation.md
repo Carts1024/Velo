@@ -8,13 +8,16 @@ Last reviewed: 2026-07-23
 Sprint 1 implements contract-spec inspection for deployed Soroban contracts on
 Testnet and Mainnet. It also implements one deliberately narrow invocation path:
 the repository-owned Testnet `hello(Symbol) -> Vec<Symbol>` fixture. The checked-in
-deployment manifest does not contain live contract IDs or Wasm hashes, so this
-document does not claim a completed wallet or Testnet run.
+deployment manifest contains the five qualified fixture IDs and Wasm hashes, and the
+live smoke has loaded all five specifications plus simulated the simple and nested
+calls. The interactive wallet transaction is still pending.
 
 The public contracts and type matrix are documented in the
 [API and type reference](../references/sprint-1-playground-api-and-type-support.md).
 Fixture deployment and qualification are documented in the
 [operator runbook](../operations/sprint-1-playground-fixture-runbook.md).
+Sprint 2's successor argument model and editor are documented in the
+[dynamic argument reference](sprint-2-playground-dynamic-argument-system.md).
 
 ## System boundary
 
@@ -169,7 +172,7 @@ Implemented:
   polling, and JSON-safe result path;
 - stable public error envelopes and deterministic integrity tests.
 
-Not implemented by Sprint 1:
+Not implemented by Sprint 1 (some items were added by later sprints):
 
 - general-purpose form generation or invocation for arbitrary functions;
 - Mainnet simulation or submission;
@@ -179,6 +182,10 @@ Not implemented by Sprint 1:
 - persisted transaction recovery after refresh, raw simulation diagnostics,
   generated code, saved requests, events in final results, or project integration;
 - live fixture deployment and interactive wallet qualification.
+
+Sprint 2 subsequently implements general-purpose argument form generation,
+canonical JSON, and typed `ScVal` round trips, but not generalized simulation. See
+the [Sprint 2 dynamic argument reference](sprint-2-playground-dynamic-argument-system.md).
 
 ## Source traceability
 

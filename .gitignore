@@ -56,6 +56,7 @@ docs/*
 docs/architecture/
 !docs/architecture/
 docs/architecture/*
+!docs/architecture/sprint-2-playground-dynamic-argument-system.md
 !docs/architecture/sprint-8-durable-financial-reliability.md
 !docs/architecture/sprint-9-real-lifecycle-benchmark-architecture.md
 !docs/architecture/sprint-10-end-to-end-observability-and-redaction.md

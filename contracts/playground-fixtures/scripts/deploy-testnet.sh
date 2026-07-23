@@ -112,6 +112,14 @@ for fixture in "${fixtures[@]}"; do
       echo "deployment failed [$name:resume-drift]: partial deployment does not match local Wasm" >&2
       exit 1
     fi
+    if ! stellar contract info interface \
+      --contract-id "$existing_contract_id" \
+      --network testnet \
+      --output json \
+      --quiet >/dev/null; then
+      echo "deployment failed [$name:resume-missing]: recorded contract is not available on Testnet" >&2
+      exit 1
+    fi
     echo "resumed $name at observed ledger $existing_ledger"
     continue
   fi

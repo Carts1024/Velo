@@ -1,6 +1,7 @@
 # Velo Playground — Sprint Plan
 
-Status: Sprint 1 **IMPLEMENTED — LIVE EVIDENCE PENDING**; Sprints 2–6 proposed and unimplemented  
+Status: Sprint 1 **IMPLEMENTED — LIVE EVIDENCE PENDING**; Sprint 2
+**IMPLEMENTED AND TESTED**; Sprints 3–6 proposed and unimplemented
 Created: 2026-07-23  
 Source: `docs/plans/Velo_Playground_Feature_Plan.md`  
 Duration: 6 sprints / 12 weeks  
@@ -12,8 +13,8 @@ Owners: Product (Nicole), Engineering, Architecture, Design, QA
 ## Implementation status
 
 Sprint 1 code and deterministic tests are implemented. Live evidence is pending
-because `contracts/playground-fixtures/deployments/testnet.json` contains null
-contract IDs and Wasm hashes and no interactive wallet run has been recorded.
+because deployment and five-spec smoke evidence now exist, but no interactive wallet
+transaction has been recorded.
 
 - [Architecture decision](../architecture/sprint-1-playground-contract-spec-foundation.md)
 - [API and versioned type-support reference](../references/sprint-1-playground-api-and-type-support.md)
@@ -24,6 +25,11 @@ The Sprint 1 implementation deliberately pulls a thin simulation/sign/submit pat
 forward for one repository-owned Testnet hello fixture. It does not implement the
 general argument, simulation-diagnostics, lifecycle-recovery, or result/event scope
 planned for Sprints 2–4.
+
+Sprint 2 implements and tests the dynamic argument model and editor described in the
+[Sprint 2 architecture and reference](../architecture/sprint-2-playground-dynamic-argument-system.md).
+It prepares arbitrary typed arguments but deliberately leaves generalized simulation
+to Sprint 3.
 
 ## 1. Product Outcome
 
@@ -111,14 +117,14 @@ greater effort leaves the committed sprint.
 
 ## 4. Release Milestones
 
-| Milestone           | Target          | Evidence                                                                                         |
-| ------------------- | --------------- | ------------------------------------------------------------------------------------------------ |
-| Technical proof     | End of Sprint 1 | Deterministic fixture/spec proof implemented; deployment and complete Testnet invocation pending |
-| Interaction builder | End of Sprint 2 | Agreed type matrix round-trips through Form, JSON, and `ScVal`                                   |
-| Safe simulation     | End of Sprint 3 | Invocations simulate with fees, auth, footprint, diagnostics, and invalidation                   |
-| End-to-end core     | End of Sprint 4 | Wallet signs, transaction submits, refresh recovery works, result/events decode                  |
-| Public alpha        | End of Sprint 5 | Testnet-first public flow passes accessibility, browser, security, and reliability gates         |
-| Velo-integrated MVP | End of Sprint 6 | Contracts/requests persist; invocations correlate to Logs and event-to-webhook flow              |
+| Milestone           | Target          | Evidence                                                                                              |
+| ------------------- | --------------- | ----------------------------------------------------------------------------------------------------- |
+| Technical proof     | End of Sprint 1 | Deterministic fixture/spec proof, deployment, and five-spec smoke complete; wallet invocation pending |
+| Interaction builder | End of Sprint 2 | Implemented and tested: type matrix round-trips through Form, JSON, and `ScVal`                        |
+| Safe simulation     | End of Sprint 3 | Invocations simulate with fees, auth, footprint, diagnostics, and invalidation                        |
+| End-to-end core     | End of Sprint 4 | Wallet signs, transaction submits, refresh recovery works, result/events decode                       |
+| Public alpha        | End of Sprint 5 | Testnet-first public flow passes accessibility, browser, security, and reliability gates              |
+| Velo-integrated MVP | End of Sprint 6 | Contracts/requests persist; invocations correlate to Logs and event-to-webhook flow                   |
 
 ## 5. Sprint Calendar
 
@@ -238,17 +244,22 @@ Acceptance criteria:
   fixture and snapshot coverage.
 - **Implemented but not live-qualified:** the browser-to-Testnet hello invocation
   path.
-- **Pending:** Testnet deployment metadata and one retained interactive wallet
-  success.
+- **Live-verified:** Testnet deployment metadata, all five Velo API spec loads, and
+  the simple/nested smoke simulations.
+- **Pending:** one retained interactive wallet success.
 - **Resolved:** Sprint 1 architecture, type, freshness, Mainnet, RPC, submission,
   redaction, and wallet boundaries.
 
 ## 7. Sprint 2 — Dynamic Argument System
 
-**Status:** Proposed and unimplemented.
+**Status:** **IMPLEMENTED AND TESTED**
 
 **Goal:** Let a developer construct valid arguments for the supported Soroban type
 matrix without manual `ScVal` conversion.
+
+The canonical model, public exports, validation rules, editor synchronization, XDR
+preview, limits, and Sprint 3 boundary are documented in the
+[Sprint 2 architecture and reference](../architecture/sprint-2-playground-dynamic-argument-system.md).
 
 ### Stories
 
@@ -315,11 +326,18 @@ Acceptance criteria:
 
 ### Sprint 2 exit gate
 
-- Every committed type has a fixture, control, validation rule, encoder, decoder, and
-  automated round-trip test.
-- A developer can prepare simple and complex requests in both Form and JSON modes.
-- No JavaScript precision loss exists in the supported large-integer paths.
-- Unsupported depth, size, and type cases fail safely.
+- **Passed:** every committed interactive type has a control, validation rule,
+  encoder, decoder, and automated round-trip coverage.
+- **Passed:** simple and complex parameter-keyed requests can be prepared in Form
+  and JSON modes.
+- **Passed:** large-integer paths retain decimal strings without JavaScript precision
+  loss.
+- **Passed:** unsupported depth, size, duplicate encoded map key, malformed value,
+  and inspection-only type cases fail safely with exact paths.
+- **Verified:** 78 Stellar tests, 110 web tests, Playground fixture Cargo tests,
+  package/web typechecks, and the production web build pass.
+- **Boundary:** generalized simulation, diagnostics, and arbitrary transaction
+  construction remain Sprint 3 work.
 
 ## 8. Sprint 3 — Simulation and Preflight
 

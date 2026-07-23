@@ -8,9 +8,10 @@ This runbook deploys and qualifies the five Sprint 1 spec fixtures. Only `hello`
 eligible for browser invocation. The other four fixtures provide deterministic
 contract-spec coverage and live inspection/simulation checks.
 
-The checked-in `deployments/testnet.json` is currently `undeployed`, contains null
-contract IDs and Wasm hashes, and has `liveQualification: "pending"`. Do not set
-live status from deterministic tests alone.
+The checked-in `deployments/testnet.json` currently records all five Testnet
+deployments and has `liveQualification: "pending"`. The five-spec smoke passed on
+2026-07-23, but the interactive browser/wallet transaction remains outstanding. Do
+not mark live qualification complete from deployment or smoke evidence alone.
 
 ## Safety rules
 

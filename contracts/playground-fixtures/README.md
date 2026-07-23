@@ -45,8 +45,8 @@ The tool builds all fixtures, deploys them to the Stellar CLI `testnet`
 network, and replaces `deployments/testnet.json` with confirmed contract IDs,
 Wasm hashes, the first ledger observed after each confirmed deployment, tool
 versions, and the source revision. The checked-in manifest remains explicitly
-undeployed until an operator performs this step. Deployment refuses a dirty
-fixture workspace so the recorded revision can identify the exact source.
+pending until an operator performs the interactive wallet gate. Deployment refuses
+a dirty fixture workspace so the recorded revision can identify the exact source.
 
 After each successful fixture, the tool writes ignored partial progress beside
 the manifest. If a later RPC or deployment step fails, rerun the same command

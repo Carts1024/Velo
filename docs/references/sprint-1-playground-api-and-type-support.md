@@ -8,6 +8,10 @@ This reference describes the code implemented for Sprint 1. Angle-bracket values
 such as `<CONTRACT_ID>` are placeholders, not deployed identifiers or captured live
 evidence.
 
+For the successor canonical argument API and browser editor, see the
+[Sprint 2 dynamic argument reference](../architecture/sprint-2-playground-dynamic-argument-system.md).
+The HTTP routes in this Sprint 1 reference remain unchanged by Sprint 2.
+
 ## HTTP conventions
 
 The Playground routes are anonymous and return JSON. Successful and failed responses

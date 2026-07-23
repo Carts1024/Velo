@@ -31,6 +31,8 @@ import type {
   NormalizedContractSpecType,
 } from "@repo/stellar";
 
+import { ArgumentEditor } from "./argument-editor";
+import { createFunctionDraft, type FunctionArgumentDraft } from "./argument-editor-state";
 import { assertWalletEnvelopeMatchesReview } from "./client-integrity";
 
 type Network = "testnet" | "mainnet";
@@ -145,6 +147,7 @@ export function PlaygroundClient({
   const [selectedFunction, setSelectedFunction] = useState("");
   const [search, setSearch] = useState("");
   const [argument, setArgument] = useState("Velo");
+  const [argumentDrafts, setArgumentDrafts] = useState<Record<string, FunctionArgumentDraft>>({});
   const [simulation, setSimulation] = useState<Simulation | null>(null);
   const [transaction, setTransaction] = useState<TransactionResult | null>(null);
   const [busy, setBusy] = useState<"load" | "simulate" | "sign" | null>(null);
@@ -166,6 +169,10 @@ export function PlaygroundClient({
   const selected =
     contract?.functions.find((item) => item.name === selectedFunction) ?? functions[0] ?? null;
   const referencedTypes = selected ? customReferences(selected) : new Set<string>();
+  const selectedDraft =
+    selected && contract
+      ? (argumentDrafts[selected.name] ?? createFunctionDraft(selected, contract))
+      : null;
 
   async function load(event?: FormEvent) {
     event?.preventDefault();
@@ -183,6 +190,7 @@ export function PlaygroundClient({
         }),
       );
       setContract(loaded);
+      setArgumentDrafts({});
       setContractId(loaded.contractId);
       setSelectedFunction(loaded.functions[0]?.name ?? "");
       setAnnouncement(`Loaded ${loaded.functions.length} functions from ${loaded.contractId}.`);
@@ -445,6 +453,19 @@ export function PlaygroundClient({
                         />
                       ))}
                     </SpecRows>
+                  ) : null}
+                  {selectedDraft ? (
+                    <ArgumentEditor
+                      functionSpec={selected}
+                      context={contract}
+                      draft={selectedDraft}
+                      onChange={(draft) =>
+                        setArgumentDrafts((current) => ({
+                          ...current,
+                          [selected.name]: draft,
+                        }))
+                      }
+                    />
                   ) : null}
                 </CardContent>
               </Card>

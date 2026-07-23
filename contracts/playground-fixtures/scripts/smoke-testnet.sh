@@ -77,6 +77,24 @@ for name in "${fixtures[@]}"; do
     -H "Content-Type: application/json" \
     -d "{\"network\":\"testnet\",\"contractId\":\"$contract_id\"}" \
     "$api_base_url/api/v1/playground/contracts/load" >"$response" || {
+    if [[ -s "$response" ]]; then
+      python3 - "$response" <<'PY' >&2
+import json
+import sys
+
+try:
+    error = json.load(open(sys.argv[1], encoding="utf-8")).get("error", {})
+except (OSError, json.JSONDecodeError):
+    error = {}
+if error:
+    print(
+        "api error"
+        f" code={error.get('code', 'UNKNOWN')}"
+        f" stage={error.get('stage', 'unknown')}"
+        f" correlationId={error.get('correlationId', 'unknown')}"
+    )
+PY
+    fi
     echo "smoke failed [$name:load]" >&2
     exit 1
   }
