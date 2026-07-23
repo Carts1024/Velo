@@ -50,6 +50,9 @@ importers:
       '@repo/ui':
         specifier: workspace:*
         version: link:../../packages/ui
+      '@stellar/stellar-sdk':
+        specifier: 14.2.0
+        version: 14.2.0
       '@types/three':
         specifier: ^0.184.1
         version: 0.184.1

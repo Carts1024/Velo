@@ -14,6 +14,26 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load Inter, a custom Google Font.
 
+## Sprint 1 Playground
+
+The anonymous `/playground` route loads and browses normalized Soroban contract
+specifications on Testnet and Mainnet. Invocation is limited to the configured
+Testnet `hello(Symbol) -> Vec<Symbol>` fixture: the server simulates and assembles an
+unsigned transaction, the existing global wallet provider signs the exact XDR, and
+the server verifies, submits, and polls it.
+
+Configure live invocation with server environment values
+`PLAYGROUND_HELLO_CONTRACT_ID` and `PLAYGROUND_HELLO_WASM_HASH`. Optional RPC
+overrides are `STELLAR_TESTNET_RPC_URL` and `STELLAR_MAINNET_RPC_URL`, and must use
+HTTPS. Mainnet remains inspection-only.
+
+Sprint 1 is **IMPLEMENTED — LIVE EVIDENCE PENDING**. The checked-in Testnet fixture
+manifest has no deployed IDs or hashes, and no wallet run is recorded. See the
+[architecture](../../docs/architecture/sprint-1-playground-contract-spec-foundation.md),
+[API/type reference](../../docs/references/sprint-1-playground-api-and-type-support.md),
+[fixture runbook](../../docs/operations/sprint-1-playground-fixture-runbook.md), and
+[evidence report](../../docs/references/sprint-1-playground-evidence.md).
+
 ## Sprint 10 observability
 
 All public/provider route methods use the shared `withRouteTelemetry` boundary. Responses include `X-Correlation-Id` and the compatibility `X-Request-Id`; accepted payment intents also expose a durable journey ID. The server-only instrumentation hook exports sampled traces, unsampled metrics, and sanitized logs over OTLP without blocking request completion.

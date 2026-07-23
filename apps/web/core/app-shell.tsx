@@ -78,6 +78,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     pathname.startsWith("/verify") ||
     pathname === "/debug" ||
     pathname === "/docs" ||
+    pathname === "/playground" ||
     pathname === "/feedback";
 
   useEffect(() => {
@@ -87,7 +88,12 @@ export function AppShell({ children }: { children: ReactNode }) {
 
     if (isProtectedRoute && wallet.status !== "connected") {
       router.push("/login");
-    } else if (wallet.status === "connected" && isNewUser && pathname !== "/signup") {
+    } else if (
+      wallet.status === "connected" &&
+      isNewUser &&
+      pathname !== "/signup" &&
+      pathname !== "/playground"
+    ) {
       router.push("/signup");
     }
   }, [wallet.status, isNewUser, isLoading, isProtectedRoute, pathname, router]);
@@ -270,7 +276,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const activeProject = sidebarProjects.find((project) => project.id === activeProjectId);
-    const urls = ["/dashboard", "/debug", "/docs", "/projects/new"];
+    const urls = ["/dashboard", "/debug", "/docs", "/playground", "/projects/new"];
 
     if (activeProject) {
       urls.push(
@@ -318,7 +324,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             onConnect={wallet.connect}
             isConnecting={wallet.status === "connecting"}
           />
-          <SidebarInset className="flex min-h-dvh min-w-0 max-w-full flex-col overflow-x-clip bg-background text-foreground">
+          <SidebarInset className="flex min-h-dvh max-w-full min-w-0 flex-col overflow-x-clip bg-background text-foreground">
             {/* Top Bar for Protected Pages */}
             <header className="flex min-h-16 shrink-0 items-center gap-2 border-b border-border bg-card px-4 py-2 pt-[max(0.5rem,env(safe-area-inset-top))] sm:gap-4 sm:px-6">
               <SidebarTrigger className="-ml-1 size-9 sm:size-7" />
@@ -345,7 +351,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               </div>
             </header>
 
-            <main className="min-w-0 max-w-full flex-1 overflow-x-clip overflow-y-auto p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-6 lg:p-8">
+            <main className="max-w-full min-w-0 flex-1 overflow-x-clip overflow-y-auto p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-6 lg:p-8">
               {showWalletNotice ? (
                 <Alert className="mb-6">
                   <PlugZapIcon />

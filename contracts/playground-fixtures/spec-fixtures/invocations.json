@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "simple": {
+    "fixture": "hello",
+    "function": "hello",
+    "arguments": {
+      "to": "Velo"
+    },
+    "expectedResult": [
+      "Hello",
+      "Velo"
+    ]
+  },
+  "complex": {
+    "fixture": "custom-types",
+    "function": "echo_profile",
+    "arguments": {
+      "value": {
+        "display_name": "Velo",
+        "home": {
+          "latitude": 14599500,
+          "longitude": 120984200
+        },
+        "tags": [
+          "stellar",
+          "soroban"
+        ]
+      }
+    }
+  }
+}

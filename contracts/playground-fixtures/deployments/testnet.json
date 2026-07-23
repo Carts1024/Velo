@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "network": "testnet",
+  "status": "undeployed",
+  "liveQualification": "pending",
+  "generatedAt": null,
+  "sourceRevision": null,
+  "toolVersions": {
+    "stellarCli": null,
+    "rustc": null,
+    "cargo": null
+  },
+  "contracts": {
+    "hello": {
+      "contractId": null,
+      "wasmHash": null,
+      "deploymentLedger": null
+    },
+    "numeric": {
+      "contractId": null,
+      "wasmHash": null,
+      "deploymentLedger": null
+    },
+    "collections": {
+      "contractId": null,
+      "wasmHash": null,
+      "deploymentLedger": null
+    },
+    "custom-types": {
+      "contractId": null,
+      "wasmHash": null,
+      "deploymentLedger": null
+    },
+    "auth-events-errors": {
+      "contractId": null,
+      "wasmHash": null,
+      "deploymentLedger": null
+    }
+  }
+}

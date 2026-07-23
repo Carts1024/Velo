@@ -25,6 +25,7 @@ import {
   KeyIcon,
   LayoutDashboardIcon,
   TerminalIcon,
+  FlaskConicalIcon,
   WalletIcon,
   WebhookIcon,
   BanknoteIcon,
@@ -125,6 +126,11 @@ export function AppSidebar({
       url: publicProofUrl,
       icon: FileTextIcon,
       disabled: !activeProject?.slug,
+    },
+    {
+      title: "Playground",
+      url: "/playground",
+      icon: FlaskConicalIcon,
     },
     {
       title: "Debug",

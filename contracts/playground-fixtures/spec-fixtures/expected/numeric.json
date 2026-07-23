@@ -1,0 +1,301 @@
+{
+  "schemaVersion": 1,
+  "specHash": "3fa0916ef339fc37d6ff251d82145781ecda570070e5e6126b2cf51c2304bdfc",
+  "rawEntries": [
+    {
+      "index": 0,
+      "xdr": "AAAAAAAAAAAAAAAIZWNob19kdXIAAAABAAAAAAAAAAV2YWx1ZQAAAAAAAAkAAAABAAAACQ=="
+    },
+    {
+      "index": 1,
+      "xdr": "AAAAAAAAAAAAAAAIZWNob19pMzIAAAABAAAAAAAAAAV2YWx1ZQAAAAAAAAUAAAABAAAABQ=="
+    },
+    {
+      "index": 2,
+      "xdr": "AAAAAAAAAAAAAAAIZWNob19pNjQAAAABAAAAAAAAAAV2YWx1ZQAAAAAAAAcAAAABAAAABw=="
+    },
+    {
+      "index": 3,
+      "xdr": "AAAAAAAAAAAAAAAIZWNob191MzIAAAABAAAAAAAAAAV2YWx1ZQAAAAAAAAQAAAABAAAABA=="
+    },
+    {
+      "index": 4,
+      "xdr": "AAAAAAAAAAAAAAAIZWNob191NjQAAAABAAAAAAAAAAV2YWx1ZQAAAAAAAAYAAAABAAAABg=="
+    },
+    {
+      "index": 5,
+      "xdr": "AAAAAAAAAAAAAAAJZWNob19pMTI4AAAAAAAAAQAAAAAAAAAFdmFsdWUAAAAAAAALAAAAAQAAAAs="
+    },
+    {
+      "index": 6,
+      "xdr": "AAAAAAAAAAAAAAAJZWNob19pMjU2AAAAAAAAAQAAAAAAAAAFdmFsdWUAAAAAAAANAAAAAQAAAA0="
+    },
+    {
+      "index": 7,
+      "xdr": "AAAAAAAAAAAAAAAJZWNob190aW1lAAAAAAAAAQAAAAAAAAAFdmFsdWUAAAAAAAAIAAAAAQAAAAg="
+    },
+    {
+      "index": 8,
+      "xdr": "AAAAAAAAAAAAAAAJZWNob191MTI4AAAAAAAAAQAAAAAAAAAFdmFsdWUAAAAAAAAKAAAAAQAAAAo="
+    },
+    {
+      "index": 9,
+      "xdr": "AAAAAAAAAAAAAAAJZWNob191MjU2AAAAAAAAAQAAAAAAAAAFdmFsdWUAAAAAAAAMAAAAAQAAAAw="
+    }
+  ],
+  "functions": [
+    {
+      "name": "echo_dur",
+      "documentation": "",
+      "parameters": [
+        {
+          "name": "value",
+          "documentation": "",
+          "type": {
+            "kind": "duration"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "index": 0,
+          "type": {
+            "kind": "duration"
+          }
+        }
+      ],
+      "source": {
+        "index": 0,
+        "xdr": "AAAAAAAAAAAAAAAIZWNob19kdXIAAAABAAAAAAAAAAV2YWx1ZQAAAAAAAAkAAAABAAAACQ=="
+      }
+    },
+    {
+      "name": "echo_i32",
+      "documentation": "",
+      "parameters": [
+        {
+          "name": "value",
+          "documentation": "",
+          "type": {
+            "kind": "i32"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "index": 0,
+          "type": {
+            "kind": "i32"
+          }
+        }
+      ],
+      "source": {
+        "index": 1,
+        "xdr": "AAAAAAAAAAAAAAAIZWNob19pMzIAAAABAAAAAAAAAAV2YWx1ZQAAAAAAAAUAAAABAAAABQ=="
+      }
+    },
+    {
+      "name": "echo_i64",
+      "documentation": "",
+      "parameters": [
+        {
+          "name": "value",
+          "documentation": "",
+          "type": {
+            "kind": "i64"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "index": 0,
+          "type": {
+            "kind": "i64"
+          }
+        }
+      ],
+      "source": {
+        "index": 2,
+        "xdr": "AAAAAAAAAAAAAAAIZWNob19pNjQAAAABAAAAAAAAAAV2YWx1ZQAAAAAAAAcAAAABAAAABw=="
+      }
+    },
+    {
+      "name": "echo_u32",
+      "documentation": "",
+      "parameters": [
+        {
+          "name": "value",
+          "documentation": "",
+          "type": {
+            "kind": "u32"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "index": 0,
+          "type": {
+            "kind": "u32"
+          }
+        }
+      ],
+      "source": {
+        "index": 3,
+        "xdr": "AAAAAAAAAAAAAAAIZWNob191MzIAAAABAAAAAAAAAAV2YWx1ZQAAAAAAAAQAAAABAAAABA=="
+      }
+    },
+    {
+      "name": "echo_u64",
+      "documentation": "",
+      "parameters": [
+        {
+          "name": "value",
+          "documentation": "",
+          "type": {
+            "kind": "u64"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "index": 0,
+          "type": {
+            "kind": "u64"
+          }
+        }
+      ],
+      "source": {
+        "index": 4,
+        "xdr": "AAAAAAAAAAAAAAAIZWNob191NjQAAAABAAAAAAAAAAV2YWx1ZQAAAAAAAAYAAAABAAAABg=="
+      }
+    },
+    {
+      "name": "echo_i128",
+      "documentation": "",
+      "parameters": [
+        {
+          "name": "value",
+          "documentation": "",
+          "type": {
+            "kind": "i128"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "index": 0,
+          "type": {
+            "kind": "i128"
+          }
+        }
+      ],
+      "source": {
+        "index": 5,
+        "xdr": "AAAAAAAAAAAAAAAJZWNob19pMTI4AAAAAAAAAQAAAAAAAAAFdmFsdWUAAAAAAAALAAAAAQAAAAs="
+      }
+    },
+    {
+      "name": "echo_i256",
+      "documentation": "",
+      "parameters": [
+        {
+          "name": "value",
+          "documentation": "",
+          "type": {
+            "kind": "i256"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "index": 0,
+          "type": {
+            "kind": "i256"
+          }
+        }
+      ],
+      "source": {
+        "index": 6,
+        "xdr": "AAAAAAAAAAAAAAAJZWNob19pMjU2AAAAAAAAAQAAAAAAAAAFdmFsdWUAAAAAAAANAAAAAQAAAA0="
+      }
+    },
+    {
+      "name": "echo_time",
+      "documentation": "",
+      "parameters": [
+        {
+          "name": "value",
+          "documentation": "",
+          "type": {
+            "kind": "timepoint"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "index": 0,
+          "type": {
+            "kind": "timepoint"
+          }
+        }
+      ],
+      "source": {
+        "index": 7,
+        "xdr": "AAAAAAAAAAAAAAAJZWNob190aW1lAAAAAAAAAQAAAAAAAAAFdmFsdWUAAAAAAAAIAAAAAQAAAAg="
+      }
+    },
+    {
+      "name": "echo_u128",
+      "documentation": "",
+      "parameters": [
+        {
+          "name": "value",
+          "documentation": "",
+          "type": {
+            "kind": "u128"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "index": 0,
+          "type": {
+            "kind": "u128"
+          }
+        }
+      ],
+      "source": {
+        "index": 8,
+        "xdr": "AAAAAAAAAAAAAAAJZWNob191MTI4AAAAAAAAAQAAAAAAAAAFdmFsdWUAAAAAAAAKAAAAAQAAAAo="
+      }
+    },
+    {
+      "name": "echo_u256",
+      "documentation": "",
+      "parameters": [
+        {
+          "name": "value",
+          "documentation": "",
+          "type": {
+            "kind": "u256"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "index": 0,
+          "type": {
+            "kind": "u256"
+          }
+        }
+      ],
+      "source": {
+        "index": 9,
+        "xdr": "AAAAAAAAAAAAAAAJZWNob191MjU2AAAAAAAAAQAAAAAAAAAFdmFsdWUAAAAAAAAMAAAAAQAAAAw="
+      }
+    }
+  ],
+  "customTypes": [],
+  "errors": [],
+  "events": []
+}

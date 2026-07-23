@@ -79,6 +79,13 @@ docs/references/*
 !docs/references/sprint-9-benchmark-evidence-and-closure.md
 !docs/references/sprint-10-observability-redaction-and-overhead-report.md
 !docs/references/sprint-11-comparative-throughput-qualification-report.md
+!docs/architecture/sprint-1-playground-contract-spec-foundation.md
+!docs/operations/sprint-1-playground-fixture-runbook.md
+!docs/references/sprint-1-playground-api-and-type-support.md
+!docs/references/sprint-1-playground-evidence.md
+!docs/plans/
+docs/plans/*
+!docs/plans/velo-playground-sprint-plan.md
 
 # Sprint 9 keeps compact evidence metadata in Git. Raw captures remain ignored/external.
 .stellar/
