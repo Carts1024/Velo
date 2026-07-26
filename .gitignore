@@ -68,6 +68,8 @@ docs/branding/*
 !docs/branding/velo-brand-positioning.md
 docs/operations/
 !docs/operations/
+!docs/release-notes/
+!docs/release-notes/*
 docs/operations/*
 !docs/operations/sprint-1-measurement-and-slo-lock.md
 !docs/operations/sprint-5-scale-competitive-proof-release.md
