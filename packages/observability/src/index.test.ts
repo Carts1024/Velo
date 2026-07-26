@@ -5,6 +5,8 @@ import {
   deterministicSample,
   parseTelemetryContext,
   projectSafeEvent,
+  signUiTelemetryMarker,
+  uiTelemetryMarkerPayload,
   validateMetricLabels,
   traceIdentifiers,
 } from "./index.ts";
@@ -67,6 +69,25 @@ test("sampling is deterministic and metric labels are bounded", () => {
   assert.equal(deterministicSample("journey-1", 0.1), deterministicSample("journey-1", 0.1));
   assert.equal(validateMetricLabels({ service: "web", outcome: "success" }), true);
   assert.equal(validateMetricLabels({ correlation_id: "random" }), false);
+});
+
+test("UI telemetry signatures bind the intent, marker, duration, and timestamp", async () => {
+  const input = {
+    paymentIntentId: "payment-intent-0001",
+    marker: "checkout_start",
+    durationMs: 12,
+    signedAt: 1_785_086_400_000,
+  };
+  assert.equal(
+    uiTelemetryMarkerPayload(input),
+    '["payment-intent-0001","checkout_start",12,1785086400000]',
+  );
+  const first = await signUiTelemetryMarker("test-secret", input);
+  const replay = await signUiTelemetryMarker("test-secret", input);
+  const changed = await signUiTelemetryMarker("test-secret", { ...input, durationMs: 13 });
+  assert.match(first, /^[0-9a-f]{64}$/);
+  assert.equal(first, replay);
+  assert.notEqual(first, changed);
 });
 
 test("ten thousand entity identifiers cannot create metric labels", () => {
