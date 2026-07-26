@@ -83,12 +83,46 @@ export type ContractTransactionConfirmation =
       message: string;
     };
 
+const TRANSACTION_VALIDITY_SECONDS = 15 * 60;
+const MISSING_TRANSACTION_HASH = "0".repeat(64);
+
+export function registrationTimebounds(latestLedgerCloseTime: number) {
+  if (!Number.isSafeInteger(latestLedgerCloseTime) || latestLedgerCloseTime <= 0) {
+    throw new Error("Stellar RPC returned an invalid latest ledger close time");
+  }
+
+  return {
+    minTime: 0,
+    maxTime: latestLedgerCloseTime + TRANSACTION_VALIDITY_SECONDS,
+  };
+}
+
+export function transactionSubmissionErrorMessage(errorResult?: xdr.TransactionResult) {
+  if (!errorResult) {
+    return "Transaction submission failed";
+  }
+
+  const resultCode = errorResult.result().switch().name;
+  if (resultCode === "txTooLate") {
+    return "This transaction expired before it reached Stellar. Please try the action again.";
+  }
+
+  return `Stellar rejected the transaction (${resultCode}). XDR: ${errorResult.toXDR("base64")}`;
+}
+
 function metadataHashToBytes(metadataHash: string) {
   return xdr.ScVal.scvBytes(Buffer.from(assertValidMetadataHash(metadataHash), "hex"));
 }
 
 function registryClient(rpcUrl: string) {
   return new rpc.Server(rpcUrl);
+}
+
+async function latestLedgerTimebounds(server: rpc.Server) {
+  // A well-formed hash that cannot match a submitted transaction gives us the
+  // RPC node's latest ledger close time without relying on the browser clock.
+  const response = await server.getTransaction(MISSING_TRANSACTION_HASH);
+  return registrationTimebounds(response.latestLedgerCloseTime);
 }
 
 function contractCallOperation(input: RegisterProjectTransactionInput) {
@@ -136,13 +170,16 @@ export async function buildRegisterProjectTransaction(input: RegisterProjectTran
   }
 
   const server = registryClient(input.rpcUrl);
-  const sourceAccount = await server.getAccount(sourcePublicKey);
+  const [sourceAccount, timebounds] = await Promise.all([
+    server.getAccount(sourcePublicKey),
+    latestLedgerTimebounds(server),
+  ]);
   const transaction = new TransactionBuilder(sourceAccount, {
     fee: BASE_FEE,
     networkPassphrase: input.networkPassphrase,
   })
     .addOperation(contractCallOperation(input))
-    .setTimeout(300)
+    .setTimebounds(timebounds.minTime, timebounds.maxTime)
     .build();
 
   const prepared = await server.prepareTransaction(transaction);
@@ -155,13 +192,16 @@ async function buildContractLinkTransaction(input: ContractLinkTransactionInput,
   assertValidContractId(input.officialContractId);
 
   const server = registryClient(input.rpcUrl);
-  const sourceAccount = await server.getAccount(sourcePublicKey);
+  const [sourceAccount, timebounds] = await Promise.all([
+    server.getAccount(sourcePublicKey),
+    latestLedgerTimebounds(server),
+  ]);
   const transaction = new TransactionBuilder(sourceAccount, {
     fee: BASE_FEE,
     networkPassphrase: input.networkPassphrase,
   })
     .addOperation(contractLinkOperation(input, method))
-    .setTimeout(300)
+    .setTimebounds(timebounds.minTime, timebounds.maxTime)
     .build();
 
   const prepared = await server.prepareTransaction(transaction);
@@ -181,7 +221,7 @@ export async function submitSignedTransaction(input: SubmitSignedTransactionInpu
   const response = await registryClient(input.rpcUrl).sendTransaction(transaction);
 
   if (response.status === "ERROR") {
-    throw new Error(response.errorResult?.toXDR("base64") ?? "Transaction submission failed");
+    throw new Error(transactionSubmissionErrorMessage(response.errorResult));
   }
 
   return assertValidTransactionHash(response.hash);
