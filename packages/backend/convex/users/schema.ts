@@ -6,6 +6,7 @@ export default defineTable({
   tokenIdentifier: v.optional(v.string()),
   name: v.string(),
   email: v.string(),
+  avatarStorageId: v.optional(v.id("_storage")),
   createdAt: v.number(),
   lastSeenAt: v.number(),
 })

@@ -3,7 +3,6 @@
 import { stellarConfig } from "@/core/config/stellar";
 import { shortenAddress } from "@/core/wallet/format";
 import { useWallet } from "@/core/wallet/wallet-provider";
-import { OnboardingDialog } from "@/features/onboarding/onboarding-dialog";
 import { useUserProfile } from "@/features/onboarding/use-user-profile";
 import { api } from "@repo/backend/convex/_generated/api";
 import { Badge } from "@repo/ui/components/ui-customs/badge";
@@ -59,8 +58,6 @@ export function AppShell({ children }: { children: ReactNode }) {
   const wallet = useWallet();
   const { isAuthenticated: isConvexAuthenticated } = useConvexAuth();
   const { user, isNewUser, isLoading } = useUserProfile(wallet.address);
-  const [showOnboarding, setShowOnboarding] = useState(false);
-  const [isEditingProfile, setIsEditingProfile] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
   const [storedSelectedProjectId, setStoredSelectedProjectId] = useState<string | null>(null);
@@ -72,7 +69,10 @@ export function AppShell({ children }: { children: ReactNode }) {
     wallet.status,
   );
 
-  const isProtectedRoute = pathname.startsWith("/dashboard") || pathname.startsWith("/projects");
+  const isProtectedRoute =
+    pathname.startsWith("/dashboard") ||
+    pathname.startsWith("/projects") ||
+    pathname.startsWith("/profile");
   const showSidebar =
     isProtectedRoute ||
     pathname.startsWith("/verify") ||
@@ -98,15 +98,9 @@ export function AppShell({ children }: { children: ReactNode }) {
     }
   }, [wallet.status, isNewUser, isLoading, isProtectedRoute, pathname, router]);
 
-  const handleOnboardingComplete = useCallback(() => {
-    setShowOnboarding(false);
-    setIsEditingProfile(false);
-  }, []);
-
   const handleEditProfile = useCallback(() => {
-    setIsEditingProfile(true);
-    setShowOnboarding(true);
-  }, []);
+    router.push("/profile");
+  }, [router]);
 
   // Fetch projects list for the sidebar switcher
   const rawProjects = useQuery(
@@ -221,7 +215,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       return {
         name: user.name,
         email: user.email,
-        avatar: "",
+        avatar: user.avatarUrl ?? "",
       };
     }
     if (wallet.address) {
@@ -276,7 +270,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const activeProject = sidebarProjects.find((project) => project.id === activeProjectId);
-    const urls = ["/dashboard", "/debug", "/docs", "/playground", "/projects/new"];
+    const urls = ["/dashboard", "/profile", "/debug", "/docs", "/playground", "/projects/new"];
 
     if (activeProject) {
       urls.push(
@@ -374,13 +368,6 @@ export function AppShell({ children }: { children: ReactNode }) {
               )}
             </main>
           </SidebarInset>
-
-          {/* Onboarding / Profile Edit Dialog */}
-          <OnboardingDialog
-            open={showOnboarding}
-            onComplete={handleOnboardingComplete}
-            existingProfile={isEditingProfile ? user : undefined}
-          />
         </SelectedProjectContext>
       </SidebarProvider>
     );
@@ -404,13 +391,6 @@ export function AppShell({ children }: { children: ReactNode }) {
 
         {children}
       </div>
-
-      {/* Onboarding / Profile Edit Dialog */}
-      <OnboardingDialog
-        open={showOnboarding}
-        onComplete={handleOnboardingComplete}
-        existingProfile={isEditingProfile ? user : undefined}
-      />
     </main>
   );
 }
