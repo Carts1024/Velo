@@ -57,6 +57,7 @@ export const checkPendingPayments = internalAction({
                 paymentIntentId: intent._id,
                 txHash: intent.txHash,
                 verifiedPayment,
+                verifiedNetwork: result.network,
                 observedAt,
               },
             );
@@ -161,6 +162,7 @@ export const watchTransaction = internalAction({
               paymentIntentId: args.paymentIntentId,
               txHash: args.txHash,
               verifiedPayment,
+              verifiedNetwork: result.network,
               observedAt,
             },
           );

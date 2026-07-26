@@ -1,9 +1,20 @@
 import { defineSchema } from "convex/server";
 
 import apiKeys from "./api_keys/schema";
+import {
+  billingBalances,
+  billingLedgerEntries,
+  billingPolicies,
+  creditLots,
+  creditReservations,
+  organizationBillingSettings,
+  organizationMigrationCollisions,
+  shadowBillingDecisions,
+} from "./billing/schema";
 import contractEvents from "./contract_events/schema";
 import feedback from "./feedback/schema";
 import journeyStages from "./journey_stages/schema";
+import organizations from "./organizations/schema";
 import paymentIntentIdempotencyKeys from "./payment_intent_idempotency_keys/schema";
 import paymentIntentRouteJobs from "./payment_intent_route_jobs/schema";
 import paymentIntents from "./payment_intents/schema";
@@ -29,9 +40,17 @@ import webhookEndpoints from "./webhook_endpoints/schema";
 
 export default defineSchema({
   apiKeys,
+  billingBalances,
+  billingLedgerEntries,
+  billingPolicies,
+  creditLots,
+  creditReservations,
   contractEvents,
   feedback,
   journeyStages,
+  organizations,
+  organizationBillingSettings,
+  organizationMigrationCollisions,
   paymentIntentIdempotencyKeys,
   paymentIntentRouteJobs,
   paymentReconciliationJobs,
@@ -48,6 +67,7 @@ export default defineSchema({
   providerResilience,
   settlementQuotes,
   settlementTransactions,
+  shadowBillingDecisions,
   telemetryOutbox,
   providerEvents,
   providerOperations,

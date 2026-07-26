@@ -2,6 +2,8 @@ import { v, ConvexError } from "convex/values";
 
 import { internal } from "../_generated/api";
 import { internalMutation, mutation } from "../_generated/server";
+import { currentBillingNetwork } from "../billing/config";
+import { scheduleShadowEvaluation } from "../billing/shadow";
 import { recordMetric, recordSpan } from "../telemetry_outbox/helpers";
 import { hasEnabledWebhookForEvent } from "../webhook_endpoints/helpers";
 import {
@@ -60,6 +62,8 @@ export const createPaymentIntent = mutation({
     // 2. Insert payment intent, using the project ownerAddress as the receiver for security
     const id = await ctx.db.insert("paymentIntents", {
       projectId: project._id,
+      network: currentBillingNetwork(),
+      intentType: "merchant_payment",
       amount: args.amount,
       asset: args.asset,
       receiverAddress: project.ownerAddress,
@@ -76,6 +80,13 @@ export const createPaymentIntent = mutation({
       },
       createdAt: now,
       updatedAt: now,
+    });
+    await scheduleShadowEvaluation(ctx, {
+      phase: "would_reserve",
+      projectId: project._id,
+      paymentIntentId: id,
+      route: resolvedAnchor === "pdax" ? "pdax" : "stellar",
+      idempotencyKey: `shadow:reserve:${id}`,
     });
 
     // 3. Increment request count on the API key
@@ -156,6 +167,8 @@ export const createPublicPaymentIntent = internalMutation({
 
     const paymentIntentId = await ctx.db.insert("paymentIntents", {
       projectId: auth.project._id,
+      network: currentBillingNetwork(),
+      intentType: "merchant_payment",
       amount: args.amount,
       asset: args.asset,
       receiverAddress: auth.project.ownerAddress,
@@ -172,6 +185,13 @@ export const createPublicPaymentIntent = internalMutation({
       },
       createdAt: now,
       updatedAt: now,
+    });
+    await scheduleShadowEvaluation(ctx, {
+      phase: "would_reserve",
+      projectId: auth.project._id,
+      paymentIntentId,
+      route: resolvedAnchor === "pdax" ? "pdax" : "stellar",
+      idempotencyKey: `shadow:reserve:${paymentIntentId}`,
     });
     if (args.correlationId !== undefined) {
       await recordSpan(
@@ -286,6 +306,16 @@ export const updateStatus = mutation({
 
     await ctx.db.patch(args.paymentIntentId, patch);
 
+    if (args.status === "failed" || args.status === "cancelled") {
+      await scheduleShadowEvaluation(ctx, {
+        phase: "would_release",
+        projectId: intent.projectId,
+        paymentIntentId: intent._id,
+        route: intent.anchor === "pdax" ? "pdax" : "stellar",
+        idempotencyKey: `shadow:release:${intent._id}:${args.status}`,
+      });
+    }
+
     if (args.status === "pending") {
       const existingJob = await ctx.db
         .query("paymentReconciliationJobs")
@@ -341,6 +371,7 @@ export const markVerifiedPaid = internalMutation({
       amount: v.string(),
       asset: v.string(),
     }),
+    verifiedNetwork: v.optional(v.union(v.literal("testnet"), v.literal("public"))),
     observedAt: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
@@ -351,6 +382,10 @@ export const markVerifiedPaid = internalMutation({
 
     if (!paymentMatchesIntent(args.verifiedPayment, intent)) {
       throw new ConvexError("Verified Stellar payment does not match payment intent");
+    }
+    const verifiedNetwork = args.verifiedNetwork ?? "testnet";
+    if ((intent.network ?? "testnet") !== verifiedNetwork) {
+      throw new ConvexError("Verified Stellar payment network does not match payment intent");
     }
 
     const verifiedTxHash = args.txHash.trim().toLowerCase();
@@ -424,6 +459,16 @@ export const markVerifiedPaid = internalMutation({
       updatedAt: now,
       stageTimestamps: updatedStageTimestamps,
     });
+    if (intent.anchor !== "pdax") {
+      await scheduleShadowEvaluation(ctx, {
+        phase: "would_consume",
+        projectId: intent.projectId,
+        paymentIntentId: intent._id,
+        route: "stellar",
+        idempotencyKey: `shadow:consume:stellar:${intent._id}:${verifiedTxHash}`,
+        transactionHash: verifiedTxHash,
+      });
+    }
 
     if (project.checkoutCredits !== undefined && project.checkoutCredits > 0) {
       await ctx.db.patch(project._id, {
@@ -532,6 +577,8 @@ export const prepareOrInsertPaymentIntentV2 = internalMutation({
 
     const paymentIntentId = await ctx.db.insert("paymentIntents", {
       projectId: auth.project._id,
+      network: currentBillingNetwork(),
+      intentType: "merchant_payment",
       amount: args.amount,
       asset: args.asset,
       receiverAddress: auth.project.ownerAddress,
@@ -548,6 +595,13 @@ export const prepareOrInsertPaymentIntentV2 = internalMutation({
       },
       createdAt: now,
       updatedAt: now,
+    });
+    await scheduleShadowEvaluation(ctx, {
+      phase: "would_reserve",
+      projectId: auth.project._id,
+      paymentIntentId,
+      route: "stellar",
+      idempotencyKey: `shadow:reserve:${paymentIntentId}`,
     });
 
     if (args.correlationId !== undefined) {
@@ -661,6 +715,8 @@ export const insertPublicPaymentIntentV2 = internalMutation({
 
     const paymentIntentId = await ctx.db.insert("paymentIntents", {
       projectId: auth.project._id,
+      network: currentBillingNetwork(),
+      intentType: "merchant_payment",
       amount: args.amount,
       asset: args.asset,
       receiverAddress: args.receiverAddress,
@@ -679,6 +735,13 @@ export const insertPublicPaymentIntentV2 = internalMutation({
       },
       createdAt: now,
       updatedAt: now,
+    });
+    await scheduleShadowEvaluation(ctx, {
+      phase: "would_reserve",
+      projectId: auth.project._id,
+      paymentIntentId,
+      route: args.anchor === "pdax" ? "pdax" : "stellar",
+      idempotencyKey: `shadow:reserve:${paymentIntentId}`,
     });
 
     if (args.idempotencyKey !== undefined) {
@@ -812,6 +875,8 @@ export const createPublicPaymentIntentV2 = internalMutation({
 
     const paymentIntentId = await ctx.db.insert("paymentIntents", {
       projectId: auth.project._id,
+      network: currentBillingNetwork(),
+      intentType: "merchant_payment",
       amount: args.amount,
       asset: args.asset,
       ...(resolvedAnchor === "inhouse"
@@ -838,6 +903,13 @@ export const createPublicPaymentIntentV2 = internalMutation({
       },
       createdAt: now,
       updatedAt: now,
+    });
+    await scheduleShadowEvaluation(ctx, {
+      phase: "would_reserve",
+      projectId: auth.project._id,
+      paymentIntentId,
+      route: resolvedAnchor === "pdax" ? "pdax" : "stellar",
+      idempotencyKey: `shadow:reserve:${paymentIntentId}`,
     });
 
     if (args.correlationId !== undefined) {
@@ -999,6 +1071,8 @@ export const createAuthorizedPaymentIntentV2 = internalMutation({
 
     const intentFields = {
       projectId: project._id,
+      network: currentBillingNetwork(),
+      intentType: "merchant_payment" as const,
       amount: args.amount,
       asset: args.asset,
       ...(resolvedAnchor === "inhouse"
@@ -1030,6 +1104,13 @@ export const createAuthorizedPaymentIntentV2 = internalMutation({
       updatedAt: now,
     };
     const paymentIntentId = await ctx.db.insert("paymentIntents", intentFields);
+    await scheduleShadowEvaluation(ctx, {
+      phase: "would_reserve",
+      projectId: project._id,
+      paymentIntentId,
+      route: resolvedAnchor === "pdax" ? "pdax" : "stellar",
+      idempotencyKey: `shadow:reserve:${paymentIntentId}`,
+    });
 
     if (args.correlationId !== undefined) {
       await recordSpan(
@@ -1224,6 +1305,13 @@ export const completePdaxRoute = internalMutation({
         status: "expired",
         updatedAt: now,
       });
+      await scheduleShadowEvaluation(ctx, {
+        phase: "would_release",
+        projectId: intent.projectId,
+        paymentIntentId: intent._id,
+        route: "pdax",
+        idempotencyKey: `shadow:release:${intent._id}:expired`,
+      });
       await ctx.db.patch(job._id, {
         state: "failed",
         lastErrorCode: "intent_expired",
@@ -1414,6 +1502,13 @@ export const failPdaxRoute = internalMutation({
         },
         updatedAt: now,
       });
+      await scheduleShadowEvaluation(ctx, {
+        phase: "would_release",
+        projectId: intent.projectId,
+        paymentIntentId: intent._id,
+        route: "pdax",
+        idempotencyKey: `shadow:release:${intent._id}:route_failed`,
+      });
       if (await hasEnabledWebhookForEvent(ctx, intent.projectId, "payment.failed")) {
         await ctx.scheduler.runAfter(0, internal.webhookDelivery.trigger, {
           projectId: intent.projectId,
@@ -1496,6 +1591,13 @@ export const recoverPdaxRouteJobs = internalMutation({
             expired: now,
           },
           updatedAt: now,
+        });
+        await scheduleShadowEvaluation(ctx, {
+          phase: "would_release",
+          projectId: intent.projectId,
+          paymentIntentId: intent._id,
+          route: intent.anchor === "pdax" ? "pdax" : "stellar",
+          idempotencyKey: `shadow:release:${intent._id}:expired`,
         });
         await ctx.db.patch(job._id, {
           state: "failed",

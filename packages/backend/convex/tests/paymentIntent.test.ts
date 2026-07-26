@@ -83,7 +83,10 @@ test("payment intent lifecycle", async () => {
   const scheduledAfterCreate = await t.run(
     async (ctx) => await ctx.db.system.query("_scheduled_functions").collect(),
   );
-  expect(scheduledAfterCreate).toHaveLength(scheduledBeforeCreate.length);
+  expect(scheduledAfterCreate).toHaveLength(scheduledBeforeCreate.length + 1);
+  expect(
+    scheduledAfterCreate.some((scheduled) => scheduled.name.includes("billing/shadow:evaluate")),
+  ).toBe(true);
 
   // Retrieve the payment intent
   let intent = await t.query(api.payment_intents.queries.getPaymentIntent, {
@@ -94,6 +97,8 @@ test("payment intent lifecycle", async () => {
   expect(intent?.amount).toBe("150.50");
   expect(intent?.merchantName).toBe("Merchant Store");
   expect(intent?.correlationId).toBe("pay-2026-lifecycle-0001");
+  expect(intent?.network).toBe("testnet");
+  expect(intent?.intentType).toBe("merchant_payment");
 
   // Transition to pending state
   const payerAddress = "GDFX...PAYER";

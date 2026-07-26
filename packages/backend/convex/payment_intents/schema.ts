@@ -3,6 +3,8 @@ import { v } from "convex/values";
 
 export default defineTable({
   projectId: v.id("projects"),
+  network: v.optional(v.union(v.literal("testnet"), v.literal("public"))),
+  intentType: v.optional(v.union(v.literal("merchant_payment"), v.literal("billing_topup"))),
   amount: v.string(),
   asset: v.string(), // e.g. "native" or "USDC:<issuer>"
   receiverAddress: v.optional(v.string()),

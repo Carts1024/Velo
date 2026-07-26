@@ -9,6 +9,12 @@
  */
 
 import type * as authConfig from "../authConfig.js";
+import type * as billing_config from "../billing/config.js";
+import type * as billing_constants from "../billing/constants.js";
+import type * as billing_helpers from "../billing/helpers.js";
+import type * as billing_mutations from "../billing/mutations.js";
+import type * as billing_queries from "../billing/queries.js";
+import type * as billing_shadow from "../billing/shadow.js";
 import type * as contractEventPolling from "../contractEventPolling.js";
 import type * as contract_events_helpers from "../contract_events/helpers.js";
 import type * as contract_events_mutation from "../contract_events/mutation.js";
@@ -20,6 +26,9 @@ import type * as feedback_query from "../feedback/query.js";
 import type * as http from "../http.js";
 import type * as journey_stages_mutations from "../journey_stages/mutations.js";
 import type * as migrations from "../migrations.js";
+import type * as organizations_helpers from "../organizations/helpers.js";
+import type * as organizations_mutations from "../organizations/mutations.js";
+import type * as organizations_queries from "../organizations/queries.js";
 import type * as payAccessSync from "../payAccessSync.js";
 import type * as payment_intents_actions from "../payment_intents/actions.js";
 import type * as payment_intents_helpers from "../payment_intents/helpers.js";
@@ -98,6 +107,12 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   authConfig: typeof authConfig;
+  "billing/config": typeof billing_config;
+  "billing/constants": typeof billing_constants;
+  "billing/helpers": typeof billing_helpers;
+  "billing/mutations": typeof billing_mutations;
+  "billing/queries": typeof billing_queries;
+  "billing/shadow": typeof billing_shadow;
   contractEventPolling: typeof contractEventPolling;
   "contract_events/helpers": typeof contract_events_helpers;
   "contract_events/mutation": typeof contract_events_mutation;
@@ -109,6 +124,9 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   "journey_stages/mutations": typeof journey_stages_mutations;
   migrations: typeof migrations;
+  "organizations/helpers": typeof organizations_helpers;
+  "organizations/mutations": typeof organizations_mutations;
+  "organizations/queries": typeof organizations_queries;
   payAccessSync: typeof payAccessSync;
   "payment_intents/actions": typeof payment_intents_actions;
   "payment_intents/helpers": typeof payment_intents_helpers;

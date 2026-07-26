@@ -45,6 +45,14 @@ export const METRIC_NAMES = [
   "velo_journey_duration_seconds",
   "velo_journey_p95_seconds",
   "velo_locked_slo_p95_seconds",
+  "velo_billing_shadow_reservation_total",
+  "velo_billing_shadow_consumption_total",
+  "velo_billing_shadow_release_total",
+  "velo_billing_insufficient_balance_total",
+  "velo_billing_unmatched_success_total",
+  "velo_billing_legacy_divergence_total",
+  "velo_billing_reservation_recovery_total",
+  "velo_billing_pdax_cost_variance",
 ] as const;
 
 export const DEPENDENCIES = ["convex", "pdax", "stellar_rpc", "horizon", "merchant"] as const;

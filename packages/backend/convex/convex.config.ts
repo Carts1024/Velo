@@ -9,6 +9,10 @@ const app = defineApp({
     VELO_RATE_LIMIT_SCOPE_SECRET: v.optional(v.string()),
     VELO_ENABLE_RATE_LIMIT_BENCHMARK: v.optional(v.string()),
     VELO_CONVEX_TELEMETRY_ENABLED: v.optional(v.string()),
+    VELO_STELLAR_NETWORK: v.optional(v.union(v.literal("testnet"), v.literal("public"))),
+    VELO_DEPLOYMENT_ENVIRONMENT: v.optional(
+      v.union(v.literal("development"), v.literal("preview"), v.literal("production")),
+    ),
   },
 });
 

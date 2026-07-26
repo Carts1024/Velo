@@ -112,6 +112,7 @@ export const drain = internalAction({
                 paymentIntentId: job.paymentIntentId,
                 txHash: job.txHash,
                 verifiedPayment,
+                verifiedNetwork: result.network,
               });
               await ctx.runMutation(finishRef, {
                 jobId: job._id,

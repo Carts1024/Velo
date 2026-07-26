@@ -2,6 +2,7 @@ import { defineTable } from "convex/server";
 import { v } from "convex/values";
 
 export default defineTable({
+  organizationId: v.optional(v.id("organizations")),
   name: v.string(),
   slug: v.string(),
   description: v.string(),
@@ -37,6 +38,7 @@ export default defineTable({
   updatedAt: v.number(),
 })
   .index("by_owner", ["ownerAddress"])
+  .index("by_organization_id", ["organizationId"])
   .index("by_owner_token_identifier", ["ownerTokenIdentifier"])
   .index("by_slug", ["slug"])
   .index("by_owner_status", ["ownerAddress", "status"])
