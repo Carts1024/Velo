@@ -346,14 +346,14 @@ export const updateStatus = mutation({
     if (args.status === "failed" || args.status === "cancelled") {
       if (intent.intentType !== "billing_topup") {
         await releaseCommercialReservation(ctx, intent._id, args.status);
+        await scheduleShadowEvaluation(ctx, {
+          phase: "would_release",
+          projectId: intent.projectId,
+          paymentIntentId: intent._id,
+          route: intent.anchor === "pdax" ? "pdax" : "stellar",
+          idempotencyKey: `shadow:release:${intent._id}:${args.status}`,
+        });
       }
-      await scheduleShadowEvaluation(ctx, {
-        phase: "would_release",
-        projectId: intent.projectId,
-        paymentIntentId: intent._id,
-        route: intent.anchor === "pdax" ? "pdax" : "stellar",
-        idempotencyKey: `shadow:release:${intent._id}:${args.status}`,
-      });
     }
 
     if (args.status === "pending") {

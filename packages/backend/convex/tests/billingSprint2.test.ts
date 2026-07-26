@@ -1,7 +1,7 @@
 /// <reference types="vite/client" />
 import { convexTest } from "convex-test";
 import { makeFunctionReference } from "convex/server";
-import { expect, test } from "vitest";
+import { expect, test, vi } from "vitest";
 
 import type { Id } from "../_generated/dataModel";
 
@@ -15,6 +15,7 @@ const setOperator = makeFunctionReference<"mutation">("billing/operators:setOper
 const createOffer = makeFunctionReference<"mutation">("billing/offers:create");
 const getMerchantBilling = makeFunctionReference<"query">("billing/merchant:get");
 const createTopup = makeFunctionReference<"mutation">("billing/topups:create");
+const expireCreditLots = makeFunctionReference<"mutation">("billing/mutations:expireCreditLots");
 const verifyOrganization = makeFunctionReference<"mutation">("organizations/mutations:verify");
 const grantPromotion = makeFunctionReference<"mutation">("billing/mutations:grantPromotion");
 const updatePolicy = makeFunctionReference<"mutation">("billing/mutations:updatePolicy");
@@ -46,7 +47,7 @@ async function createProject(
   });
 }
 
-async function configureOperatorAndOffer(t: ReturnType<typeof convexTest>) {
+async function configureOperatorAndOffer(t: ReturnType<typeof convexTest>, creditQuantity = 100n) {
   const operator = asWallet(t, "GOPERATOR");
   await t.mutation(bootstrapOperator, {
     walletAddress: "GOPERATOR",
@@ -54,7 +55,7 @@ async function configureOperatorAndOffer(t: ReturnType<typeof convexTest>) {
   });
   const offerId = (await operator.mutation(createOffer, {
     sku: "credits-100",
-    creditQuantity: 100n,
+    creditQuantity,
     priceAmount: "20",
     asset: "USDC:GISSUER",
     network: "testnet",
@@ -236,6 +237,78 @@ test("top-up settlement snapshots the offer and grants paid credits exactly once
   );
   expect(billing?.receipts).toHaveLength(1);
   expect(billing?.receipts[0]?.organizationId).toBe(organization?._id);
+});
+
+test("cancelling a later top-up preserves credits from an earlier settled top-up", async () => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date("2026-07-27T00:00:00Z"));
+  try {
+    const t = convexTest(schema, modules);
+    const { operator } = await configureOperatorAndOffer(t, 5n);
+    const owner = asWallet(t, "GOWNER");
+    await createProject(owner, "cancelled-repeat-topup-project");
+
+    await operator.mutation(updatePolicy, {
+      billingLedgerWrite: true,
+      billingShadowMode: false,
+      mainnetCreditEnforcement: false,
+      billingTopupsEnabled: true,
+      promoGrantEnabled: true,
+      pdaxBillingEnabled: false,
+      billingKillSwitch: false,
+      actor: "operator:test",
+    });
+
+    const settledTopup = await owner.mutation(createTopup, {});
+    await t.run(async (ctx) => {
+      await ctx.db.patch(settledTopup.paymentIntentId, {
+        status: "pending",
+        payerAddress: "GOWNER",
+        txHash: "e".repeat(64),
+      });
+    });
+    await t.mutation(internal.payment_intents.mutations.markVerifiedPaid, {
+      paymentIntentId: settledTopup.paymentIntentId,
+      txHash: "e".repeat(64),
+      verifiedNetwork: "testnet",
+      verifiedPayment: {
+        source: "GOWNER",
+        destination: "GTREASURY",
+        amount: "20",
+        asset: "USDC:GISSUER",
+      },
+    });
+
+    const beforeCancellation = await owner.query(getMerchantBilling, {});
+    expect(beforeCancellation?.balance.paidAvailable).toBe(5n);
+
+    const cancelledTopup = await owner.mutation(createTopup, {});
+    await owner.mutation(api.payment_intents.mutations.updateStatus, {
+      paymentIntentId: cancelledTopup.paymentIntentId,
+      status: "cancelled",
+    });
+    await t.finishAllScheduledFunctions(() => vi.runAllTimers());
+    expect(await t.mutation(expireCreditLots, { limit: 25 })).toEqual({ expired: 0 });
+
+    const afterCancellation = await owner.query(getMerchantBilling, {});
+    expect(afterCancellation?.balance.paidAvailable).toBe(5n);
+    expect(afterCancellation?.topups).toEqual([
+      expect.objectContaining({ _id: cancelledTopup.topupId, status: "cancelled" }),
+      expect.objectContaining({ _id: settledTopup.topupId, status: "settled" }),
+    ]);
+    const topupShadowDecisions = await t.run(async (ctx) => {
+      const decisions = await ctx.db
+        .query("shadowBillingDecisions")
+        .withIndex("by_payment_intent_id", (q) =>
+          q.eq("paymentIntentId", cancelledTopup.paymentIntentId),
+        )
+        .take(10);
+      return decisions;
+    });
+    expect(topupShadowDecisions).toEqual([]);
+  } finally {
+    vi.useRealTimers();
+  }
 });
 
 test("sandbox enforcement reserves and consumes commercial trial credit", async () => {

@@ -708,11 +708,11 @@ export const expireCreditLots = internalMutation({
     const now = Date.now();
     const lots = await ctx.db
       .query("creditLots")
-      .withIndex("by_expires_at", (q) => q.lte("expiresAt", now))
+      .withIndex("by_expires_at", (q) => q.gt("expiresAt", undefined).lte("expiresAt", now))
       .take(limit);
     let expired = 0;
     for (const lot of lots) {
-      if (lot.available <= 0n || lot.reserved > 0n) continue;
+      if (lot.expiresAt === undefined || lot.available <= 0n || lot.reserved > 0n) continue;
       const amount = lot.available;
       const idempotencyKey = `credit-lot-expiry:${lot._id}`;
       const existing = await findLedgerEntry(ctx, lot.organizationId, lot.book, idempotencyKey);
