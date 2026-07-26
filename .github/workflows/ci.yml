@@ -109,6 +109,9 @@ jobs:
             exit 1
           fi
 
+      - name: Build Convex Workspace Dependencies
+        run: pnpm --filter @carts1024/velo-wallets build
+
       - name: Deploy Convex Production Backend
         run: pnpm --filter @repo/backend exec convex deploy --typecheck enable --codegen enable
 
