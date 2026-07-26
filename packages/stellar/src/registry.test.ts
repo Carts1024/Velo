@@ -16,6 +16,13 @@ test("registration timebounds are derived from the latest ledger close time", ()
   });
 });
 
+test("registration timebounds accept the close-time string returned by Stellar RPC", () => {
+  assert.deepEqual(registrationTimebounds("1785032109"), {
+    minTime: 0,
+    maxTime: 1_785_033_009,
+  });
+});
+
 test("registration timebounds reject an invalid ledger close time", () => {
   assert.throws(() => registrationTimebounds(0), /latest ledger close time/i);
   assert.throws(() => registrationTimebounds(Number.NaN), /latest ledger close time/i);
