@@ -5,7 +5,6 @@ import {
 } from "@repo/ui/components/ui/collapsible";
 import {
   SidebarGroup,
-  SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
@@ -14,8 +13,7 @@ import {
   SidebarMenuSubItem,
 } from "@repo/ui/components/ui/sidebar";
 import { ChevronRight, type LucideIcon } from "lucide-react";
-
-import type * as React from "react";
+import * as React from "react";
 
 export type NavMainItem = {
   title: string;
@@ -23,21 +21,36 @@ export type NavMainItem = {
   icon?: LucideIcon;
   isActive?: boolean;
   disabled?: boolean;
-  items?: {
-    title: string;
-    url: string;
-  }[];
+};
+
+export type NavMainGroup = {
+  title: string;
+  icon?: LucideIcon;
+  items: NavMainItem[];
+  isActive?: boolean;
 };
 
 export function NavMain({
-  items,
+  groups,
   onNavigate,
   onPrefetch,
 }: {
-  items: NavMainItem[];
+  groups: NavMainGroup[];
   onNavigate?: (url: string) => void;
   onPrefetch?: (url: string) => void;
 }) {
+  const [openGroups, setOpenGroups] = React.useState<Record<string, boolean>>({});
+  const activeGroupTitle = groups.find((group) => group.isActive)?.title;
+
+  React.useEffect(() => {
+    if (!activeGroupTitle) return;
+
+    setOpenGroups((current) => {
+      if (current[activeGroupTitle]) return current;
+      return { ...current, [activeGroupTitle]: true };
+    });
+  }, [activeGroupTitle]);
+
   function handleLinkClick(event: React.MouseEvent<HTMLAnchorElement>, url: string) {
     if (!onNavigate || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
       return;
@@ -50,80 +63,67 @@ export function NavMain({
   function prefetch(url: string) {
     onPrefetch?.(url);
   }
+
   return (
-    <SidebarGroup>
-      <SidebarGroupLabel>Platform</SidebarGroupLabel>
-      <SidebarMenu>
-        {items.map((item) => {
-          const hasSubItems = Boolean(item.items?.length);
+    <>
+      {groups.map((group) => {
+        const isOpen = openGroups[group.title] ?? group.isActive ?? false;
 
-          if (!hasSubItems) {
-            return (
-              <SidebarMenuItem key={item.title}>
-                {item.disabled ? (
-                  <SidebarMenuButton
-                    disabled
-                    tooltip={`${item.title} requires a selected project`}
-                    className="cursor-not-allowed opacity-50"
-                  >
-                    {item.icon && <item.icon />}
-                    <span>{item.title}</span>
-                  </SidebarMenuButton>
-                ) : (
-                  <SidebarMenuButton asChild tooltip={item.title} isActive={item.isActive}>
-                    <a
-                      href={item.url}
-                      onClick={(event) => handleLinkClick(event, item.url)}
-                      onFocus={() => prefetch(item.url)}
-                      onMouseEnter={() => prefetch(item.url)}
-                    >
-                      {item.icon && <item.icon />}
-                      <span>{item.title}</span>
-                    </a>
-                  </SidebarMenuButton>
-                )}
-              </SidebarMenuItem>
-            );
-          }
-
-          return (
+        return (
+          <SidebarGroup key={group.title}>
             <Collapsible
-              key={item.title}
               asChild
-              defaultOpen={item.isActive}
-              className="group/collapsible"
+              open={isOpen}
+              onOpenChange={(open) =>
+                setOpenGroups((current) => ({ ...current, [group.title]: open }))
+              }
+              className="group/principle"
             >
-              <SidebarMenuItem>
-                <CollapsibleTrigger asChild>
-                  <SidebarMenuButton tooltip={item.title} isActive={item.isActive}>
-                    {item.icon && <item.icon />}
-                    <span>{item.title}</span>
-                    <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
-                  </SidebarMenuButton>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <SidebarMenuSub>
-                    {item.items?.map((subItem) => (
-                      <SidebarMenuSubItem key={subItem.title}>
-                        <SidebarMenuSubButton asChild>
-                          <a
-                            href={subItem.url}
-                            onClick={(event) => handleLinkClick(event, subItem.url)}
-                            onFocus={() => prefetch(subItem.url)}
-                            onMouseEnter={() => prefetch(subItem.url)}
-                          >
-                            <span>{subItem.title}</span>
-                          </a>
-                        </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
-                    ))}
-                  </SidebarMenuSub>
-                </CollapsibleContent>
-              </SidebarMenuItem>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton tooltip={group.title} isActive={group.isActive}>
+                      {group.icon && <group.icon />}
+                      <span className="group-data-[collapsible=icon]:hidden">{group.title}</span>
+                      <ChevronRight className="ml-auto transition-transform duration-200 group-data-[collapsible=icon]:hidden group-data-[state=open]/principle:rotate-90" />
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <SidebarMenuSub>
+                      {group.items.map((item) => (
+                        <SidebarMenuSubItem key={item.title}>
+                          {item.disabled ? (
+                            <SidebarMenuSubButton
+                              aria-disabled="true"
+                              className="cursor-not-allowed opacity-50"
+                              title={`${item.title} requires a selected project`}
+                            >
+                              {item.icon && <item.icon />}
+                              <span>{item.title}</span>
+                            </SidebarMenuSubButton>
+                          ) : (
+                            <SidebarMenuSubButton asChild isActive={item.isActive}>
+                              <a
+                                href={item.url}
+                                onClick={(event) => handleLinkClick(event, item.url)}
+                                onFocus={() => prefetch(item.url)}
+                                onMouseEnter={() => prefetch(item.url)}
+                              >
+                                {item.icon && <item.icon />}
+                                <span>{item.title}</span>
+                              </a>
+                            </SidebarMenuSubButton>
+                          )}
+                        </SidebarMenuSubItem>
+                      ))}
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
+                </SidebarMenuItem>
+              </SidebarMenu>
             </Collapsible>
-          );
-        })}
-      </SidebarMenu>
-    </SidebarGroup>
+          </SidebarGroup>
+        );
+      })}
+    </>
   );
 }
