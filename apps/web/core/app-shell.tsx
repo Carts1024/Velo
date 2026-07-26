@@ -3,7 +3,6 @@
 import { stellarConfig } from "@/core/config/stellar";
 import { shortenAddress } from "@/core/wallet/format";
 import { useWallet } from "@/core/wallet/wallet-provider";
-import { OnboardingDialog } from "@/features/onboarding/onboarding-dialog";
 import { useUserProfile } from "@/features/onboarding/use-user-profile";
 import { api } from "@repo/backend/convex/_generated/api";
 import { Badge } from "@repo/ui/components/ui-customs/badge";
@@ -59,8 +58,6 @@ export function AppShell({ children }: { children: ReactNode }) {
   const wallet = useWallet();
   const { isAuthenticated: isConvexAuthenticated } = useConvexAuth();
   const { user, isNewUser, isLoading } = useUserProfile(wallet.address);
-  const [showOnboarding, setShowOnboarding] = useState(false);
-  const [isEditingProfile, setIsEditingProfile] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
   const [storedSelectedProjectId, setStoredSelectedProjectId] = useState<string | null>(null);
@@ -72,12 +69,16 @@ export function AppShell({ children }: { children: ReactNode }) {
     wallet.status,
   );
 
-  const isProtectedRoute = pathname.startsWith("/dashboard") || pathname.startsWith("/projects");
+  const isProtectedRoute =
+    pathname.startsWith("/dashboard") ||
+    pathname.startsWith("/projects") ||
+    pathname.startsWith("/profile");
   const showSidebar =
     isProtectedRoute ||
     pathname.startsWith("/verify") ||
     pathname === "/debug" ||
     pathname === "/docs" ||
+    pathname === "/playground" ||
     pathname === "/feedback";
 
   useEffect(() => {
@@ -87,20 +88,19 @@ export function AppShell({ children }: { children: ReactNode }) {
 
     if (isProtectedRoute && wallet.status !== "connected") {
       router.push("/login");
-    } else if (wallet.status === "connected" && isNewUser && pathname !== "/signup") {
+    } else if (
+      wallet.status === "connected" &&
+      isNewUser &&
+      pathname !== "/signup" &&
+      pathname !== "/playground"
+    ) {
       router.push("/signup");
     }
   }, [wallet.status, isNewUser, isLoading, isProtectedRoute, pathname, router]);
 
-  const handleOnboardingComplete = useCallback(() => {
-    setShowOnboarding(false);
-    setIsEditingProfile(false);
-  }, []);
-
   const handleEditProfile = useCallback(() => {
-    setIsEditingProfile(true);
-    setShowOnboarding(true);
-  }, []);
+    router.push("/profile");
+  }, [router]);
 
   // Fetch projects list for the sidebar switcher
   const rawProjects = useQuery(
@@ -215,7 +215,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       return {
         name: user.name,
         email: user.email,
-        avatar: "",
+        avatar: user.avatarUrl ?? "",
       };
     }
     if (wallet.address) {
@@ -270,7 +270,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const activeProject = sidebarProjects.find((project) => project.id === activeProjectId);
-    const urls = ["/dashboard", "/debug", "/docs", "/projects/new"];
+    const urls = ["/dashboard", "/profile", "/debug", "/docs", "/playground", "/projects/new"];
 
     if (activeProject) {
       urls.push(
@@ -318,7 +318,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             onConnect={wallet.connect}
             isConnecting={wallet.status === "connecting"}
           />
-          <SidebarInset className="flex min-h-dvh min-w-0 max-w-full flex-col overflow-x-clip bg-background text-foreground">
+          <SidebarInset className="flex min-h-dvh max-w-full min-w-0 flex-col overflow-x-clip bg-background text-foreground">
             {/* Top Bar for Protected Pages */}
             <header className="flex min-h-16 shrink-0 items-center gap-2 border-b border-border bg-card px-4 py-2 pt-[max(0.5rem,env(safe-area-inset-top))] sm:gap-4 sm:px-6">
               <SidebarTrigger className="-ml-1 size-9 sm:size-7" />
@@ -345,7 +345,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               </div>
             </header>
 
-            <main className="min-w-0 max-w-full flex-1 overflow-x-clip overflow-y-auto p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-6 lg:p-8">
+            <main className="max-w-full min-w-0 flex-1 overflow-x-clip overflow-y-auto p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-6 lg:p-8">
               {showWalletNotice ? (
                 <Alert className="mb-6">
                   <PlugZapIcon />
@@ -368,13 +368,6 @@ export function AppShell({ children }: { children: ReactNode }) {
               )}
             </main>
           </SidebarInset>
-
-          {/* Onboarding / Profile Edit Dialog */}
-          <OnboardingDialog
-            open={showOnboarding}
-            onComplete={handleOnboardingComplete}
-            existingProfile={isEditingProfile ? user : undefined}
-          />
         </SelectedProjectContext>
       </SidebarProvider>
     );
@@ -398,13 +391,6 @@ export function AppShell({ children }: { children: ReactNode }) {
 
         {children}
       </div>
-
-      {/* Onboarding / Profile Edit Dialog */}
-      <OnboardingDialog
-        open={showOnboarding}
-        onComplete={handleOnboardingComplete}
-        existingProfile={isEditingProfile ? user : undefined}
-      />
     </main>
   );
 }

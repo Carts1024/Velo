@@ -1,4 +1,4 @@
-import { fetchRecentContractEvents } from "@repo/stellar";
+import { fetchRecentContractEvents } from "@repo/stellar/event-monitor";
 import { v } from "convex/values";
 
 import type { ActionCtx } from "./_generated/server";

@@ -12,16 +12,25 @@ export const getByWallet = query({
       .withIndex("by_token_identifier", (q) => q.eq("tokenIdentifier", identity.tokenIdentifier))
       .unique();
 
-    if (tokenUser) {
-      return tokenUser;
+    const user =
+      tokenUser ??
+      (await ctx.db
+        .query("users")
+        .withIndex("by_wallet", (q) => q.eq("walletAddress", normalizeAddress(identity.subject)))
+        .unique());
+
+    if (!user) {
+      return null;
     }
 
-    const walletAddress = normalizeAddress(identity.subject);
+    const avatarUrl = user.avatarStorageId
+      ? ((await ctx.storage.getUrl(user.avatarStorageId)) ?? undefined)
+      : undefined;
 
-    return await ctx.db
-      .query("users")
-      .withIndex("by_wallet", (q) => q.eq("walletAddress", walletAddress))
-      .unique();
+    return {
+      ...user,
+      avatarUrl,
+    };
   },
 });
 

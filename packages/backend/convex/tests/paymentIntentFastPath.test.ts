@@ -7,11 +7,10 @@ import schema from "../schema";
 
 const modules = import.meta.glob("../**/*.ts");
 
-// Mock @repo/stellar functions
-vi.mock("@repo/stellar", () => {
+// Mock the runtime subpath imported by Convex actions.
+vi.mock("@repo/stellar/transaction-debugger", () => {
   return {
     lookupTestnetTransaction: vi.fn(),
-    fetchRecentContractEvents: vi.fn(),
   };
 });
 
@@ -183,7 +182,7 @@ test("watchTransaction handles fast confirmation successfully", async () => {
   });
 
   // Mock lookupTestnetTransaction to return success on-chain
-  const stellarMock = await import("@repo/stellar");
+  const stellarMock = await import("@repo/stellar/transaction-debugger");
   vi.mocked(stellarMock.lookupTestnetTransaction).mockResolvedValueOnce({
     status: "success",
     hash: "tx-hash-ok",

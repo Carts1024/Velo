@@ -1,0 +1,407 @@
+{
+  "schemaVersion": 1,
+  "specHash": "04b594dc41448b557bb0eba30b3961968bf3931b013e65baa484b433dda5f354",
+  "rawEntries": [
+    {
+      "index": 0,
+      "xdr": "AAAABAAAAAAAAAAAAAAAD0NvbGxlY3Rpb25FcnJvcgAAAAABAAAAAAAAABBSZXF1ZXN0ZWRGYWlsdXJlAAAAAQ=="
+    },
+    {
+      "index": 1,
+      "xdr": "AAAAAAAAAAAAAAAIZWNob19tYXAAAAABAAAAAAAAAAV2YWx1ZQAAAAAAA+wAAAARAAAACwAAAAEAAAPsAAAAEQAAAAs="
+    },
+    {
+      "index": 2,
+      "xdr": "AAAAAAAAAAAAAAAIZWNob192ZWMAAAABAAAAAAAAAAV2YWx1ZQAAAAAAA+oAAAAEAAAAAQAAA+oAAAAE"
+    },
+    {
+      "index": 3,
+      "xdr": "AAAAAAAAAAAAAAAJZWNob19ib29sAAAAAAAAAQAAAAAAAAAFdmFsdWUAAAAAAAABAAAAAQAAAAE="
+    },
+    {
+      "index": 4,
+      "xdr": "AAAAAAAAAAAAAAAKZWNob19ieXRlcwAAAAAAAQAAAAAAAAAFdmFsdWUAAAAAAAAOAAAAAQAAAA4="
+    },
+    {
+      "index": 5,
+      "xdr": "AAAAAAAAAAAAAAAKZWNob19maXhlZAAAAAAAAQAAAAAAAAAFdmFsdWUAAAAAAAPuAAAAIAAAAAEAAAPuAAAAIA=="
+    },
+    {
+      "index": 6,
+      "xdr": "AAAAAAAAAAAAAAAKZWNob190dXBsZQAAAAAAAQAAAAAAAAAFdmFsdWUAAAAAAAPtAAAAAgAAAAUAAAARAAAAAQAAA+0AAAACAAAABQAAABE="
+    },
+    {
+      "index": 7,
+      "xdr": "AAAAAAAAAAAAAAALZWNob19vcHRpb24AAAAAAQAAAAAAAAAFdmFsdWUAAAAAAAPoAAAABAAAAAEAAAPoAAAABA=="
+    },
+    {
+      "index": 8,
+      "xdr": "AAAAAAAAAAAAAAALZWNob19yZXN1bHQAAAAAAgAAAAAAAAAFdmFsdWUAAAAAAAAEAAAAAAAAAARmYWlsAAAAAQAAAAEAAAPpAAAABAAAB9AAAAAPQ29sbGVjdGlvbkVycm9yAA=="
+    },
+    {
+      "index": 9,
+      "xdr": "AAAAAAAAAAAAAAALZWNob19zdHJpbmcAAAAAAQAAAAAAAAAFdmFsdWUAAAAAAAAQAAAAAQAAABA="
+    },
+    {
+      "index": 10,
+      "xdr": "AAAAAAAAAAAAAAAMYWNjZXB0X2Vycm9yAAAAAQAAAAAAAAAFdmFsdWUAAAAAAAADAAAAAQAAAAE="
+    },
+    {
+      "index": 11,
+      "xdr": "AAAAAAAAAAAAAAAMYWNjZXB0X3ZhbHVlAAAAAQAAAAAAAAAFdmFsdWUAAAAAAAAAAAAAAQAAAAE="
+    }
+  ],
+  "functions": [
+    {
+      "name": "echo_map",
+      "documentation": "",
+      "parameters": [
+        {
+          "name": "value",
+          "documentation": "",
+          "type": {
+            "kind": "map",
+            "keyType": {
+              "kind": "symbol"
+            },
+            "valueType": {
+              "kind": "i128"
+            }
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "index": 0,
+          "type": {
+            "kind": "map",
+            "keyType": {
+              "kind": "symbol"
+            },
+            "valueType": {
+              "kind": "i128"
+            }
+          }
+        }
+      ],
+      "source": {
+        "index": 1,
+        "xdr": "AAAAAAAAAAAAAAAIZWNob19tYXAAAAABAAAAAAAAAAV2YWx1ZQAAAAAAA+wAAAARAAAACwAAAAEAAAPsAAAAEQAAAAs="
+      }
+    },
+    {
+      "name": "echo_vec",
+      "documentation": "",
+      "parameters": [
+        {
+          "name": "value",
+          "documentation": "",
+          "type": {
+            "kind": "vector",
+            "elementType": {
+              "kind": "u32"
+            }
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "index": 0,
+          "type": {
+            "kind": "vector",
+            "elementType": {
+              "kind": "u32"
+            }
+          }
+        }
+      ],
+      "source": {
+        "index": 2,
+        "xdr": "AAAAAAAAAAAAAAAIZWNob192ZWMAAAABAAAAAAAAAAV2YWx1ZQAAAAAAA+oAAAAEAAAAAQAAA+oAAAAE"
+      }
+    },
+    {
+      "name": "echo_bool",
+      "documentation": "",
+      "parameters": [
+        {
+          "name": "value",
+          "documentation": "",
+          "type": {
+            "kind": "bool"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "index": 0,
+          "type": {
+            "kind": "bool"
+          }
+        }
+      ],
+      "source": {
+        "index": 3,
+        "xdr": "AAAAAAAAAAAAAAAJZWNob19ib29sAAAAAAAAAQAAAAAAAAAFdmFsdWUAAAAAAAABAAAAAQAAAAE="
+      }
+    },
+    {
+      "name": "echo_bytes",
+      "documentation": "",
+      "parameters": [
+        {
+          "name": "value",
+          "documentation": "",
+          "type": {
+            "kind": "bytes"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "index": 0,
+          "type": {
+            "kind": "bytes"
+          }
+        }
+      ],
+      "source": {
+        "index": 4,
+        "xdr": "AAAAAAAAAAAAAAAKZWNob19ieXRlcwAAAAAAAQAAAAAAAAAFdmFsdWUAAAAAAAAOAAAAAQAAAA4="
+      }
+    },
+    {
+      "name": "echo_fixed",
+      "documentation": "",
+      "parameters": [
+        {
+          "name": "value",
+          "documentation": "",
+          "type": {
+            "kind": "bytesN",
+            "length": 32
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "index": 0,
+          "type": {
+            "kind": "bytesN",
+            "length": 32
+          }
+        }
+      ],
+      "source": {
+        "index": 5,
+        "xdr": "AAAAAAAAAAAAAAAKZWNob19maXhlZAAAAAAAAQAAAAAAAAAFdmFsdWUAAAAAAAPuAAAAIAAAAAEAAAPuAAAAIA=="
+      }
+    },
+    {
+      "name": "echo_tuple",
+      "documentation": "",
+      "parameters": [
+        {
+          "name": "value",
+          "documentation": "",
+          "type": {
+            "kind": "tuple",
+            "elements": [
+              {
+                "kind": "i32"
+              },
+              {
+                "kind": "symbol"
+              }
+            ]
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "index": 0,
+          "type": {
+            "kind": "tuple",
+            "elements": [
+              {
+                "kind": "i32"
+              },
+              {
+                "kind": "symbol"
+              }
+            ]
+          }
+        }
+      ],
+      "source": {
+        "index": 6,
+        "xdr": "AAAAAAAAAAAAAAAKZWNob190dXBsZQAAAAAAAQAAAAAAAAAFdmFsdWUAAAAAAAPtAAAAAgAAAAUAAAARAAAAAQAAA+0AAAACAAAABQAAABE="
+      }
+    },
+    {
+      "name": "echo_option",
+      "documentation": "",
+      "parameters": [
+        {
+          "name": "value",
+          "documentation": "",
+          "type": {
+            "kind": "option",
+            "valueType": {
+              "kind": "u32"
+            }
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "index": 0,
+          "type": {
+            "kind": "option",
+            "valueType": {
+              "kind": "u32"
+            }
+          }
+        }
+      ],
+      "source": {
+        "index": 7,
+        "xdr": "AAAAAAAAAAAAAAALZWNob19vcHRpb24AAAAAAQAAAAAAAAAFdmFsdWUAAAAAAAPoAAAABAAAAAEAAAPoAAAABA=="
+      }
+    },
+    {
+      "name": "echo_result",
+      "documentation": "",
+      "parameters": [
+        {
+          "name": "value",
+          "documentation": "",
+          "type": {
+            "kind": "u32"
+          }
+        },
+        {
+          "name": "fail",
+          "documentation": "",
+          "type": {
+            "kind": "bool"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "index": 0,
+          "type": {
+            "kind": "result",
+            "okType": {
+              "kind": "u32"
+            },
+            "errorType": {
+              "kind": "custom",
+              "name": "CollectionError"
+            }
+          }
+        }
+      ],
+      "source": {
+        "index": 8,
+        "xdr": "AAAAAAAAAAAAAAALZWNob19yZXN1bHQAAAAAAgAAAAAAAAAFdmFsdWUAAAAAAAAEAAAAAAAAAARmYWlsAAAAAQAAAAEAAAPpAAAABAAAB9AAAAAPQ29sbGVjdGlvbkVycm9yAA=="
+      }
+    },
+    {
+      "name": "echo_string",
+      "documentation": "",
+      "parameters": [
+        {
+          "name": "value",
+          "documentation": "",
+          "type": {
+            "kind": "string"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "index": 0,
+          "type": {
+            "kind": "string"
+          }
+        }
+      ],
+      "source": {
+        "index": 9,
+        "xdr": "AAAAAAAAAAAAAAALZWNob19zdHJpbmcAAAAAAQAAAAAAAAAFdmFsdWUAAAAAAAAQAAAAAQAAABA="
+      }
+    },
+    {
+      "name": "accept_error",
+      "documentation": "",
+      "parameters": [
+        {
+          "name": "value",
+          "documentation": "",
+          "type": {
+            "kind": "error"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "index": 0,
+          "type": {
+            "kind": "bool"
+          }
+        }
+      ],
+      "source": {
+        "index": 10,
+        "xdr": "AAAAAAAAAAAAAAAMYWNjZXB0X2Vycm9yAAAAAQAAAAAAAAAFdmFsdWUAAAAAAAADAAAAAQAAAAE="
+      }
+    },
+    {
+      "name": "accept_value",
+      "documentation": "",
+      "parameters": [
+        {
+          "name": "value",
+          "documentation": "",
+          "type": {
+            "kind": "value"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "index": 0,
+          "type": {
+            "kind": "bool"
+          }
+        }
+      ],
+      "source": {
+        "index": 11,
+        "xdr": "AAAAAAAAAAAAAAAMYWNjZXB0X3ZhbHVlAAAAAQAAAAAAAAAFdmFsdWUAAAAAAAAAAAAAAQAAAAE="
+      }
+    }
+  ],
+  "customTypes": [],
+  "errors": [
+    {
+      "name": "CollectionError",
+      "library": "",
+      "documentation": "",
+      "cases": [
+        {
+          "name": "RequestedFailure",
+          "documentation": "",
+          "value": 1
+        }
+      ],
+      "source": {
+        "index": 0,
+        "xdr": "AAAABAAAAAAAAAAAAAAAD0NvbGxlY3Rpb25FcnJvcgAAAAABAAAAAAAAABBSZXF1ZXN0ZWRGYWlsdXJlAAAAAQ=="
+      }
+    }
+  ],
+  "events": []
+}
