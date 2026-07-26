@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "specHash": "8b027872e5e713d9983a848b5cabdf2143461177f2a5e35c2af9d15a8fec5b86",
+  "rawEntries": [
+    {
+      "index": 0,
+      "xdr": "AAAAAAAAAEBSZXR1cm4gYSBkZXRlcm1pbmlzdGljIGdyZWV0aW5nIGZvciB0aGUgc3VwcGxpZWQgU29yb2JhbiBzeW1ib2wuAAAABWhlbGxvAAAAAAAAAQAAAAAAAAACdG8AAAAAABEAAAABAAAD6gAAABE="
+    }
+  ],
+  "functions": [
+    {
+      "name": "hello",
+      "documentation": "Return a deterministic greeting for the supplied Soroban symbol.",
+      "parameters": [
+        {
+          "name": "to",
+          "documentation": "",
+          "type": {
+            "kind": "symbol"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "index": 0,
+          "type": {
+            "kind": "vector",
+            "elementType": {
+              "kind": "symbol"
+            }
+          }
+        }
+      ],
+      "source": {
+        "index": 0,
+        "xdr": "AAAAAAAAAEBSZXR1cm4gYSBkZXRlcm1pbmlzdGljIGdyZWV0aW5nIGZvciB0aGUgc3VwcGxpZWQgU29yb2JhbiBzeW1ib2wuAAAABWhlbGxvAAAAAAAAAQAAAAAAAAACdG8AAAAAABEAAAABAAAD6gAAABE="
+      }
+    }
+  ],
+  "customTypes": [],
+  "errors": [],
+  "events": []
+}

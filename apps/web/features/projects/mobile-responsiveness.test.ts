@@ -16,7 +16,9 @@ const wallets = read("features/projects/project-wallets.tsx");
 const publicVerification = read("features/projects/public-verification.tsx");
 
 test("app shell constrains intrinsic width and respects installed-app safe areas", () => {
-  assert.match(appShell, /min-h-dvh min-w-0 max-w-full/);
+  assert.match(appShell, /min-h-dvh/);
+  assert.match(appShell, /min-w-0/);
+  assert.match(appShell, /max-w-full/);
   assert.match(appShell, /overflow-x-clip overflow-y-auto/);
   assert.match(appShell, /safe-area-inset-top/);
   assert.match(appShell, /safe-area-inset-bottom/);

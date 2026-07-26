@@ -1,4 +1,4 @@
-import { assertValidContractId } from "@repo/stellar";
+import { assertValidContractId } from "@repo/stellar/validation";
 
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import type { ProjectId } from "../projects/types";

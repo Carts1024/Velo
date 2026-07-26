@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "network": "testnet",
+  "status": "deployed",
+  "liveQualification": "pending",
+  "generatedAt": "2026-07-23T08:25:16Z",
+  "sourceRevision": "9254a8a1cf7fc4556f7e804395a0d5a84650b752",
+  "toolVersions": {
+    "stellarCli": "stellar 25.2.0 (28484880988199233a7e8e87c97cb12dac323cb3)\nstellar-xdr 25.0.0 (dc9f40fcb83c3054341f70b65a2222073369b37b)\nxdr curr (0a621ec7811db000a60efae5b35f78dee3aa2533)",
+    "rustc": "rustc 1.94.0 (4a4ef493e 2026-03-02)",
+    "cargo": "cargo 1.94.0 (85eff7c80 2026-01-15)"
+  },
+  "contracts": {
+    "hello": {
+      "contractId": "CCTVBDL3OUNZXS2F6KUNPG4RGCKMI3F57SQ7YHFLG6TIK4NKDEDKMAG3",
+      "wasmHash": "0c85c9f875dec390c4168f238869e6eb1ef7e7f0041af7392de037ee22b37c0e",
+      "deploymentLedger": 3754794
+    },
+    "numeric": {
+      "contractId": "CBYINBKV52V5J7FQGLFQHFPNWKGW3ACXASGEKWCFNCMLEESOKBACZ5NY",
+      "wasmHash": "bcbdd76fa14459f2cddab680fe47ea6062064ead12cf13ff673c4a97a50c809f",
+      "deploymentLedger": 3754809
+    },
+    "collections": {
+      "contractId": "CBTYOCIVGJ2QGREMT6OXVBSGWGJASPNEXJORM34IPS2PBBRLQLXZNTHY",
+      "wasmHash": "3e3d3578673cacd8bb029202e4ca022a6927e06f3ec136afa87981a68c525162",
+      "deploymentLedger": 3754823
+    },
+    "custom-types": {
+      "contractId": "CDE5XAK4N5JCGWNPGCXPEWV4VWBAPT2J7RTHLPNUFD6N5PURJCDYVLYK",
+      "wasmHash": "d69929e9ce25bb4f23e3e7d2aa0bceb853018c1c20568aa5cf5cffef5b16bd14",
+      "deploymentLedger": 3755439
+    },
+    "auth-events-errors": {
+      "contractId": "CDT3DBQMKRMWDOOXODNYD6ZP27LEZS5JMN2FMSL5OYXVDJJVI34U2TSQ",
+      "wasmHash": "5f19b0b10cec803d6df7a25bbaebbe1cf56c0c1ebf876f43bd6d81516450491b",
+      "deploymentLedger": 3755446
+    }
+  }
+}

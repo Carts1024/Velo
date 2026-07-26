@@ -1,4 +1,4 @@
-import type { DebugOperation } from "@repo/stellar";
+import type { DebugOperation } from "@repo/stellar/transaction-debugger";
 
 export type PaymentVerificationExpectation = {
   receiverAddress?: string;

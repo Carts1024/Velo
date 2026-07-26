@@ -4,7 +4,12 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./contract-arguments": "./src/contract-arguments.ts",
+    "./contract-config": "./src/contract-config.ts",
+    "./event-monitor": "./src/event-monitor.ts",
+    "./transaction-debugger": "./src/transaction-debugger.ts",
+    "./validation": "./src/validation.ts"
   },
   "scripts": {
     "lint:fix": "oxlint --fix . && oxfmt --write . && tsc --noEmit",

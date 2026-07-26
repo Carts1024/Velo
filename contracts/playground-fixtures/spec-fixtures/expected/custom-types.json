@@ -1,0 +1,311 @@
+{
+  "schemaVersion": 1,
+  "specHash": "55bdc2c5fcc41f1278662cf2b65d02f0ab87552279d216af3ec83bc767456dc4",
+  "rawEntries": [
+    {
+      "index": 0,
+      "xdr": "AAAAAwAAAClJbnRlZ2VyIGVudW0gd2l0aCBzdGFibGUgZXh0ZXJuYWwgdmFsdWVzLgAAAAAAAAAAAAAEVGllcgAAAAIAAAARRW50cnktbGV2ZWwgdGllci4AAAAAAAAFQmFzaWMAAAAAAAABAAAAElByb2Zlc3Npb25hbCB0aWVyLgAAAAAAA1BybwAAAAAC"
+    },
+    {
+      "index": 1,
+      "xdr": "AAAAAgAAACxVbml0IGVudW0gdXNlZCB0byBleGVyY2lzZSB2b2lkIHVuaW9uIGNhc2VzLgAAAAAAAAAGU3RhdHVzAAAAAAACAAAAAAAAABlUaGUgcHJvZmlsZSBpcyBhdmFpbGFibGUuAAAAAAAABkFjdGl2ZQAAAAAAAAAAACJUaGUgcHJvZmlsZSBpcyB0ZW1wb3JhcmlseSBwYXVzZWQuAAAAAAAGUGF1c2VkAAA="
+    },
+    {
+      "index": 2,
+      "xdr": "AAAAAgAAAEFUdXBsZSB1bmlvbiBjb3ZlcmluZyB2b2lkLCBzY2FsYXIsIGN1c3RvbSwgYW5kIG11bHRpLXZhbHVlIGNhc2VzLgAAAAAAAAAAAAAHUGF5bG9hZAAAAAAEAAAAAAAAAAtObyBwYXlsb2FkLgAAAAAFRW1wdHkAAAAAAAABAAAAD0Egc2luZ2xlIGNvdW50LgAAAAAFQ291bnQAAAAAAAABAAAABgAAAAEAAAAXQSBuZXN0ZWQgY3VzdG9tIHJlY29yZC4AAAAAB1Byb2ZpbGUAAAAAAQAAB9AAAAAHUHJvZmlsZQAAAAABAAAAHkEgaGV0ZXJvZ2VuZW91cyB0dXBsZSBwYXlsb2FkLgAAAAAABFBhaXIAAAACAAAABQAAABE="
+    },
+    {
+      "index": 3,
+      "xdr": "AAAAAQAAADpSZXByZXNlbnRhdGl2ZSBuZXN0ZWQgcmVjb3JkIGZvciByZWN1cnNpdmUgZm9ybSByZW5kZXJpbmcuAAAAAAAAAAAAB1Byb2ZpbGUAAAAAAwAAABxIdW1hbi1yZWFkYWJsZSBwcm9maWxlIG5hbWUuAAAADGRpc3BsYXlfbmFtZQAAABAAAAAZTmVzdGVkIGNvb3JkaW5hdGUgcmVjb3JkLgAAAAAAAARob21lAAAH0AAAAAtDb29yZGluYXRlcwAAAAAbU2VhcmNoYWJsZSBzeW1ib2xpYyBsYWJlbHMuAAAAAAR0YWdzAAAD6gAAABE="
+    },
+    {
+      "index": 4,
+      "xdr": "AAAAAQAAAC9OZXN0ZWQgY29vcmRpbmF0ZXMgdXNlZCBieSB0aGUgcHJvZmlsZSBmaXh0dXJlLgAAAAAAAAAAC0Nvb3JkaW5hdGVzAAAAAAIAAAAjTGF0aXR1ZGUgbXVsdGlwbGllZCBieSBvbmUgbWlsbGlvbi4AAAAACGxhdGl0dWRlAAAABwAAACRMb25naXR1ZGUgbXVsdGlwbGllZCBieSBvbmUgbWlsbGlvbi4AAAAJbG9uZ2l0dWRlAAAAAAAABw=="
+    },
+    {
+      "index": 5,
+      "xdr": "AAAAAAAAAAAAAAAJZWNob190aWVyAAAAAAAAAQAAAAAAAAAFdmFsdWUAAAAAAAfQAAAABFRpZXIAAAABAAAH0AAAAARUaWVy"
+    },
+    {
+      "index": 6,
+      "xdr": "AAAAAAAAAAAAAAALZWNob19zdGF0dXMAAAAAAQAAAAAAAAAFdmFsdWUAAAAAAAfQAAAABlN0YXR1cwAAAAAAAQAAB9AAAAAGU3RhdHVzAAA="
+    },
+    {
+      "index": 7,
+      "xdr": "AAAAAAAAAAAAAAAMZWNob19wYXlsb2FkAAAAAQAAAAAAAAAFdmFsdWUAAAAAAAfQAAAAB1BheWxvYWQAAAAAAQAAB9AAAAAHUGF5bG9hZAA="
+    },
+    {
+      "index": 8,
+      "xdr": "AAAAAAAAAAAAAAAMZWNob19wcm9maWxlAAAAAQAAAAAAAAAFdmFsdWUAAAAAAAfQAAAAB1Byb2ZpbGUAAAAAAQAAB9AAAAAHUHJvZmlsZQA="
+    }
+  ],
+  "functions": [
+    {
+      "name": "echo_tier",
+      "documentation": "",
+      "parameters": [
+        {
+          "name": "value",
+          "documentation": "",
+          "type": {
+            "kind": "custom",
+            "name": "Tier"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "index": 0,
+          "type": {
+            "kind": "custom",
+            "name": "Tier"
+          }
+        }
+      ],
+      "source": {
+        "index": 5,
+        "xdr": "AAAAAAAAAAAAAAAJZWNob190aWVyAAAAAAAAAQAAAAAAAAAFdmFsdWUAAAAAAAfQAAAABFRpZXIAAAABAAAH0AAAAARUaWVy"
+      }
+    },
+    {
+      "name": "echo_status",
+      "documentation": "",
+      "parameters": [
+        {
+          "name": "value",
+          "documentation": "",
+          "type": {
+            "kind": "custom",
+            "name": "Status"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "index": 0,
+          "type": {
+            "kind": "custom",
+            "name": "Status"
+          }
+        }
+      ],
+      "source": {
+        "index": 6,
+        "xdr": "AAAAAAAAAAAAAAALZWNob19zdGF0dXMAAAAAAQAAAAAAAAAFdmFsdWUAAAAAAAfQAAAABlN0YXR1cwAAAAAAAQAAB9AAAAAGU3RhdHVzAAA="
+      }
+    },
+    {
+      "name": "echo_payload",
+      "documentation": "",
+      "parameters": [
+        {
+          "name": "value",
+          "documentation": "",
+          "type": {
+            "kind": "custom",
+            "name": "Payload"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "index": 0,
+          "type": {
+            "kind": "custom",
+            "name": "Payload"
+          }
+        }
+      ],
+      "source": {
+        "index": 7,
+        "xdr": "AAAAAAAAAAAAAAAMZWNob19wYXlsb2FkAAAAAQAAAAAAAAAFdmFsdWUAAAAAAAfQAAAAB1BheWxvYWQAAAAAAQAAB9AAAAAHUGF5bG9hZAA="
+      }
+    },
+    {
+      "name": "echo_profile",
+      "documentation": "",
+      "parameters": [
+        {
+          "name": "value",
+          "documentation": "",
+          "type": {
+            "kind": "custom",
+            "name": "Profile"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "index": 0,
+          "type": {
+            "kind": "custom",
+            "name": "Profile"
+          }
+        }
+      ],
+      "source": {
+        "index": 8,
+        "xdr": "AAAAAAAAAAAAAAAMZWNob19wcm9maWxlAAAAAQAAAAAAAAAFdmFsdWUAAAAAAAfQAAAAB1Byb2ZpbGUAAAAAAQAAB9AAAAAHUHJvZmlsZQA="
+      }
+    }
+  ],
+  "customTypes": [
+    {
+      "kind": "enum",
+      "name": "Tier",
+      "library": "",
+      "documentation": "Integer enum with stable external values.",
+      "cases": [
+        {
+          "name": "Basic",
+          "documentation": "Entry-level tier.",
+          "value": 1
+        },
+        {
+          "name": "Pro",
+          "documentation": "Professional tier.",
+          "value": 2
+        }
+      ],
+      "source": {
+        "index": 0,
+        "xdr": "AAAAAwAAAClJbnRlZ2VyIGVudW0gd2l0aCBzdGFibGUgZXh0ZXJuYWwgdmFsdWVzLgAAAAAAAAAAAAAEVGllcgAAAAIAAAARRW50cnktbGV2ZWwgdGllci4AAAAAAAAFQmFzaWMAAAAAAAABAAAAElByb2Zlc3Npb25hbCB0aWVyLgAAAAAAA1BybwAAAAAC"
+      }
+    },
+    {
+      "kind": "union",
+      "name": "Status",
+      "library": "",
+      "documentation": "Unit enum used to exercise void union cases.",
+      "cases": [
+        {
+          "name": "Active",
+          "documentation": "The profile is available.",
+          "types": []
+        },
+        {
+          "name": "Paused",
+          "documentation": "The profile is temporarily paused.",
+          "types": []
+        }
+      ],
+      "source": {
+        "index": 1,
+        "xdr": "AAAAAgAAACxVbml0IGVudW0gdXNlZCB0byBleGVyY2lzZSB2b2lkIHVuaW9uIGNhc2VzLgAAAAAAAAAGU3RhdHVzAAAAAAACAAAAAAAAABlUaGUgcHJvZmlsZSBpcyBhdmFpbGFibGUuAAAAAAAABkFjdGl2ZQAAAAAAAAAAACJUaGUgcHJvZmlsZSBpcyB0ZW1wb3JhcmlseSBwYXVzZWQuAAAAAAAGUGF1c2VkAAA="
+      }
+    },
+    {
+      "kind": "union",
+      "name": "Payload",
+      "library": "",
+      "documentation": "Tuple union covering void, scalar, custom, and multi-value cases.",
+      "cases": [
+        {
+          "name": "Empty",
+          "documentation": "No payload.",
+          "types": []
+        },
+        {
+          "name": "Count",
+          "documentation": "A single count.",
+          "types": [
+            {
+              "kind": "u64"
+            }
+          ]
+        },
+        {
+          "name": "Profile",
+          "documentation": "A nested custom record.",
+          "types": [
+            {
+              "kind": "custom",
+              "name": "Profile"
+            }
+          ]
+        },
+        {
+          "name": "Pair",
+          "documentation": "A heterogeneous tuple payload.",
+          "types": [
+            {
+              "kind": "i32"
+            },
+            {
+              "kind": "symbol"
+            }
+          ]
+        }
+      ],
+      "source": {
+        "index": 2,
+        "xdr": "AAAAAgAAAEFUdXBsZSB1bmlvbiBjb3ZlcmluZyB2b2lkLCBzY2FsYXIsIGN1c3RvbSwgYW5kIG11bHRpLXZhbHVlIGNhc2VzLgAAAAAAAAAAAAAHUGF5bG9hZAAAAAAEAAAAAAAAAAtObyBwYXlsb2FkLgAAAAAFRW1wdHkAAAAAAAABAAAAD0Egc2luZ2xlIGNvdW50LgAAAAAFQ291bnQAAAAAAAABAAAABgAAAAEAAAAXQSBuZXN0ZWQgY3VzdG9tIHJlY29yZC4AAAAAB1Byb2ZpbGUAAAAAAQAAB9AAAAAHUHJvZmlsZQAAAAABAAAAHkEgaGV0ZXJvZ2VuZW91cyB0dXBsZSBwYXlsb2FkLgAAAAAABFBhaXIAAAACAAAABQAAABE="
+      }
+    },
+    {
+      "kind": "struct",
+      "name": "Profile",
+      "library": "",
+      "documentation": "Representative nested record for recursive form rendering.",
+      "fields": [
+        {
+          "name": "display_name",
+          "documentation": "Human-readable profile name.",
+          "type": {
+            "kind": "string"
+          }
+        },
+        {
+          "name": "home",
+          "documentation": "Nested coordinate record.",
+          "type": {
+            "kind": "custom",
+            "name": "Coordinates"
+          }
+        },
+        {
+          "name": "tags",
+          "documentation": "Searchable symbolic labels.",
+          "type": {
+            "kind": "vector",
+            "elementType": {
+              "kind": "symbol"
+            }
+          }
+        }
+      ],
+      "source": {
+        "index": 3,
+        "xdr": "AAAAAQAAADpSZXByZXNlbnRhdGl2ZSBuZXN0ZWQgcmVjb3JkIGZvciByZWN1cnNpdmUgZm9ybSByZW5kZXJpbmcuAAAAAAAAAAAAB1Byb2ZpbGUAAAAAAwAAABxIdW1hbi1yZWFkYWJsZSBwcm9maWxlIG5hbWUuAAAADGRpc3BsYXlfbmFtZQAAABAAAAAZTmVzdGVkIGNvb3JkaW5hdGUgcmVjb3JkLgAAAAAAAARob21lAAAH0AAAAAtDb29yZGluYXRlcwAAAAAbU2VhcmNoYWJsZSBzeW1ib2xpYyBsYWJlbHMuAAAAAAR0YWdzAAAD6gAAABE="
+      }
+    },
+    {
+      "kind": "struct",
+      "name": "Coordinates",
+      "library": "",
+      "documentation": "Nested coordinates used by the profile fixture.",
+      "fields": [
+        {
+          "name": "latitude",
+          "documentation": "Latitude multiplied by one million.",
+          "type": {
+            "kind": "i64"
+          }
+        },
+        {
+          "name": "longitude",
+          "documentation": "Longitude multiplied by one million.",
+          "type": {
+            "kind": "i64"
+          }
+        }
+      ],
+      "source": {
+        "index": 4,
+        "xdr": "AAAAAQAAAC9OZXN0ZWQgY29vcmRpbmF0ZXMgdXNlZCBieSB0aGUgcHJvZmlsZSBmaXh0dXJlLgAAAAAAAAAAC0Nvb3JkaW5hdGVzAAAAAAIAAAAjTGF0aXR1ZGUgbXVsdGlwbGllZCBieSBvbmUgbWlsbGlvbi4AAAAACGxhdGl0dWRlAAAABwAAACRMb25naXR1ZGUgbXVsdGlwbGllZCBieSBvbmUgbWlsbGlvbi4AAAAJbG9uZ2l0dWRlAAAAAAAABw=="
+      }
+    }
+  ],
+  "errors": [],
+  "events": []
+}
