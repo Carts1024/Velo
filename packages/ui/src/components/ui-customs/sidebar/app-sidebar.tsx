@@ -74,6 +74,17 @@ export function AppSidebar({
   const publicProofUrl = activeProject?.slug ? `/verify/${activeProject.slug}` : "/dashboard";
   const settingsUrl = activeProject ? `/projects/${activeProject.id}/settings` : undefined;
 
+  const navItems = [
+    {
+      title: "Dashboard",
+      url: "/dashboard",
+      icon: LayoutDashboardIcon,
+    },
+  ].map((item) => ({
+    ...item,
+    isActive: isPathActive(currentPath, item.url),
+  }));
+
   const navGroups = [
     {
       title: "Build",
@@ -153,13 +164,7 @@ export function AppSidebar({
     {
       title: "Pay",
       icon: CreditCardIcon,
-      items: [
-        {
-          title: "Dashboard",
-          url: "/dashboard",
-          icon: LayoutDashboardIcon,
-        },
-      ],
+      items: [],
     },
     {
       title: "Settle",
@@ -192,8 +197,13 @@ export function AppSidebar({
           onCreateProject={onCreateProject}
         />
       </SidebarHeader>
-      <SidebarContent>
-        <NavMain groups={navGroups} onNavigate={onNavigate} onPrefetch={onPrefetch} />
+      <SidebarContent className="gap-0">
+        <NavMain
+          items={navItems}
+          groups={navGroups}
+          onNavigate={onNavigate}
+          onPrefetch={onPrefetch}
+        />
       </SidebarContent>
       <SidebarFooter>
         {user ? (

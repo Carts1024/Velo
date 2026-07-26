@@ -31,10 +31,12 @@ export type NavMainGroup = {
 };
 
 export function NavMain({
+  items = [],
   groups,
   onNavigate,
   onPrefetch,
 }: {
+  items?: NavMainItem[];
   groups: NavMainGroup[];
   onNavigate?: (url: string) => void;
   onPrefetch?: (url: string) => void;
@@ -64,13 +66,68 @@ export function NavMain({
     onPrefetch?.(url);
   }
 
+  function renderStandaloneItem(item: NavMainItem) {
+    return (
+      <SidebarMenuItem key={item.title}>
+        {item.disabled ? (
+          <SidebarMenuButton
+            disabled
+            tooltip={`${item.title} requires a selected project`}
+            className="cursor-not-allowed opacity-50"
+          >
+            {item.icon && <item.icon />}
+            <span>{item.title}</span>
+          </SidebarMenuButton>
+        ) : (
+          <SidebarMenuButton asChild tooltip={item.title} isActive={item.isActive}>
+            <a
+              href={item.url}
+              onClick={(event) => handleLinkClick(event, item.url)}
+              onFocus={() => prefetch(item.url)}
+              onMouseEnter={() => prefetch(item.url)}
+            >
+              {item.icon && <item.icon />}
+              <span>{item.title}</span>
+            </a>
+          </SidebarMenuButton>
+        )}
+      </SidebarMenuItem>
+    );
+  }
+
   return (
     <>
+      {items.length > 0 ? (
+        <SidebarGroup className="px-2 py-1">
+          <SidebarMenu>{items.map(renderStandaloneItem)}</SidebarMenu>
+        </SidebarGroup>
+      ) : null}
       {groups.map((group) => {
         const isOpen = openGroups[group.title] ?? group.isActive ?? false;
 
+        if (group.items.length === 0) {
+          return (
+            <SidebarGroup key={group.title} className="px-2 py-1">
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    tooltip={group.title}
+                    className="cursor-default text-sidebar-foreground/70 hover:bg-transparent hover:text-sidebar-foreground/70"
+                  >
+                    <div>
+                      {group.icon && <group.icon />}
+                      <span className="group-data-[collapsible=icon]:hidden">{group.title}</span>
+                    </div>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroup>
+          );
+        }
+
         return (
-          <SidebarGroup key={group.title}>
+          <SidebarGroup key={group.title} className="px-2 py-1">
             <Collapsible
               asChild
               open={isOpen}
