@@ -2,9 +2,13 @@ name: CI/CD
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [main]
   pull_request:
-    branches: [ main, master ]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   test-js:
@@ -66,41 +70,55 @@ jobs:
   deploy-convex:
     name: Deploy Convex Backend
     needs: test-js
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
+    environment: production
+    concurrency:
+      group: convex-production
+      cancel-in-progress: false
     env:
-      HAS_CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY != '' }}
+      CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
     steps:
       - name: Checkout Code
-        if: env.HAS_CONVEX_DEPLOY_KEY == 'true'
         uses: actions/checkout@v4
 
       - name: Setup pnpm
-        if: env.HAS_CONVEX_DEPLOY_KEY == 'true'
         uses: pnpm/action-setup@v4
         with:
           version: 10.25.0
 
       - name: Setup Node.js
-        if: env.HAS_CONVEX_DEPLOY_KEY == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: pnpm
 
       - name: Install Dependencies
-        if: env.HAS_CONVEX_DEPLOY_KEY == 'true'
         run: pnpm install --frozen-lockfile
 
-      - name: Deploy Convex
-        if: env.HAS_CONVEX_DEPLOY_KEY == 'true'
-        env:
-          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+      - name: Validate Convex Production Deploy Key
+        shell: bash
+        run: |
+          if [[ -z "$CONVEX_DEPLOY_KEY" ]]; then
+            echo "::error::CONVEX_DEPLOY_KEY is missing. Add it to the GitHub production environment or repository Actions secrets."
+            exit 1
+          fi
+
+          if [[ "$CONVEX_DEPLOY_KEY" != prod:* ]]; then
+            echo "::error::CONVEX_DEPLOY_KEY must be a production deploy key (its value starts with 'prod:')."
+            exit 1
+          fi
+
+      - name: Deploy Convex Production Backend
         run: pnpm --filter @repo/backend exec convex deploy --typecheck enable --codegen enable
 
-      - name: Skip Convex Deploy
-        if: env.HAS_CONVEX_DEPLOY_KEY != 'true'
-        run: echo "CONVEX_DEPLOY_KEY is not configured; skipping Convex deploy."
+      - name: Record Convex Deployment
+        run: |
+          {
+            echo "### Convex production deployment"
+            echo "- Commit: \`$GITHUB_SHA\`"
+            echo "- Branch: \`$GITHUB_REF_NAME\`"
+          } >> "$GITHUB_STEP_SUMMARY"
 
   deploy-contracts:
     name: Deploy Smart Contracts

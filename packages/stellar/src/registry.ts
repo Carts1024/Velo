@@ -86,14 +86,25 @@ export type ContractTransactionConfirmation =
 const TRANSACTION_VALIDITY_SECONDS = 15 * 60;
 const MISSING_TRANSACTION_HASH = "0".repeat(64);
 
-export function registrationTimebounds(latestLedgerCloseTime: number) {
-  if (!Number.isSafeInteger(latestLedgerCloseTime) || latestLedgerCloseTime <= 0) {
+export function registrationTimebounds(latestLedgerCloseTime: number | string) {
+  const normalizedCloseTime =
+    typeof latestLedgerCloseTime === "number"
+      ? latestLedgerCloseTime
+      : /^[1-9]\d*$/.test(latestLedgerCloseTime)
+        ? Number(latestLedgerCloseTime)
+        : Number.NaN;
+
+  if (
+    !Number.isSafeInteger(normalizedCloseTime) ||
+    normalizedCloseTime <= 0 ||
+    normalizedCloseTime > Number.MAX_SAFE_INTEGER - TRANSACTION_VALIDITY_SECONDS
+  ) {
     throw new Error("Stellar RPC returned an invalid latest ledger close time");
   }
 
   return {
     minTime: 0,
-    maxTime: latestLedgerCloseTime + TRANSACTION_VALIDITY_SECONDS,
+    maxTime: normalizedCloseTime + TRANSACTION_VALIDITY_SECONDS,
   };
 }
 
