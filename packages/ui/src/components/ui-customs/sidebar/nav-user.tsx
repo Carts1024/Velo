@@ -16,7 +16,14 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@repo/ui/components/ui/sidebar";
-import { ChevronsUpDown, LogOut, MessageSquare, Pencil, SettingsIcon } from "lucide-react";
+import {
+  ChevronsUpDown,
+  CreditCardIcon,
+  LogOut,
+  MessageSquare,
+  Pencil,
+  SettingsIcon,
+} from "lucide-react";
 
 export type SidebarUser = {
   name: string;
@@ -29,6 +36,7 @@ export function NavUser({
   onEditProfile,
   onDisconnect,
   feedbackUrl = "/feedback",
+  billingUrl = "/billing",
   settingsUrl,
   onNavigate,
 }: {
@@ -36,6 +44,7 @@ export function NavUser({
   onEditProfile?: () => void;
   onDisconnect?: () => void;
   feedbackUrl?: string;
+  billingUrl?: string;
   settingsUrl?: string;
   onNavigate?: (url: string) => void;
 }) {
@@ -99,6 +108,28 @@ export function NavUser({
                   <span>Edit Profile</span>
                 </DropdownMenuItem>
               ) : null}
+              <DropdownMenuItem asChild className="cursor-pointer gap-2">
+                <a
+                  href={billingUrl}
+                  onClick={(event) => {
+                    if (
+                      !onNavigate ||
+                      event.metaKey ||
+                      event.ctrlKey ||
+                      event.shiftKey ||
+                      event.altKey
+                    ) {
+                      return;
+                    }
+
+                    event.preventDefault();
+                    onNavigate(billingUrl);
+                  }}
+                >
+                  <CreditCardIcon className="size-4" />
+                  <span>Billing</span>
+                </a>
+              </DropdownMenuItem>
               {settingsUrl ? (
                 <DropdownMenuItem asChild className="cursor-pointer gap-2">
                   <a

@@ -29,7 +29,6 @@ import {
   WalletIcon,
   WebhookIcon,
   BanknoteIcon,
-  CreditCardIcon,
 } from "lucide-react";
 import * as React from "react";
 
@@ -79,11 +78,6 @@ export function AppSidebar({
       title: "Dashboard",
       url: "/dashboard",
       icon: LayoutDashboardIcon,
-    },
-    {
-      title: "Billing",
-      url: "/billing",
-      icon: CreditCardIcon,
     },
     {
       title: "Contracts",
@@ -173,6 +167,7 @@ export function AppSidebar({
             onEditProfile={onEditProfile}
             onDisconnect={onDisconnect}
             feedbackUrl="/feedback"
+            billingUrl="/billing"
             settingsUrl={settingsUrl}
             onNavigate={onNavigate}
           />
