@@ -1,3 +1,4 @@
+import { signUiTelemetryMarker } from "@repo/observability";
 import { convexTest } from "convex-test";
 /// <reference types="vite/client" />
 import { makeFunctionReference } from "convex/server";
@@ -80,18 +81,20 @@ test("disabled Convex telemetry avoids outbox writes while preserving UI journey
         asset: "native",
         merchantName: "disabled-ui",
         status: "created",
-        correlationId: "journey-disabled-0001",
         expiresAt: now + 1_000,
         createdAt: now,
         updatedAt: now,
       });
     });
-    await t.mutation(recordUiMarker, {
+    const marker = {
       paymentIntentId,
-      journeyCorrelationId: "journey-disabled-0001",
-      marker: "ui.rendered",
+      marker: "checkout_start",
       durationMs: 1,
-      intakeSecret: "test-secret",
+      signedAt: Date.now(),
+    };
+    await t.mutation(recordUiMarker, {
+      ...marker,
+      signature: await signUiTelemetryMarker("test-secret", marker),
     });
     await t.mutation(capture, {});
 
@@ -100,7 +103,12 @@ test("disabled Convex telemetry avoids outbox writes while preserving UI journey
       stages: await ctx.db.query("journeyStages").collect(),
     }));
     expect(state.outbox).toHaveLength(0);
-    expect(state.stages.map((stage) => stage.name)).toEqual(["ui.rendered"]);
+    expect(state.stages).toEqual([
+      expect.objectContaining({
+        journeyCorrelationId: `payment-intent:${paymentIntentId}`,
+        name: "ui.rendered",
+      }),
+    ]);
   } finally {
     if (previousEnabled === undefined) delete process.env.VELO_CONVEX_TELEMETRY_ENABLED;
     else process.env.VELO_CONVEX_TELEMETRY_ENABLED = previousEnabled;
@@ -309,10 +317,10 @@ test("direct unauthenticated UI persistence is rejected", async () => {
   await expect(
     t.mutation(recordUiMarker, {
       paymentIntentId,
-      journeyCorrelationId: "journey-00000001",
-      marker: "ui.rendered",
+      marker: "checkout_start",
       durationMs: 1,
-      intakeSecret: "wrong",
+      signedAt: Date.now(),
+      signature: "0".repeat(64),
     }),
   ).rejects.toThrow("ui_telemetry_unauthorized");
 });

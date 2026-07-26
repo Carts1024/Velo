@@ -5,6 +5,9 @@ import test from "node:test";
 import { createCheckoutBenchmarkMarkerDetail } from "./benchmark-markers.ts";
 import { formatAmount, formatAsset } from "./format.ts";
 
+const checkoutSource = readFileSync(new URL("./checkout-client.tsx", import.meta.url), "utf8");
+const cancelSource = readFileSync(new URL("./cancel-client.tsx", import.meta.url), "utf8");
+
 test("formatAsset returns XLM for native asset", () => {
   assert.equal(formatAsset("native"), "XLM");
   assert.equal(formatAsset("XLM"), "XLM");
@@ -22,28 +25,39 @@ test("formatAmount formats numbers with minimum fraction digits and appends form
 });
 
 test("checkout client does not mark Horizon submission success as paid", () => {
-  const source = readFileSync(new URL("./checkout-client.tsx", import.meta.url), "utf8");
-
-  assert.doesNotMatch(source, /status:\s*["']paid["']/);
-  assert.match(source, /backend scanner confirms settlement/);
+  assert.doesNotMatch(checkoutSource, /status:\s*["']paid["']/);
+  assert.match(checkoutSource, /backend scanner confirms settlement/);
 });
 
 test("checkout client renders recipient details and memo based on anchor", () => {
-  const source = readFileSync(new URL("./checkout-client.tsx", import.meta.url), "utf8");
-
   assert.match(
-    source,
+    checkoutSource,
     /intent\.anchor\s*===\s*["']pdax["']\s*\?\s*["']PDAX Deposit Address["']\s*:\s*["']Recipient Address["']/,
   );
-  assert.match(source, /intent\.receiverMemo/);
-  assert.match(source, /memo:\s*intent\.receiverMemo/);
+  assert.match(checkoutSource, /intent\.receiverMemo/);
+  assert.match(checkoutSource, /memo:\s*intent\.receiverMemo/);
 });
 
 test("checkout client blocks payment while PDAX routing is unresolved", () => {
-  const source = readFileSync(new URL("./checkout-client.tsx", import.meta.url), "utf8");
-  assert.match(source, /intent\.status === ["']awaiting_route["']/);
-  assert.match(source, /Preparing Payment Route/);
-  assert.match(source, /!intent\.receiverAddress \|\| intent\.status !== ["']created["']/);
+  assert.match(checkoutSource, /intent\.status === ["']awaiting_route["']/);
+  assert.match(checkoutSource, /Preparing Payment Route/);
+  assert.match(checkoutSource, /!intent\.receiverAddress \|\| intent\.status !== ["']created["']/);
+});
+
+test("cancelled checkout remains terminal and never retries the same payment intent", () => {
+  assert.match(
+    checkoutSource,
+    /intent\.status === ["']cancelled["'][\s\S]*router\.replace\(`\/pay\/\$\{paymentIntentId\}\/cancel`\)/,
+  );
+  assert.doesNotMatch(cancelSource, /href=\{`\/pay\/\$\{paymentIntentId\}`\}/);
+  assert.doesNotMatch(cancelSource, /Retry Checkout Session/);
+});
+
+test("cancelled checkout returns to the merchant for a fresh session", () => {
+  assert.match(cancelSource, /window\.location\.href = intent\.cancelUrl/);
+  assert.match(cancelSource, /href=\{intent\.cancelUrl\}/);
+  assert.match(cancelSource, /Return to Merchant to Try Again/);
+  assert.match(cancelSource, /request a new payment link from\s+the merchant/i);
 });
 
 test("benchmark marker preserves entity, version, and separate clock domains", () => {

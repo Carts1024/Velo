@@ -4,6 +4,8 @@ import type { ActionCtx, MutationCtx, QueryCtx } from "../_generated/server";
 import type { ProjectId } from "./types";
 import type { UserIdentity } from "convex/server";
 
+import { ensureOrganizationForIdentity } from "../organizations/helpers";
+
 const TRANSACTION_HASH_PATTERN = /^[0-9a-f]{64}$/i;
 export const METADATA_HASH_PATTERN = /^[0-9a-f]{64}$/i;
 
@@ -103,7 +105,17 @@ export async function requireProjectOwnerByToken(
   }
 
   if ("patch" in ctx.db) {
-    await (ctx as MutationCtx).db.patch(id, { ownerTokenIdentifier });
+    const mutationCtx = ctx as MutationCtx;
+    const organization = await ensureOrganizationForIdentity(
+      mutationCtx,
+      { tokenIdentifier: ownerTokenIdentifier },
+      ownerSubject,
+      project.name,
+    );
+    await mutationCtx.db.patch(id, {
+      ownerTokenIdentifier,
+      organizationId: organization._id,
+    });
   }
 
   return { ...project, ownerTokenIdentifier };
@@ -130,7 +142,17 @@ export async function requireProjectOwner(ctx: QueryCtx | MutationCtx, id: Proje
   }
 
   if ("patch" in ctx.db) {
-    await (ctx as MutationCtx).db.patch(id, { ownerTokenIdentifier: identity.tokenIdentifier });
+    const mutationCtx = ctx as MutationCtx;
+    const organization = await ensureOrganizationForIdentity(
+      mutationCtx,
+      identity,
+      project.ownerAddress,
+      project.name,
+    );
+    await mutationCtx.db.patch(id, {
+      ownerTokenIdentifier: identity.tokenIdentifier,
+      organizationId: organization._id,
+    });
   }
 
   return { ...project, ownerTokenIdentifier: identity.tokenIdentifier };
@@ -157,7 +179,17 @@ export async function projectOwnerOrNull(ctx: QueryCtx | MutationCtx, id: Projec
   }
 
   if ("patch" in ctx.db) {
-    await (ctx as MutationCtx).db.patch(id, { ownerTokenIdentifier: identity.tokenIdentifier });
+    const mutationCtx = ctx as MutationCtx;
+    const organization = await ensureOrganizationForIdentity(
+      mutationCtx,
+      identity,
+      project.ownerAddress,
+      project.name,
+    );
+    await mutationCtx.db.patch(id, {
+      ownerTokenIdentifier: identity.tokenIdentifier,
+      organizationId: organization._id,
+    });
   }
 
   return { ...project, ownerTokenIdentifier: identity.tokenIdentifier };

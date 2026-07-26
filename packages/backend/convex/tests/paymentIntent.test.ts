@@ -5,6 +5,7 @@ import { expect, test } from "vitest";
 import type { Doc, Id } from "../_generated/dataModel";
 
 import { api, internal } from "../_generated/api";
+import { STATUS_TRANSITIONS } from "../payment_intents/helpers";
 import schema from "../schema";
 
 const modules = import.meta.glob("../**/*.ts");
@@ -83,7 +84,10 @@ test("payment intent lifecycle", async () => {
   const scheduledAfterCreate = await t.run(
     async (ctx) => await ctx.db.system.query("_scheduled_functions").collect(),
   );
-  expect(scheduledAfterCreate).toHaveLength(scheduledBeforeCreate.length);
+  expect(scheduledAfterCreate).toHaveLength(scheduledBeforeCreate.length + 1);
+  expect(
+    scheduledAfterCreate.some((scheduled) => scheduled.name.includes("billing/shadow:evaluate")),
+  ).toBe(true);
 
   // Retrieve the payment intent
   let intent = await t.query(api.payment_intents.queries.getPaymentIntent, {
@@ -94,6 +98,8 @@ test("payment intent lifecycle", async () => {
   expect(intent?.amount).toBe("150.50");
   expect(intent?.merchantName).toBe("Merchant Store");
   expect(intent?.correlationId).toBe("pay-2026-lifecycle-0001");
+  expect(intent?.network).toBe("testnet");
+  expect(intent?.intentType).toBe("merchant_payment");
 
   // Transition to pending state
   const payerAddress = "GDFX...PAYER";
@@ -433,6 +439,51 @@ test("public payment intent create is idempotent per project and request", async
   });
   expect(conflict.authorized).toBe(true);
   expect("idempotencyConflict" in conflict && conflict.idempotencyConflict).toBe(true);
+});
+
+test("cancelled checkout is terminal and a fresh idempotency key creates a new intent", async () => {
+  const t = convexTest(schema, modules);
+  const { apiKeyHash } = await createPaymentReadyProject(t, {
+    ownerAddress: "GD7O2C226SF2677PFFUVD6O2ICFOBNCWPI5Z46N43ZSFQGLM65U3I2SP",
+    name: "Cancellation Retry Merchant",
+    slug: "cancellation-retry-merchant",
+  });
+  const create = (idempotencyKey: string) =>
+    t.mutation(internal.payment_intents.mutations.createPublicPaymentIntent, {
+      apiKeyHash,
+      amount: "25.00",
+      asset: "native",
+      description: "Order #1",
+      idempotencyKey,
+    });
+
+  const first = await create("order-1-attempt-1");
+  if (!first.authorized || "idempotencyConflict" in first) throw new Error("expected create");
+
+  await t.mutation(api.payment_intents.mutations.updateStatus, {
+    paymentIntentId: first.intent._id,
+    status: "cancelled",
+  });
+
+  expect(STATUS_TRANSITIONS.cancelled).toBeUndefined();
+  await expect(
+    t.mutation(api.payment_intents.mutations.updateStatus, {
+      paymentIntentId: first.intent._id,
+      status: "pending",
+    }),
+  ).rejects.toThrow("Invalid status transition: cancelled → pending");
+
+  const replay = await create("order-1-attempt-1");
+  if (!replay.authorized || "idempotencyConflict" in replay) throw new Error("expected replay");
+  expect(replay.idempotencyReplay).toBe(true);
+  expect(replay.intent._id).toBe(first.intent._id);
+  expect(replay.intent.status).toBe("cancelled");
+
+  const retry = await create("order-1-attempt-2");
+  if (!retry.authorized || "idempotencyConflict" in retry) throw new Error("expected retry");
+  expect(retry.idempotencyReplay).toBe(false);
+  expect(retry.intent._id).not.toBe(first.intent._id);
+  expect(retry.intent.status).toBe("created");
 });
 
 test("public retrieve and list are scoped to the API key project", async () => {

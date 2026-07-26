@@ -2,6 +2,7 @@ import { v } from "convex/values";
 
 import { internal } from "../_generated/api";
 import { internalMutation, mutation } from "../_generated/server";
+import { ensureOrganizationForIdentity } from "../organizations/helpers";
 import {
   draftProjectArgs,
   normalizeAddress,
@@ -20,8 +21,15 @@ export const createDraft = mutation({
     const slug = args.slug.trim().toLowerCase();
 
     await requireUniqueSlug(ctx, slug);
+    const organization = await ensureOrganizationForIdentity(
+      ctx,
+      identity,
+      ownerAddress,
+      args.name,
+    );
 
     return await ctx.db.insert("projects", {
+      organizationId: organization._id,
       name: args.name.trim(),
       slug,
       description: args.description.trim(),

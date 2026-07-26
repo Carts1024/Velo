@@ -12,8 +12,7 @@ import {
 } from "@repo/ui/components/ui/card";
 import { Skeleton } from "@repo/ui/components/ui/skeleton";
 import { useQuery } from "convex/react";
-import { XCircleIcon, ArrowRightIcon, RefreshCwIcon, ClockIcon } from "lucide-react";
-import Link from "next/link";
+import { ArrowRightIcon, ClockIcon, XCircleIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import type { Id } from "@repo/backend/convex/_generated/dataModel";
@@ -54,7 +53,7 @@ export function CancelClient({ paymentIntentId }: CancelClientProps) {
   if (intent === undefined) {
     return (
       <Shell>
-        <Card className="w-full max-w-md bg-card/85 border border-border/50">
+        <Card className="w-full max-w-md border border-border/50 bg-card/85">
           <CardHeader className="text-center">
             <Skeleton className="mx-auto h-14 w-14 rounded-full" />
             <Skeleton className="mx-auto mt-3 h-5 w-36" />
@@ -81,15 +80,15 @@ export function CancelClient({ paymentIntentId }: CancelClientProps) {
 
   return (
     <Shell>
-      <Card className="w-full max-w-md bg-card/80 border border-white/10 shadow-2xl backdrop-blur-lg">
+      <Card className="w-full max-w-md border border-white/10 bg-card/80 shadow-2xl backdrop-blur-lg">
         <CardHeader className="text-center">
-          <div className="mx-auto mb-2 flex h-14 w-14 items-center justify-center rounded-full bg-slate-500/10 border border-slate-500/20 animate-in zoom-in duration-500">
+          <div className="mx-auto mb-2 flex h-14 w-14 animate-in items-center justify-center rounded-full border border-slate-500/20 bg-slate-500/10 duration-500 zoom-in">
             <XCircleIcon className="h-7 w-7 text-slate-500" />
           </div>
-          <CardTitle className="text-xl font-bold bg-clip-text bg-gradient-to-r from-foreground to-foreground/80">
+          <CardTitle className="bg-gradient-to-r from-foreground to-foreground/80 bg-clip-text text-xl font-bold">
             Payment Cancelled
           </CardTitle>
-          <CardDescription className="text-muted-foreground text-sm mt-2">
+          <CardDescription className="mt-2 text-sm text-muted-foreground">
             Your payment of{" "}
             <span className="font-semibold text-foreground">
               {Number.parseFloat(intent.amount).toLocaleString(undefined, {
@@ -106,7 +105,7 @@ export function CancelClient({ paymentIntentId }: CancelClientProps) {
         <CardContent className="space-y-4">
           {/* Auto-redirect Timer message */}
           {intent.cancelUrl && timeLeft > 0 && (
-            <div className="flex items-center justify-center gap-2 text-xs font-medium text-muted-foreground bg-muted/40 rounded-lg py-2 px-3">
+            <div className="flex items-center justify-center gap-2 rounded-lg bg-muted/40 px-3 py-2 text-xs font-medium text-muted-foreground">
               <ClockIcon className="h-3.5 w-3.5 animate-spin" style={{ animationDuration: "4s" }} />
               <span>Redirecting to merchant's site in {timeLeft}s...</span>
             </div>
@@ -114,31 +113,20 @@ export function CancelClient({ paymentIntentId }: CancelClientProps) {
         </CardContent>
 
         <CardFooter className="flex-col gap-3 border-t border-border/50 pt-4">
-          {/* Retry payment button */}
-          <Button
-            className="w-full h-11 text-sm font-bold bg-primary hover:bg-primary/95 text-primary-foreground shadow-md rounded-xl cursor-pointer"
-            asChild
-          >
-            <Link href={`/pay/${paymentIntentId}`}>
-              <RefreshCwIcon className="mr-2 h-4 w-4" />
-              Retry Checkout Session
-            </Link>
-          </Button>
-
           {intent.cancelUrl ? (
             <Button
-              variant="outline"
-              className="w-full h-11 text-sm font-bold rounded-xl cursor-pointer"
+              className="h-11 w-full cursor-pointer rounded-xl bg-primary text-sm font-bold text-primary-foreground shadow-md hover:bg-primary/95"
               asChild
             >
               <a href={intent.cancelUrl}>
-                Return to Merchant Immediately
+                Return to Merchant to Try Again
                 <ArrowRightIcon className="ml-2 h-4 w-4" />
               </a>
             </Button>
           ) : (
-            <p className="text-xs text-muted-foreground text-center">
-              No cancellation URL configured. You can now close this tab.
+            <p className="text-center text-xs text-muted-foreground">
+              This checkout session cannot be reused. To try again, request a new payment link from
+              the merchant.
             </p>
           )}
         </CardFooter>
@@ -150,7 +138,7 @@ export function CancelClient({ paymentIntentId }: CancelClientProps) {
 function Shell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-background via-background/95 to-slate-900/50 p-4">
-      <div className="w-full max-w-md animate-in fade-in slide-in-from-bottom-6 duration-500">
+      <div className="w-full max-w-md animate-in duration-500 fade-in slide-in-from-bottom-6">
         {children}
       </div>
     </div>

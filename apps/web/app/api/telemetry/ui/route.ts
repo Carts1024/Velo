@@ -2,15 +2,11 @@ import { env } from "@/core/config/env";
 import { withRouteTelemetry } from "@/core/observability";
 import { exportSafeMetric, exportSafeSpan } from "@/core/otlp";
 import { api } from "@repo/backend/convex/_generated/api";
+import { signUiTelemetryMarker, UI_TELEMETRY_MARKERS } from "@repo/observability";
 import { ConvexHttpClient } from "convex/browser";
 import { makeFunctionReference } from "convex/server";
 
-const UI_MARKERS = new Set([
-  "checkout_start",
-  "checkout_ready",
-  "payment_submitted_rendered",
-  "payment_verified_rendered",
-]);
+const UI_MARKERS = new Set<string>(UI_TELEMETRY_MARKERS);
 const convex = new ConvexHttpClient(env.NEXT_PUBLIC_CONVEX_URL);
 const recordUiMarker = makeFunctionReference<"mutation">(
   "telemetry_outbox/mutations:recordUiMarker",
@@ -94,12 +90,15 @@ export const POST = withRouteTelemetry("ui.telemetry", async (request, telemetry
     },
     "histogram",
   );
-  await convex.mutation(recordUiMarker, {
+  const markerEnvelope = {
     paymentIntentId: body.paymentIntentId as never,
-    journeyCorrelationId: intent.correlationId,
     marker: body.marker,
     durationMs: body.durationMs,
-    intakeSecret,
+    signedAt: Date.now(),
+  };
+  await convex.mutation(recordUiMarker, {
+    ...markerEnvelope,
+    signature: await signUiTelemetryMarker(intakeSecret, markerEnvelope),
   });
   return new Response(null, { status: 202 });
 });

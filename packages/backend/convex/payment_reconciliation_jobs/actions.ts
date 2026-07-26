@@ -25,6 +25,9 @@ const getIntentRef = makeFunctionReference<"query">(
 const updateStatusRef = makeFunctionReference<"mutation">("payment_intents/mutations:updateStatus");
 const drainRef = makeFunctionReference<"action">("payment_reconciliation_jobs/actions:drain");
 const telemetryRef = makeFunctionReference<"mutation">("telemetry_outbox/mutations:enqueue");
+const recordBillingMismatchRef = makeFunctionReference<"mutation">(
+  "billing/topups:recordVerificationException",
+);
 const WORKER_CONCURRENCY = 10;
 
 export const drain = internalAction({
@@ -95,6 +98,13 @@ export const drain = internalAction({
             if (result.status === "success") {
               const verifiedPayment = findVerifiedPayment(result.operations, intent);
               if (!verifiedPayment) {
+                if (intent.intentType === "billing_topup") {
+                  await ctx.runMutation(recordBillingMismatchRef, {
+                    paymentIntentId: intent._id,
+                    transactionHash: job.txHash,
+                    reason: "Reconciliation found a treasury payment mismatch",
+                  });
+                }
                 await ctx.runMutation(updateStatusRef, {
                   paymentIntentId: job.paymentIntentId,
                   status: "failed",
@@ -112,6 +122,7 @@ export const drain = internalAction({
                 paymentIntentId: job.paymentIntentId,
                 txHash: job.txHash,
                 verifiedPayment,
+                verifiedNetwork: result.network,
               });
               await ctx.runMutation(finishRef, {
                 jobId: job._id,

@@ -29,6 +29,7 @@ import {
   WalletIcon,
   WebhookIcon,
   BanknoteIcon,
+  CreditCardIcon,
 } from "lucide-react";
 import * as React from "react";
 
@@ -73,78 +74,124 @@ export function AppSidebar({
   const publicProofUrl = activeProject?.slug ? `/verify/${activeProject.slug}` : "/dashboard";
   const settingsUrl = activeProject ? `/projects/${activeProject.id}/settings` : undefined;
 
-  const navMain = [
+  const navItems = [
     {
       title: "Dashboard",
       url: "/dashboard",
       icon: LayoutDashboardIcon,
     },
-    {
-      title: "Contracts",
-      url: `${projectBaseUrl}/contracts`,
-      icon: FileCheckIcon,
-      disabled: !activeProject,
-    },
-    {
-      title: "Events",
-      url: `${projectBaseUrl}/events`,
-      icon: ActivityIcon,
-      disabled: !activeProject,
-    },
-    {
-      title: "Webhooks",
-      url: `${projectBaseUrl}/webhooks`,
-      icon: WebhookIcon,
-      disabled: !activeProject,
-    },
-    {
-      title: "API Keys",
-      url: `${projectBaseUrl}/api-keys`,
-      icon: KeyIcon,
-      disabled: !activeProject,
-    },
-    {
-      title: "Settlement",
-      url: `${projectBaseUrl}/settlement`,
-      icon: BanknoteIcon,
-      disabled: !activeProject,
-    },
-    {
-      title: "Integration",
-      url: `${projectBaseUrl}/integration`,
-      icon: BracesIcon,
-      disabled: !activeProject,
-    },
-    {
-      title: "Wallets",
-      url: `${projectBaseUrl}/wallets`,
-      icon: WalletIcon,
-      disabled: !activeProject,
-    },
-    {
-      title: "Public Proof",
-      url: publicProofUrl,
-      icon: FileTextIcon,
-      disabled: !activeProject?.slug,
-    },
-    {
-      title: "Playground",
-      url: "/playground",
-      icon: FlaskConicalIcon,
-    },
-    {
-      title: "Debug",
-      url: "/debug",
-      icon: TerminalIcon,
-    },
-    {
-      title: "Docs",
-      url: "/docs",
-      icon: BookOpenIcon,
-    },
   ].map((item) => ({
     ...item,
-    isActive: !item.disabled && isPathActive(currentPath, item.url),
+    isActive: isPathActive(currentPath, item.url),
+  }));
+
+  const navGroups = [
+    {
+      title: "Build",
+      icon: BracesIcon,
+      items: [
+        {
+          title: "Integration",
+          url: `${projectBaseUrl}/integration`,
+          icon: BracesIcon,
+          disabled: !activeProject,
+        },
+        {
+          title: "API Keys",
+          url: `${projectBaseUrl}/api-keys`,
+          icon: KeyIcon,
+          disabled: !activeProject,
+        },
+        {
+          title: "Wallets",
+          url: `${projectBaseUrl}/wallets`,
+          icon: WalletIcon,
+          disabled: !activeProject,
+        },
+        {
+          title: "Playground",
+          url: "/playground",
+          icon: FlaskConicalIcon,
+        },
+        {
+          title: "Docs",
+          url: "/docs",
+          icon: BookOpenIcon,
+        },
+      ],
+    },
+    {
+      title: "Verify",
+      icon: FileCheckIcon,
+      items: [
+        {
+          title: "Contracts",
+          url: `${projectBaseUrl}/contracts`,
+          icon: FileCheckIcon,
+          disabled: !activeProject,
+        },
+        {
+          title: "Public Proof",
+          url: publicProofUrl,
+          icon: FileTextIcon,
+          disabled: !activeProject?.slug,
+        },
+      ],
+    },
+    {
+      title: "Observe",
+      icon: ActivityIcon,
+      items: [
+        {
+          title: "Events",
+          url: `${projectBaseUrl}/events`,
+          icon: ActivityIcon,
+          disabled: !activeProject,
+        },
+        {
+          title: "Webhooks",
+          url: `${projectBaseUrl}/webhooks`,
+          icon: WebhookIcon,
+          disabled: !activeProject,
+        },
+        {
+          title: "Debug",
+          url: "/debug",
+          icon: TerminalIcon,
+        },
+      ],
+    },
+    {
+      title: "Pay",
+      icon: CreditCardIcon,
+      items: [
+        {
+          title: "Payments",
+          url: `${projectBaseUrl}/payments`,
+          icon: CreditCardIcon,
+          disabled: !activeProject,
+        },
+      ],
+    },
+    {
+      title: "Settle",
+      icon: BanknoteIcon,
+      items: [
+        {
+          title: "Settlement",
+          url: `${projectBaseUrl}/settlement`,
+          icon: BanknoteIcon,
+          disabled: !activeProject,
+        },
+      ],
+    },
+  ].map((group) => ({
+    ...group,
+    items: group.items.map((item) => ({
+      ...item,
+      isActive: !item.disabled && isPathActive(currentPath, item.url),
+    })),
+    isActive: group.items.some((item) => !item.disabled && isPathActive(currentPath, item.url)),
   }));
 
   return (
@@ -157,8 +204,13 @@ export function AppSidebar({
           onCreateProject={onCreateProject}
         />
       </SidebarHeader>
-      <SidebarContent>
-        <NavMain items={navMain} onNavigate={onNavigate} onPrefetch={onPrefetch} />
+      <SidebarContent className="gap-0">
+        <NavMain
+          items={navItems}
+          groups={navGroups}
+          onNavigate={onNavigate}
+          onPrefetch={onPrefetch}
+        />
       </SidebarContent>
       <SidebarFooter>
         {user ? (
@@ -167,6 +219,7 @@ export function AppSidebar({
             onEditProfile={onEditProfile}
             onDisconnect={onDisconnect}
             feedbackUrl="/feedback"
+            billingUrl="/billing"
             settingsUrl={settingsUrl}
             onNavigate={onNavigate}
           />
