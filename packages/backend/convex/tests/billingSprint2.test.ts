@@ -3,6 +3,8 @@ import { convexTest } from "convex-test";
 import { makeFunctionReference } from "convex/server";
 import { expect, test } from "vitest";
 
+import type { Id } from "../_generated/dataModel";
+
 import { api, internal } from "../_generated/api";
 import schema from "../schema";
 
@@ -50,7 +52,7 @@ async function configureOperatorAndOffer(t: ReturnType<typeof convexTest>) {
     walletAddress: "GOPERATOR",
     actor: "test-bootstrap",
   });
-  const offerId = await operator.mutation(createOffer, {
+  const offerId = (await operator.mutation(createOffer, {
     sku: "credits-100",
     creditQuantity: 100n,
     priceAmount: "20",
@@ -61,7 +63,7 @@ async function configureOperatorAndOffer(t: ReturnType<typeof convexTest>) {
     refundPolicy:
       "Top-ups are prepaid. Verified Velo billing errors receive auditable adjustments.",
     activate: true,
-  });
+  })) as Id<"billingOffers">;
   return { operator, offerId };
 }
 
@@ -111,6 +113,56 @@ test("wallet allowlisted operators manage immutable offer versions", async () =>
   const updated = await owner.query(getMerchantBilling, {});
   expect(updated?.activeOffer?.version).toBe(2);
   expect(updated?.activeOffer?.creditQuantity).toBe(120n);
+});
+
+test("offer creation accepts a Testnet USDC issuer and stores a canonical asset", async () => {
+  const t = convexTest(schema, modules);
+  const operator = asWallet(t, "GOPERATOR");
+  await t.mutation(bootstrapOperator, {
+    walletAddress: "GOPERATOR",
+    actor: "test-bootstrap",
+  });
+
+  const offerId = (await operator.mutation(createOffer, {
+    sku: "issuer-input",
+    creditQuantity: 100n,
+    priceAmount: "20",
+    asset: "gissuer",
+    network: "testnet",
+    treasuryAddress: "GTREASURY",
+    activeFrom: Date.now(),
+    refundPolicy: "Test policy.",
+    activate: true,
+  })) as Id<"billingOffers">;
+
+  const offer = await t.run(async (ctx) => await ctx.db.get(offerId));
+  expect(offer?.asset).toBe("USDC:GISSUER");
+});
+
+test("merchant billing reports whether platform safety controls allow top-ups", async () => {
+  const t = convexTest(schema, modules);
+  const { operator } = await configureOperatorAndOffer(t);
+  const owner = asWallet(t, "GOWNER");
+  await createProject(owner, "topup-availability");
+
+  const disabled = await owner.query(getMerchantBilling, {});
+  expect(disabled?.topupsEnabled).toBe(false);
+  expect(disabled?.topupsUnavailableReason).toContain("not configured");
+
+  await operator.mutation(updatePolicy, {
+    billingLedgerWrite: true,
+    billingShadowMode: false,
+    mainnetCreditEnforcement: false,
+    billingTopupsEnabled: true,
+    promoGrantEnabled: true,
+    pdaxBillingEnabled: false,
+    billingKillSwitch: false,
+    actor: "operator:test",
+  });
+
+  const enabled = await owner.query(getMerchantBilling, {});
+  expect(enabled?.topupsEnabled).toBe(true);
+  expect(enabled?.topupsUnavailableReason).toBeNull();
 });
 
 test("top-up settlement snapshots the offer and grants paid credits exactly once", async () => {

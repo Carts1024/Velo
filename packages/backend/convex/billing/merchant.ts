@@ -3,6 +3,7 @@ import { v } from "convex/values";
 import { query } from "../_generated/server";
 import { findOrganizationForIdentity } from "../organizations/helpers";
 import { isBillingOperator } from "./access";
+import { topupAvailability } from "./availability";
 import { emptyBalance } from "./helpers";
 import { activeOffer } from "./offers";
 
@@ -13,6 +14,11 @@ export const get = query({
     if (!identity) throw new Error("Not authenticated");
     const organization = await findOrganizationForIdentity(ctx, identity.tokenIdentifier);
     if (!organization) return null;
+    const policy = await ctx.db
+      .query("billingPolicies")
+      .withIndex("by_key", (q) => q.eq("key", "global"))
+      .unique();
+    const topups = topupAvailability(policy);
     const balance =
       (await ctx.db
         .query("billingBalances")
@@ -20,7 +26,7 @@ export const get = query({
           q.eq("organizationId", organization._id).eq("book", "commercial"),
         )
         .unique()) ?? emptyBalance(organization._id, "commercial", Date.now());
-    const topups = await ctx.db
+    const recentTopups = await ctx.db
       .query("billingTopups")
       .withIndex("by_organization_id_and_created_at", (q) =>
         q.eq("organizationId", organization._id),
@@ -87,8 +93,10 @@ export const get = query({
     return {
       organization,
       balance,
+      topupsEnabled: topups.enabled,
+      topupsUnavailableReason: topups.reason,
       activeOffer: await activeOffer(ctx),
-      topups,
+      topups: recentTopups,
       receipts,
       ledger,
       notifications,

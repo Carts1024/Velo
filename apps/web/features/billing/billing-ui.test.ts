@@ -19,11 +19,30 @@ test("billing dashboard exposes merchant balances, history, receipts, and disclo
 });
 
 test("operator controls are rendered only for authorized billing operators", () => {
-  assert.match(source, /billing\.isOperator && <TabsTrigger value="operations">/);
-  assert.match(source, /billing\.isOperator && \(/);
+  assert.match(source, /operatorAccess\.isOperator && <TabsTrigger value="operations">/);
+  assert.match(source, /operatorAccess\.isOperator && \(/);
   assert.match(source, /Operator wallets/);
   assert.match(source, /Sandbox enforcement/);
   assert.match(source, /Open reconciliation exceptions/);
+});
+
+test("an operator without a merchant organization can still open Operations", () => {
+  assert.match(source, /billing\/operators:getAccess/);
+  assert.match(source, /billing === null && operatorAccess\.isOperator/);
+  assert.match(source, /<OperatorPanel \/>/);
+});
+
+test("offer activation accepts a USDC issuer address and builds the canonical asset", () => {
+  assert.match(source, /name="issuerAddress"/);
+  assert.match(source, /`USDC:\$\{issuerAddress\}`/);
+  assert.match(source, /Enter the issuer&apos;s Stellar G-address/);
+});
+
+test("merchant top-up controls reflect platform safety policy", () => {
+  assert.match(source, /topupsEnabled: boolean/);
+  assert.match(source, /billing\.topupsUnavailableReason/);
+  assert.match(source, /disabled=\{topupPending \|\| !topupsAvailable\}/);
+  assert.match(source, /Test treasury top-ups.*ON.*kill switch.*OFF/s);
 });
 
 test("top-up flow uses the server-created PaymentIntent", () => {

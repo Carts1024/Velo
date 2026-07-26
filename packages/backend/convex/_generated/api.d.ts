@@ -11,6 +11,7 @@
 import type * as authConfig from "../authConfig.js";
 import type * as billing_access from "../billing/access.js";
 import type * as billing_admin from "../billing/admin.js";
+import type * as billing_availability from "../billing/availability.js";
 import type * as billing_commercial from "../billing/commercial.js";
 import type * as billing_config from "../billing/config.js";
 import type * as billing_constants from "../billing/constants.js";
@@ -119,6 +120,7 @@ declare const fullApi: ApiFromModules<{
   authConfig: typeof authConfig;
   "billing/access": typeof billing_access;
   "billing/admin": typeof billing_admin;
+  "billing/availability": typeof billing_availability;
   "billing/commercial": typeof billing_commercial;
   "billing/config": typeof billing_config;
   "billing/constants": typeof billing_constants;

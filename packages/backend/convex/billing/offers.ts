@@ -14,6 +14,15 @@ function normalizeAmount(value: string) {
   return normalized;
 }
 
+function normalizeTestnetUsdcAsset(value: string) {
+  const normalized = value.trim().toUpperCase();
+  const asset = normalized.startsWith("G") ? `USDC:${normalized}` : normalized;
+  if (!/^USDC:G[A-Z0-9]{3,}$/.test(asset)) {
+    throw new Error("Enter the Testnet USDC issuer as a Stellar G-address or as USDC:<issuer>");
+  }
+  return asset;
+}
+
 export async function activeOffer(ctx: QueryCtx | MutationCtx, now = Date.now()) {
   const candidates = await ctx.db
     .query("billingOffers")
@@ -55,7 +64,7 @@ export const create = mutation({
   handler: async (ctx, args) => {
     const operator = await requireBillingOperator(ctx);
     const sku = args.sku.trim();
-    const asset = args.asset.trim().toUpperCase();
+    const asset = normalizeTestnetUsdcAsset(args.asset);
     const treasuryAddress = args.treasuryAddress.trim().toUpperCase();
     const refundPolicy = args.refundPolicy.trim();
     if (!sku || args.creditQuantity <= 0n || !asset || !treasuryAddress || !refundPolicy) {
@@ -63,9 +72,6 @@ export const create = mutation({
     }
     if (args.network !== "testnet") {
       throw new Error("Sprint 2 billing offers are limited to Stellar Testnet");
-    }
-    if (!/^USDC:G[A-Z0-9]{3,}$/.test(asset)) {
-      throw new Error("Offer asset must be an issued Testnet USDC asset");
     }
     if (!/^G[A-Z0-9]{3,}$/.test(treasuryAddress)) {
       throw new Error("Offer treasury must be a Stellar account");

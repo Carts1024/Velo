@@ -7,6 +7,7 @@ import { internalMutation, mutation } from "../_generated/server";
 import { findOrganizationForIdentity } from "../organizations/helpers";
 import { PAYMENT_INTENT_EXPIRY_MS } from "../payment_intents/helpers";
 import { recordMetric } from "../telemetry_outbox/helpers";
+import { topupAvailability } from "./availability";
 import { currentBillingNetwork } from "./config";
 import { createBillingException } from "./exceptions";
 import { getOrCreateBalance, insertLedgerEntry, moveBalance } from "./helpers";
@@ -30,9 +31,8 @@ export const create = mutation({
       .query("billingPolicies")
       .withIndex("by_key", (q) => q.eq("key", "global"))
       .unique();
-    if (!policy?.billingTopupsEnabled || policy.billingKillSwitch) {
-      throw new Error("Billing top-ups are disabled");
-    }
+    const availability = topupAvailability(policy);
+    if (!availability.enabled) throw new Error(availability.reason);
     const offer = await activeOffer(ctx);
     if (!offer) throw new Error("No active billing offer");
     if (offer.network !== currentBillingNetwork()) {

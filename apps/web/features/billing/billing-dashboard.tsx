@@ -39,6 +39,8 @@ import type { Doc, Id } from "@repo/backend/convex/_generated/dataModel";
 type BillingView = {
   organization: Doc<"organizations">;
   balance: Doc<"billingBalances">;
+  topupsEnabled: boolean;
+  topupsUnavailableReason: string | null;
   activeOffer: Doc<"billingOffers"> | null;
   topups: Doc<"billingTopups">[];
   receipts: Doc<"treasuryReceipts">[];
@@ -62,7 +64,13 @@ type OperatorOrganization = Doc<"organizations"> & {
   billingSettings: Doc<"organizationBillingSettings"> | null;
 };
 
+type OperatorAccess = {
+  walletAddress: string;
+  isOperator: boolean;
+};
+
 const getBilling = makeFunctionReference<"query">("billing/merchant:get");
+const getOperatorAccess = makeFunctionReference<"query">("billing/operators:getAccess");
 const createTopup = makeFunctionReference<"mutation">("billing/topups:create");
 const markNotificationRead = makeFunctionReference<"mutation">("billing/notifications:markRead");
 const listOrganizations = makeFunctionReference<"query">("billing/admin:listOrganizations");
@@ -94,12 +102,28 @@ function shortHash(value: string) {
 export function BillingDashboard() {
   const router = useRouter();
   const billing = useQuery(getBilling, {}) as BillingView | null | undefined;
+  const operatorAccess = useQuery(getOperatorAccess, {}) as OperatorAccess | undefined;
   const startTopup = useMutation(createTopup);
   const readNotification = useMutation(markNotificationRead);
   const [topupPending, setTopupPending] = useState(false);
 
-  if (billing === undefined) {
+  if (billing === undefined || operatorAccess === undefined) {
     return <BillingSkeleton />;
+  }
+
+  if (billing === null && operatorAccess.isOperator) {
+    return (
+      <main className="mx-auto w-full max-w-7xl space-y-6 p-4 md:p-8">
+        <div>
+          <p className="text-sm font-medium text-muted-foreground">Velo platform administration</p>
+          <h1 className="text-3xl font-bold tracking-tight">Billing Operations</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Manage platform billing without requiring a merchant organization or project.
+          </p>
+        </div>
+        <OperatorPanel />
+      </main>
+    );
   }
 
   if (billing === null) {
@@ -117,6 +141,7 @@ export function BillingDashboard() {
   }
 
   const totalAvailable = billing.balance.promoAvailable + billing.balance.paidAvailable;
+  const topupsAvailable = billing.topupsEnabled && billing.activeOffer !== null;
   const handleTopup = async () => {
     setTopupPending(true);
     try {
@@ -145,13 +170,22 @@ export function BillingDashboard() {
         </div>
         <Button
           onClick={handleTopup}
-          disabled={topupPending || !billing.activeOffer}
+          disabled={topupPending || !topupsAvailable}
+          title={billing.topupsUnavailableReason ?? undefined}
           className="cursor-pointer"
         >
           {topupPending ? <Loader2Icon className="animate-spin" /> : <CreditCardIcon />}
           Top up credits
         </Button>
       </div>
+
+      {billing.topupsUnavailableReason && (
+        <Alert>
+          <AlertTriangleIcon />
+          <AlertTitle>Credit purchases unavailable</AlertTitle>
+          <AlertDescription>{billing.topupsUnavailableReason}</AlertDescription>
+        </Alert>
+      )}
 
       {totalAvailable <= 10n && (
         <Alert variant={totalAvailable === 0n ? "destructive" : "default"}>
@@ -192,11 +226,17 @@ export function BillingDashboard() {
           <TabsTrigger value="history">Ledger</TabsTrigger>
           <TabsTrigger value="receipts">Receipts</TabsTrigger>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
-          {billing.isOperator && <TabsTrigger value="operations">Operations</TabsTrigger>}
+          {operatorAccess.isOperator && <TabsTrigger value="operations">Operations</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="overview" className="grid gap-4 lg:grid-cols-2">
-          <OfferCard offer={billing.activeOffer} onTopup={handleTopup} pending={topupPending} />
+          <OfferCard
+            offer={billing.activeOffer}
+            onTopup={handleTopup}
+            pending={topupPending}
+            topupsEnabled={billing.topupsEnabled}
+            unavailableReason={billing.topupsUnavailableReason}
+          />
           <Card>
             <CardHeader>
               <CardTitle>Commercial terms</CardTitle>
@@ -256,7 +296,7 @@ export function BillingDashboard() {
           </Card>
         </TabsContent>
 
-        {billing.isOperator && (
+        {operatorAccess.isOperator && (
           <TabsContent value="operations">
             <OperatorPanel />
           </TabsContent>
@@ -343,10 +383,14 @@ function OfferCard({
   offer,
   onTopup,
   pending,
+  topupsEnabled,
+  unavailableReason,
 }: {
   offer: Doc<"billingOffers"> | null;
   onTopup: () => void;
   pending: boolean;
+  topupsEnabled: boolean;
+  unavailableReason: string | null;
 }) {
   return (
     <Card>
@@ -363,7 +407,14 @@ function OfferCard({
               </p>
             </div>
             <p className="text-sm text-muted-foreground">{offer.refundPolicy}</p>
-            <Button onClick={onTopup} disabled={pending} className="cursor-pointer">
+            {unavailableReason && (
+              <p className="text-sm text-amber-600 dark:text-amber-400">{unavailableReason}</p>
+            )}
+            <Button
+              onClick={onTopup}
+              disabled={pending || !topupsEnabled}
+              className="cursor-pointer"
+            >
               Purchase test credits
             </Button>
           </>
@@ -731,6 +782,10 @@ function PolicyControls() {
           onCheckedChange={(promoGrantEnabled) => patch({ promoGrantEnabled })}
         />
         <p className="text-xs text-muted-foreground">
+          Merchant purchases require Test treasury top-ups ON and the global billing kill switch
+          OFF.
+        </p>
+        <p className="text-xs text-muted-foreground">
           Mainnet enforcement is locked off during Sprint 2.
         </p>
       </CardContent>
@@ -762,13 +817,15 @@ function OfferEditor() {
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
+    const issuerInput = String(form.get("issuerAddress")).trim().toUpperCase();
+    const issuerAddress = issuerInput.startsWith("USDC:") ? issuerInput.slice(5) : issuerInput;
     setSaving(true);
     try {
       await saveOffer({
         sku: String(form.get("sku")),
         creditQuantity: BigInt(String(form.get("creditQuantity"))),
         priceAmount: String(form.get("priceAmount")),
-        asset: String(form.get("asset")),
+        asset: `USDC:${issuerAddress}`,
         network: "testnet",
         treasuryAddress: String(form.get("treasuryAddress")),
         refundPolicy: String(form.get("refundPolicy")),
@@ -808,8 +865,11 @@ function OfferEditor() {
             </Label>
           </div>
           <Label>
-            Testnet USDC asset
-            <Input name="asset" placeholder="USDC:GISSUER" required />
+            Testnet USDC issuer
+            <Input name="issuerAddress" placeholder="G..." required />
+            <span className="text-xs font-normal text-muted-foreground">
+              Enter the issuer&apos;s Stellar G-address. Velo stores it as USDC:&lt;issuer&gt;.
+            </span>
           </Label>
           <Label>
             Treasury wallet
