@@ -189,6 +189,9 @@ importers:
       convex-test:
         specifier: ^0.0.53
         version: 0.0.53(convex@1.42.2(bufferutil@4.1.0)(react@19.2.6)(utf-8-validate@6.0.6))
+      typescript:
+        specifier: 5.9.2
+        version: 5.9.2
       vite:
         specifier: ^8.1.0
         version: 8.1.0(@types/node@22.19.19)(esbuild@0.27.0)(jiti@2.7.0)
