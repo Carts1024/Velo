@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 
 import { internalMutation } from "../_generated/server";
+import { consumeCommercialReservation, releaseCommercialReservation } from "../billing/commercial";
 import { scheduleShadowEvaluation } from "../billing/shadow";
 
 export const create = internalMutation({
@@ -130,6 +131,11 @@ export const updateStatus = internalMutation({
       existing.paymentIntentId &&
       (args.status === "PAYOUT_SUCCEEDED" || args.status === "PAYOUT_FAILED")
     ) {
+      if (args.status === "PAYOUT_SUCCEEDED") {
+        await consumeCommercialReservation(ctx, existing.paymentIntentId, `pdax:${existing._id}`);
+      } else {
+        await releaseCommercialReservation(ctx, existing.paymentIntentId, "pdax_payout_failed");
+      }
       await scheduleShadowEvaluation(ctx, {
         phase: args.status === "PAYOUT_SUCCEEDED" ? "would_consume" : "would_release",
         projectId: existing.projectId,

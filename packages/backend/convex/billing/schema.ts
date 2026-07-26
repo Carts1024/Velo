@@ -32,9 +32,150 @@ export const organizationBillingSettings = defineTable({
   organizationId: v.id("organizations"),
   enforcementEnabled: v.boolean(),
   shadowEnabled: v.boolean(),
+  sandboxEnforcementEnabled: v.optional(v.boolean()),
   updatedBy: v.string(),
   updatedAt: v.number(),
 }).index("by_organization_id", ["organizationId"]);
+
+export const billingOffers = defineTable({
+  sku: v.string(),
+  version: v.number(),
+  creditQuantity: v.int64(),
+  priceAmount: v.string(),
+  asset: v.string(),
+  network: billingNetworkValidator,
+  treasuryAddress: v.string(),
+  refundPolicy: v.string(),
+  active: v.boolean(),
+  activeFrom: v.number(),
+  activeUntil: v.optional(v.number()),
+  createdBy: v.string(),
+  createdAt: v.number(),
+})
+  .index("by_sku_and_version", ["sku", "version"])
+  .index("by_active_and_active_from", ["active", "activeFrom"]);
+
+export const billingOperatorWallets = defineTable({
+  walletAddress: v.string(),
+  active: v.boolean(),
+  createdBy: v.string(),
+  createdAt: v.number(),
+  updatedBy: v.string(),
+  updatedAt: v.number(),
+}).index("by_wallet_address", ["walletAddress"]);
+
+export const billingTopups = defineTable({
+  organizationId: v.id("organizations"),
+  projectId: v.id("projects"),
+  paymentIntentId: v.optional(v.id("paymentIntents")),
+  offerId: v.id("billingOffers"),
+  sku: v.string(),
+  offerVersion: v.number(),
+  creditQuantity: v.int64(),
+  priceAmount: v.string(),
+  asset: v.string(),
+  network: billingNetworkValidator,
+  treasuryAddress: v.string(),
+  refundPolicy: v.string(),
+  status: v.union(
+    v.literal("created"),
+    v.literal("pending"),
+    v.literal("settled"),
+    v.literal("failed"),
+    v.literal("cancelled"),
+    v.literal("expired"),
+    v.literal("exception"),
+  ),
+  payerAddress: v.optional(v.string()),
+  transactionHash: v.optional(v.string()),
+  treasuryReceiptId: v.optional(v.id("treasuryReceipts")),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+  settledAt: v.optional(v.number()),
+})
+  .index("by_organization_id_and_created_at", ["organizationId", "createdAt"])
+  .index("by_payment_intent_id", ["paymentIntentId"])
+  .index("by_transaction_hash", ["transactionHash"])
+  .index("by_status_and_updated_at", ["status", "updatedAt"]);
+
+export const treasuryReceipts = defineTable({
+  organizationId: v.id("organizations"),
+  topupId: v.id("billingTopups"),
+  paymentIntentId: v.id("paymentIntents"),
+  offerId: v.id("billingOffers"),
+  transactionHash: v.string(),
+  sourceAddress: v.string(),
+  destinationAddress: v.string(),
+  amount: v.string(),
+  asset: v.string(),
+  network: billingNetworkValidator,
+  sku: v.string(),
+  offerVersion: v.number(),
+  creditQuantity: v.int64(),
+  priceAmount: v.string(),
+  refundPolicy: v.string(),
+  verifiedAt: v.number(),
+})
+  .index("by_organization_id_and_verified_at", ["organizationId", "verifiedAt"])
+  .index("by_topup_id", ["topupId"])
+  .index("by_payment_intent_id", ["paymentIntentId"])
+  .index("by_transaction_hash", ["transactionHash"]);
+
+export const billingExceptions = defineTable({
+  organizationId: v.optional(v.id("organizations")),
+  exceptionType: v.union(
+    v.literal("topup_mismatch"),
+    v.literal("reused_transaction"),
+    v.literal("reservation_mismatch"),
+    v.literal("ledger_mismatch"),
+    v.literal("receipt_mismatch"),
+    v.literal("verification_ambiguous"),
+  ),
+  status: v.union(v.literal("open"), v.literal("resolved")),
+  dedupeKey: v.string(),
+  summary: v.string(),
+  evidenceJson: v.string(),
+  paymentIntentId: v.optional(v.id("paymentIntents")),
+  reservationId: v.optional(v.id("creditReservations")),
+  topupId: v.optional(v.id("billingTopups")),
+  treasuryReceiptId: v.optional(v.id("treasuryReceipts")),
+  resolutionAction: v.optional(
+    v.union(
+      v.literal("acknowledge"),
+      v.literal("retry_verification"),
+      v.literal("compensating_adjustment"),
+    ),
+  ),
+  resolutionNote: v.optional(v.string()),
+  resolutionLedgerEntryId: v.optional(v.id("billingLedgerEntries")),
+  resolvedBy: v.optional(v.string()),
+  resolvedAt: v.optional(v.number()),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+})
+  .index("by_dedupe_key", ["dedupeKey"])
+  .index("by_status_and_created_at", ["status", "createdAt"])
+  .index("by_organization_id_and_created_at", ["organizationId", "createdAt"]);
+
+export const billingNotifications = defineTable({
+  organizationId: v.id("organizations"),
+  notificationType: v.union(
+    v.literal("low_balance"),
+    v.literal("zero_balance"),
+    v.literal("promotional_expiry"),
+    v.literal("reservation_recovery"),
+    v.literal("topup_success"),
+    v.literal("topup_failure"),
+  ),
+  dedupeKey: v.string(),
+  title: v.string(),
+  message: v.string(),
+  topupId: v.optional(v.id("billingTopups")),
+  paymentIntentId: v.optional(v.id("paymentIntents")),
+  reservationId: v.optional(v.id("creditReservations")),
+  readAt: v.optional(v.number()),
+  createdAt: v.number(),
+}).index("by_organization_id_and_created_at", ["organizationId", "createdAt"]);
 
 export const billingBalances = defineTable({
   organizationId: v.id("organizations"),

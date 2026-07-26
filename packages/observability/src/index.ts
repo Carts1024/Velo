@@ -53,6 +53,8 @@ export const METRIC_NAMES = [
   "velo_billing_legacy_divergence_total",
   "velo_billing_reservation_recovery_total",
   "velo_billing_pdax_cost_variance",
+  "velo_billing_topup_settlement_total",
+  "velo_billing_reconciliation_exception_total",
 ] as const;
 
 export const DEPENDENCIES = ["convex", "pdax", "stellar_rpc", "horizon", "merchant"] as const;

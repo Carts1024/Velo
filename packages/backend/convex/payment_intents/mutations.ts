@@ -2,8 +2,16 @@ import { v, ConvexError } from "convex/values";
 
 import { internal } from "../_generated/api";
 import { internalMutation, mutation } from "../_generated/server";
+import {
+  commercialEnforcementEnabled,
+  consumeCommercialReservation,
+  enforceNewCommercialIntent,
+  releaseCommercialReservation,
+  reserveCommercialCredit,
+} from "../billing/commercial";
 import { currentBillingNetwork } from "../billing/config";
 import { scheduleShadowEvaluation } from "../billing/shadow";
+import { markTopupTerminal, recordTopupException, settleTopup } from "../billing/topups";
 import { recordMetric, recordSpan } from "../telemetry_outbox/helpers";
 import { hasEnabledWebhookForEvent } from "../webhook_endpoints/helpers";
 import {
@@ -81,6 +89,20 @@ export const createPaymentIntent = mutation({
       createdAt: now,
       updatedAt: now,
     });
+    if (await commercialEnforcementEnabled(ctx, project, currentBillingNetwork())) {
+      const reservation = await reserveCommercialCredit(ctx, {
+        project,
+        paymentIntentId: id,
+        network: currentBillingNetwork(),
+        expiresAt: now + PAYMENT_INTENT_EXPIRY_MS,
+      });
+      if (!reservation.applied && reservation.reason === "insufficient_balance") {
+        throw new ConvexError({
+          code: "INSUFFICIENT_BILLING_CREDITS",
+          message: "Organization has no available commercial credits",
+        });
+      }
+    }
     await scheduleShadowEvaluation(ctx, {
       phase: "would_reserve",
       projectId: project._id,
@@ -186,6 +208,20 @@ export const createPublicPaymentIntent = internalMutation({
       createdAt: now,
       updatedAt: now,
     });
+    if (await commercialEnforcementEnabled(ctx, auth.project, currentBillingNetwork())) {
+      const reservation = await reserveCommercialCredit(ctx, {
+        project: auth.project,
+        paymentIntentId,
+        network: currentBillingNetwork(),
+        expiresAt: now + PAYMENT_INTENT_EXPIRY_MS,
+      });
+      if (!reservation.applied && reservation.reason === "insufficient_balance") {
+        throw new ConvexError({
+          code: "INSUFFICIENT_BILLING_CREDITS",
+          message: "Organization has no available commercial credits",
+        });
+      }
+    }
     await scheduleShadowEvaluation(ctx, {
       phase: "would_reserve",
       projectId: auth.project._id,
@@ -305,8 +341,12 @@ export const updateStatus = mutation({
     patch.stageTimestamps = updatedStageTimestamps;
 
     await ctx.db.patch(args.paymentIntentId, patch);
+    await markTopupTerminal(ctx, intent, args.status);
 
     if (args.status === "failed" || args.status === "cancelled") {
+      if (intent.intentType !== "billing_topup") {
+        await releaseCommercialReservation(ctx, intent._id, args.status);
+      }
       await scheduleShadowEvaluation(ctx, {
         phase: "would_release",
         projectId: intent.projectId,
@@ -381,10 +421,30 @@ export const markVerifiedPaid = internalMutation({
     }
 
     if (!paymentMatchesIntent(args.verifiedPayment, intent)) {
+      if (intent.intentType === "billing_topup") {
+        await recordTopupException(ctx, {
+          intent,
+          exceptionType: "topup_mismatch",
+          reason: "Verified payment does not match the snapshotted top-up terms",
+          transactionHash: args.txHash,
+        });
+        await ctx.db.patch(intent._id, { status: "failed", updatedAt: Date.now() });
+        return { applied: false as const, projectId: intent.projectId, exception: true as const };
+      }
       throw new ConvexError("Verified Stellar payment does not match payment intent");
     }
     const verifiedNetwork = args.verifiedNetwork ?? "testnet";
     if ((intent.network ?? "testnet") !== verifiedNetwork) {
+      if (intent.intentType === "billing_topup") {
+        await recordTopupException(ctx, {
+          intent,
+          exceptionType: "topup_mismatch",
+          reason: "Verified network does not match the snapshotted top-up network",
+          transactionHash: args.txHash,
+        });
+        await ctx.db.patch(intent._id, { status: "failed", updatedAt: Date.now() });
+        return { applied: false as const, projectId: intent.projectId, exception: true as const };
+      }
       throw new ConvexError("Verified Stellar payment network does not match payment intent");
     }
 
@@ -394,6 +454,16 @@ export const markVerifiedPaid = internalMutation({
       .withIndex("by_verified_tx_hash", (q) => q.eq("verifiedTxHash", verifiedTxHash))
       .unique();
     if (existingClaim && existingClaim._id !== args.paymentIntentId) {
+      if (intent.intentType === "billing_topup") {
+        await recordTopupException(ctx, {
+          intent,
+          exceptionType: "reused_transaction",
+          reason: "Verified transaction is already assigned to another intent",
+          transactionHash: args.txHash,
+        });
+        await ctx.db.patch(intent._id, { status: "failed", updatedAt: Date.now() });
+        return { applied: false as const, projectId: intent.projectId, exception: true as const };
+      }
       throw new ConvexError("Verified Stellar transaction is already assigned to another intent");
     }
 
@@ -416,6 +486,16 @@ export const markVerifiedPaid = internalMutation({
       }
     }
     if (hasLegacyClaim) {
+      if (intent.intentType === "billing_topup") {
+        await recordTopupException(ctx, {
+          intent,
+          exceptionType: "reused_transaction",
+          reason: "Verified transaction is already assigned to a paid legacy intent",
+          transactionHash: args.txHash,
+        });
+        await ctx.db.patch(intent._id, { status: "failed", updatedAt: Date.now() });
+        return { applied: false as const, projectId: intent.projectId, exception: true as const };
+      }
       throw new ConvexError("Verified Stellar transaction is already assigned to another intent");
     }
 
@@ -452,6 +532,18 @@ export const markVerifiedPaid = internalMutation({
       ? { ...intent.stageTimestamps, observed: observedAt, confirmed: now }
       : { created: intent.createdAt, observed: observedAt, confirmed: now };
 
+    if (intent.intentType === "billing_topup") {
+      await settleTopup(ctx, {
+        intent,
+        transactionHash: verifiedTxHash,
+        verifiedNetwork,
+        verifiedPayment: args.verifiedPayment,
+        now,
+      });
+    } else if (intent.anchor !== "pdax") {
+      await consumeCommercialReservation(ctx, intent._id, verifiedTxHash);
+    }
+
     await ctx.db.patch(args.paymentIntentId, {
       status: "paid",
       txHash: verifiedTxHash,
@@ -459,7 +551,7 @@ export const markVerifiedPaid = internalMutation({
       updatedAt: now,
       stageTimestamps: updatedStageTimestamps,
     });
-    if (intent.anchor !== "pdax") {
+    if (intent.intentType !== "billing_topup" && intent.anchor !== "pdax") {
       await scheduleShadowEvaluation(ctx, {
         phase: "would_consume",
         projectId: intent.projectId,
@@ -470,14 +562,21 @@ export const markVerifiedPaid = internalMutation({
       });
     }
 
-    if (project.checkoutCredits !== undefined && project.checkoutCredits > 0) {
+    if (
+      intent.intentType !== "billing_topup" &&
+      project.checkoutCredits !== undefined &&
+      project.checkoutCredits > 0
+    ) {
       await ctx.db.patch(project._id, {
         checkoutCredits: project.checkoutCredits - 1,
         updatedAt: now,
       });
     }
 
-    if (await hasEnabledWebhookForEvent(ctx, intent.projectId, "payment.succeeded")) {
+    if (
+      intent.intentType !== "billing_topup" &&
+      (await hasEnabledWebhookForEvent(ctx, intent.projectId, "payment.succeeded"))
+    ) {
       await ctx.scheduler.runAfter(0, internal.webhookDelivery.trigger, {
         projectId: intent.projectId,
         eventType: "payment.succeeded",
@@ -596,6 +695,18 @@ export const prepareOrInsertPaymentIntentV2 = internalMutation({
       createdAt: now,
       updatedAt: now,
     });
+    const enforcement = await enforceNewCommercialIntent(ctx, {
+      project: auth.project,
+      paymentIntentId,
+      network: currentBillingNetwork(),
+      expiresAt: now + PAYMENT_INTENT_EXPIRY_MS,
+    });
+    if (!enforcement.allowed) {
+      throw new ConvexError({
+        code: "INSUFFICIENT_BILLING_CREDITS",
+        message: "Organization has no available commercial credits",
+      });
+    }
     await scheduleShadowEvaluation(ctx, {
       phase: "would_reserve",
       projectId: auth.project._id,
@@ -736,6 +847,18 @@ export const insertPublicPaymentIntentV2 = internalMutation({
       createdAt: now,
       updatedAt: now,
     });
+    const enforcement = await enforceNewCommercialIntent(ctx, {
+      project: auth.project,
+      paymentIntentId,
+      network: currentBillingNetwork(),
+      expiresAt: now + PAYMENT_INTENT_EXPIRY_MS,
+    });
+    if (!enforcement.allowed) {
+      throw new ConvexError({
+        code: "INSUFFICIENT_BILLING_CREDITS",
+        message: "Organization has no available commercial credits",
+      });
+    }
     await scheduleShadowEvaluation(ctx, {
       phase: "would_reserve",
       projectId: auth.project._id,
@@ -904,6 +1027,18 @@ export const createPublicPaymentIntentV2 = internalMutation({
       createdAt: now,
       updatedAt: now,
     });
+    const enforcement = await enforceNewCommercialIntent(ctx, {
+      project: auth.project,
+      paymentIntentId,
+      network: currentBillingNetwork(),
+      expiresAt: now + PAYMENT_INTENT_EXPIRY_MS,
+    });
+    if (!enforcement.allowed) {
+      throw new ConvexError({
+        code: "INSUFFICIENT_BILLING_CREDITS",
+        message: "Organization has no available commercial credits",
+      });
+    }
     await scheduleShadowEvaluation(ctx, {
       phase: "would_reserve",
       projectId: auth.project._id,
@@ -1104,6 +1239,18 @@ export const createAuthorizedPaymentIntentV2 = internalMutation({
       updatedAt: now,
     };
     const paymentIntentId = await ctx.db.insert("paymentIntents", intentFields);
+    const enforcement = await enforceNewCommercialIntent(ctx, {
+      project,
+      paymentIntentId,
+      network: currentBillingNetwork(),
+      expiresAt: now + PAYMENT_INTENT_EXPIRY_MS,
+    });
+    if (!enforcement.allowed) {
+      throw new ConvexError({
+        code: "INSUFFICIENT_BILLING_CREDITS",
+        message: "Organization has no available commercial credits",
+      });
+    }
     await scheduleShadowEvaluation(ctx, {
       phase: "would_reserve",
       projectId: project._id,

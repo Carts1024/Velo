@@ -3,13 +3,19 @@ import { defineSchema } from "convex/server";
 import apiKeys from "./api_keys/schema";
 import {
   billingBalances,
+  billingExceptions,
   billingLedgerEntries,
+  billingNotifications,
+  billingOffers,
+  billingOperatorWallets,
   billingPolicies,
+  billingTopups,
   creditLots,
   creditReservations,
   organizationBillingSettings,
   organizationMigrationCollisions,
   shadowBillingDecisions,
+  treasuryReceipts,
 } from "./billing/schema";
 import contractEvents from "./contract_events/schema";
 import feedback from "./feedback/schema";
@@ -41,8 +47,13 @@ import webhookEndpoints from "./webhook_endpoints/schema";
 export default defineSchema({
   apiKeys,
   billingBalances,
+  billingExceptions,
   billingLedgerEntries,
+  billingNotifications,
+  billingOffers,
+  billingOperatorWallets,
   billingPolicies,
+  billingTopups,
   creditLots,
   creditReservations,
   contractEvents,
@@ -68,6 +79,7 @@ export default defineSchema({
   settlementQuotes,
   settlementTransactions,
   shadowBillingDecisions,
+  treasuryReceipts,
   telemetryOutbox,
   providerEvents,
   providerOperations,

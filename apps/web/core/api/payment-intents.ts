@@ -32,6 +32,7 @@ type VeloErrorType =
   | "not_found_error"
   | "idempotency_error"
   | "rate_limit_error"
+  | "billing_error"
   | "api_error";
 
 type CreatePaymentIntentBody = {

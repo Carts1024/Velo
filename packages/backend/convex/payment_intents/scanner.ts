@@ -11,6 +11,9 @@ import { findVerifiedPayment } from "./verification";
 const ensureReconciliation = makeFunctionReference<"mutation">(
   "payment_reconciliation_jobs/mutations:ensure",
 );
+const recordBillingMismatch = makeFunctionReference<"mutation">(
+  "billing/topups:recordVerificationException",
+);
 
 const DEFAULT_TESTNET_RPC_URL = "https://soroban-testnet.stellar.org";
 
@@ -43,6 +46,13 @@ export const checkPendingPayments = internalAction({
           if (result.status === "success") {
             const verifiedPayment = findVerifiedPayment(result.operations, intent);
             if (!verifiedPayment) {
+              if (intent.intentType === "billing_topup") {
+                await ctx.runMutation(recordBillingMismatch, {
+                  paymentIntentId: intent._id,
+                  transactionHash: intent.txHash,
+                  reason: "Verified transaction does not match the snapshotted top-up terms",
+                });
+              }
               await ctx.runMutation(api.payment_intents.mutations.updateStatus, {
                 paymentIntentId: intent._id,
                 status: "failed",
@@ -149,6 +159,13 @@ export const watchTransaction = internalAction({
         if (result.status === "success") {
           const verifiedPayment = findVerifiedPayment(result.operations, currentIntent);
           if (!verifiedPayment) {
+            if (currentIntent.intentType === "billing_topup") {
+              await ctx.runMutation(recordBillingMismatch, {
+                paymentIntentId: currentIntent._id,
+                transactionHash: args.txHash,
+                reason: "Verified transaction does not match the snapshotted top-up terms",
+              });
+            }
             await ctx.runMutation(api.payment_intents.mutations.updateStatus, {
               paymentIntentId: args.paymentIntentId,
               status: "failed",

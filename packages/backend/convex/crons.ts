@@ -23,6 +23,7 @@ const recoverBillingReservations = makeFunctionReference<"mutation">(
 const expireBillingCreditLots = makeFunctionReference<"mutation">(
   "billing/mutations:expireCreditLots",
 );
+const reconcileBilling = makeFunctionReference<"mutation">("billing/reconciliation:run");
 const SCHEDULED_WORKER_PAGE_SIZE = 25;
 
 crons.interval(
@@ -40,6 +41,9 @@ crons.interval("recover expired billing reservations", { minutes: 1 }, recoverBi
   limit: SCHEDULED_WORKER_PAGE_SIZE,
 });
 crons.interval("expire billing credit lots", { minutes: 1 }, expireBillingCreditLots, {
+  limit: SCHEDULED_WORKER_PAGE_SIZE,
+});
+crons.interval("reconcile sandbox billing", { minutes: 5 }, reconcileBilling, {
   limit: SCHEDULED_WORKER_PAGE_SIZE,
 });
 

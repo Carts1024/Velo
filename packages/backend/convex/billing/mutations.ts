@@ -2,7 +2,9 @@ import { v } from "convex/values";
 
 import { internalMutation } from "../_generated/server";
 import { recordMetric } from "../telemetry_outbox/helpers";
+import { consumeCommercialReservation, releaseCommercialReservation } from "./commercial";
 import { DEFAULT_BILLING_POLICY, PROMOTIONAL_CREDITS, PROMOTIONAL_VALIDITY_MS } from "./constants";
+import { createBillingException } from "./exceptions";
 import {
   findLedgerEntry,
   getOrCreateBalance,
@@ -11,6 +13,7 @@ import {
   requireReservation,
   selectCreditLot,
 } from "./helpers";
+import { notifyOrganization } from "./notifications";
 import { billingBookValidator, billingNetworkValidator, creditClassValidator } from "./schema";
 
 export const initializePolicy = internalMutation({
@@ -91,6 +94,7 @@ export const setOrganizationPolicy = internalMutation({
     organizationId: v.id("organizations"),
     enforcementEnabled: v.boolean(),
     shadowEnabled: v.boolean(),
+    sandboxEnforcementEnabled: v.optional(v.boolean()),
     actor: v.string(),
   },
   handler: async (ctx, args) => {
@@ -104,6 +108,8 @@ export const setOrganizationPolicy = internalMutation({
       organizationId: args.organizationId,
       enforcementEnabled: args.enforcementEnabled,
       shadowEnabled: args.shadowEnabled,
+      sandboxEnforcementEnabled:
+        args.sandboxEnforcementEnabled ?? existing?.sandboxEnforcementEnabled ?? false,
       updatedBy: args.actor.trim(),
       updatedAt: Date.now(),
     };
@@ -518,6 +524,107 @@ export const recoverExpiredReservations = internalMutation({
       .take(limit);
     let recovered = 0;
     for (const reservation of reservations) {
+      if (reservation.book === "commercial" && reservation.paymentIntentId) {
+        const intent = await ctx.db.get(reservation.paymentIntentId);
+        if (intent?.anchor === "pdax") {
+          const settlement = await ctx.db
+            .query("settlementTransactions")
+            .withIndex("by_payment_intent", (q) => q.eq("paymentIntentId", intent._id))
+            .order("desc")
+            .take(1);
+          const currentSettlement = settlement[0];
+          if (currentSettlement?.status === "PAYOUT_SUCCEEDED") {
+            await consumeCommercialReservation(ctx, intent._id, `pdax:${currentSettlement._id}`);
+          } else if (currentSettlement?.status === "PAYOUT_FAILED") {
+            const released = await releaseCommercialReservation(
+              ctx,
+              intent._id,
+              "pdax_payout_failed",
+            );
+            if (released.applied) recovered++;
+          } else {
+            await createBillingException(ctx, {
+              organizationId: reservation.organizationId,
+              exceptionType: "verification_ambiguous",
+              dedupeKey: `recovery:pdax:${reservation._id}`,
+              summary: "PDAX reservation remains active until final payout verification",
+              evidence: {
+                reservationId: reservation._id,
+                paymentIntentId: intent._id,
+                settlementStatus: currentSettlement?.status ?? "missing",
+              },
+              paymentIntentId: intent._id,
+              reservationId: reservation._id,
+            });
+          }
+          continue;
+        }
+        if (intent?.status === "paid") {
+          if (intent.verifiedTxHash ?? intent.txHash) {
+            await consumeCommercialReservation(
+              ctx,
+              intent._id,
+              intent.verifiedTxHash ?? intent.txHash!,
+            );
+          } else {
+            await createBillingException(ctx, {
+              organizationId: reservation.organizationId,
+              exceptionType: "verification_ambiguous",
+              dedupeKey: `recovery:paid-without-hash:${reservation._id}`,
+              summary: "Paid PaymentIntent has an active reservation but no verified hash",
+              evidence: { reservationId: reservation._id, paymentIntentId: intent._id },
+              paymentIntentId: intent._id,
+              reservationId: reservation._id,
+            });
+          }
+          continue;
+        }
+        if (intent?.status === "pending") {
+          const job = await ctx.db
+            .query("paymentReconciliationJobs")
+            .withIndex("by_payment_intent", (q) => q.eq("paymentIntentId", intent._id))
+            .unique();
+          if (job && (job.state === "pending" || job.state === "leased")) continue;
+          await createBillingException(ctx, {
+            organizationId: reservation.organizationId,
+            exceptionType: "verification_ambiguous",
+            dedupeKey: `recovery:pending:${reservation._id}`,
+            summary: "Expired reservation is awaiting ambiguous payment verification",
+            evidence: {
+              reservationId: reservation._id,
+              paymentIntentId: intent._id,
+              reconciliationState: job?.state ?? "missing",
+            },
+            paymentIntentId: intent._id,
+            reservationId: reservation._id,
+          });
+          continue;
+        }
+        if (intent?.status === "created" && intent.expiresAt <= now) {
+          await ctx.db.patch(intent._id, {
+            status: "expired",
+            updatedAt: now,
+            stageTimestamps: intent.stageTimestamps
+              ? { ...intent.stageTimestamps, expired: now }
+              : { created: intent.createdAt, expired: now },
+          });
+        }
+        if (
+          !intent ||
+          intent.status === "created" ||
+          intent.status === "failed" ||
+          intent.status === "cancelled" ||
+          intent.status === "expired"
+        ) {
+          const released = await releaseCommercialReservation(
+            ctx,
+            reservation.paymentIntentId,
+            "reservation_recovery",
+          );
+          if (released.applied) recovered++;
+          continue;
+        }
+      }
       const lot = await ctx.db.get(reservation.creditLotId);
       if (!lot || reservation.status !== "active") continue;
       const idempotencyKey = `reservation-expiry:${reservation._id}`;
@@ -567,6 +674,17 @@ export const recoverExpiredReservations = internalMutation({
         terminalIdempotencyKey: idempotencyKey,
         updatedAt: now,
       });
+      if (reservation.book === "commercial") {
+        await notifyOrganization(ctx, {
+          organizationId: reservation.organizationId,
+          notificationType: "reservation_recovery",
+          dedupeKey: `reservation-recovery:${reservation._id}`,
+          title: "Reserved credit restored",
+          message: "An expired reservation was returned to your available balance.",
+          paymentIntentId: reservation.paymentIntentId,
+          reservationId: reservation._id,
+        });
+      }
       recovered++;
     }
     if (recovered > 0) {
@@ -624,6 +742,15 @@ export const expireCreditLots = internalMutation({
         { available: -amount, expired: amount },
         now,
       );
+      if (lot.book === "commercial" && lot.creditClass === "promotional") {
+        await notifyOrganization(ctx, {
+          organizationId: lot.organizationId,
+          notificationType: "promotional_expiry",
+          dedupeKey: `promotional-expiry:${lot._id}`,
+          title: "Promotional credits expired",
+          message: `${amount.toString()} unused promotional credits have expired.`,
+        });
+      }
       expired++;
     }
     return { expired };

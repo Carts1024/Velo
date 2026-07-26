@@ -9,12 +9,22 @@
  */
 
 import type * as authConfig from "../authConfig.js";
+import type * as billing_access from "../billing/access.js";
+import type * as billing_admin from "../billing/admin.js";
+import type * as billing_commercial from "../billing/commercial.js";
 import type * as billing_config from "../billing/config.js";
 import type * as billing_constants from "../billing/constants.js";
+import type * as billing_exceptions from "../billing/exceptions.js";
 import type * as billing_helpers from "../billing/helpers.js";
+import type * as billing_merchant from "../billing/merchant.js";
 import type * as billing_mutations from "../billing/mutations.js";
+import type * as billing_notifications from "../billing/notifications.js";
+import type * as billing_offers from "../billing/offers.js";
+import type * as billing_operators from "../billing/operators.js";
 import type * as billing_queries from "../billing/queries.js";
+import type * as billing_reconciliation from "../billing/reconciliation.js";
 import type * as billing_shadow from "../billing/shadow.js";
+import type * as billing_topups from "../billing/topups.js";
 import type * as contractEventPolling from "../contractEventPolling.js";
 import type * as contract_events_helpers from "../contract_events/helpers.js";
 import type * as contract_events_mutation from "../contract_events/mutation.js";
@@ -107,12 +117,22 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   authConfig: typeof authConfig;
+  "billing/access": typeof billing_access;
+  "billing/admin": typeof billing_admin;
+  "billing/commercial": typeof billing_commercial;
   "billing/config": typeof billing_config;
   "billing/constants": typeof billing_constants;
+  "billing/exceptions": typeof billing_exceptions;
   "billing/helpers": typeof billing_helpers;
+  "billing/merchant": typeof billing_merchant;
   "billing/mutations": typeof billing_mutations;
+  "billing/notifications": typeof billing_notifications;
+  "billing/offers": typeof billing_offers;
+  "billing/operators": typeof billing_operators;
   "billing/queries": typeof billing_queries;
+  "billing/reconciliation": typeof billing_reconciliation;
   "billing/shadow": typeof billing_shadow;
+  "billing/topups": typeof billing_topups;
   contractEventPolling: typeof contractEventPolling;
   "contract_events/helpers": typeof contract_events_helpers;
   "contract_events/mutation": typeof contract_events_mutation;
