@@ -140,6 +140,30 @@ test("offer creation accepts a Testnet USDC issuer and stores a canonical asset"
   expect(offer?.asset).toBe("USDC:GISSUER");
 });
 
+test("offer creation accepts XLM and stores the canonical native asset", async () => {
+  const t = convexTest(schema, modules);
+  const operator = asWallet(t, "GOPERATOR");
+  await t.mutation(bootstrapOperator, {
+    walletAddress: "GOPERATOR",
+    actor: "test-bootstrap",
+  });
+
+  const offerId = (await operator.mutation(createOffer, {
+    sku: "xlm-offer",
+    creditQuantity: 100n,
+    priceAmount: "10",
+    asset: "XLM",
+    network: "testnet",
+    treasuryAddress: "GTREASURY",
+    activeFrom: Date.now(),
+    refundPolicy: "Test policy.",
+    activate: true,
+  })) as Id<"billingOffers">;
+
+  const offer = await t.run(async (ctx) => await ctx.db.get(offerId));
+  expect(offer?.asset).toBe("native");
+});
+
 test("merchant billing reports whether platform safety controls allow top-ups", async () => {
   const t = convexTest(schema, modules);
   const { operator } = await configureOperatorAndOffer(t);

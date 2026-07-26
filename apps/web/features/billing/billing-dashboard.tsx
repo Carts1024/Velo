@@ -1,11 +1,13 @@
 "use client";
 
+import { env } from "@/core/config/env";
 import { Badge } from "@repo/ui/components/ui-customs/badge";
 import { Alert, AlertDescription, AlertTitle } from "@repo/ui/components/ui/alert";
 import { Button } from "@repo/ui/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/components/ui/card";
 import { Input } from "@repo/ui/components/ui/input";
 import { Label } from "@repo/ui/components/ui/label";
+import { NativeSelect, NativeSelectOption } from "@repo/ui/components/ui/native-select";
 import { Skeleton } from "@repo/ui/components/ui/skeleton";
 import { Switch } from "@repo/ui/components/ui/switch";
 import {
@@ -35,6 +37,8 @@ import { FormEvent, useState } from "react";
 import { toast } from "sonner";
 
 import type { Doc, Id } from "@repo/backend/convex/_generated/dataModel";
+
+import { formatBillingOfferAsset, resolveBillingOfferAsset } from "./billing-offer-assets";
 
 type BillingView = {
   organization: Doc<"organizations">;
@@ -403,7 +407,7 @@ function OfferCard({
             <div>
               <p className="text-3xl font-bold">{credits(offer.creditQuantity)} credits</p>
               <p className="text-muted-foreground">
-                {offer.priceAmount} {offer.asset.split(":")[0]} · Stellar Testnet
+                {offer.priceAmount} {formatBillingOfferAsset(offer.asset)} · Stellar Testnet
               </p>
             </div>
             <p className="text-sm text-muted-foreground">{offer.refundPolicy}</p>
@@ -451,7 +455,7 @@ function TopupStatus({ topups }: { topups: Doc<"billingTopups">[] }) {
               <TableRow key={topup._id}>
                 <TableCell>{credits(topup.creditQuantity)} credits</TableCell>
                 <TableCell>
-                  {topup.priceAmount} {topup.asset.split(":")[0]}
+                  {topup.priceAmount} {formatBillingOfferAsset(topup.asset)}
                 </TableCell>
                 <TableCell>
                   <Badge variant={topup.status === "settled" ? "success" : "secondary"}>
@@ -523,7 +527,7 @@ function ReceiptTable({ receipts }: { receipts: Doc<"treasuryReceipts">[] }) {
                   {receipt.sku} v{receipt.offerVersion}
                 </TableCell>
                 <TableCell>
-                  {receipt.amount} {receipt.asset.split(":")[0]}
+                  {receipt.amount} {formatBillingOfferAsset(receipt.asset)}
                 </TableCell>
                 <TableCell>{credits(receipt.creditQuantity)}</TableCell>
                 <TableCell>{date(receipt.verifiedAt)}</TableCell>
@@ -817,15 +821,14 @@ function OfferEditor() {
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
-    const issuerInput = String(form.get("issuerAddress")).trim().toUpperCase();
-    const issuerAddress = issuerInput.startsWith("USDC:") ? issuerInput.slice(5) : issuerInput;
+    const offerAsset = String(form.get("offerAsset"));
     setSaving(true);
     try {
       await saveOffer({
         sku: String(form.get("sku")),
         creditQuantity: BigInt(String(form.get("creditQuantity"))),
         priceAmount: String(form.get("priceAmount")),
-        asset: `USDC:${issuerAddress}`,
+        asset: resolveBillingOfferAsset(offerAsset, env.NEXT_PUBLIC_USDC_ISSUER),
         network: "testnet",
         treasuryAddress: String(form.get("treasuryAddress")),
         refundPolicy: String(form.get("refundPolicy")),
@@ -860,16 +863,22 @@ function OfferEditor() {
               <Input name="creditQuantity" type="number" defaultValue="100" min="1" required />
             </Label>
             <Label>
-              USDC price
+              Price amount
               <Input name="priceAmount" defaultValue="20" required />
             </Label>
           </div>
           <Label>
-            Testnet USDC issuer
-            <Input name="issuerAddress" placeholder="G..." required />
-            <span className="text-xs font-normal text-muted-foreground">
-              Enter the issuer&apos;s Stellar G-address. Velo stores it as USDC:&lt;issuer&gt;.
-            </span>
+            Payment asset
+            <NativeSelect
+              name="offerAsset"
+              defaultValue={env.NEXT_PUBLIC_USDC_ISSUER ? "USDC" : "XLM"}
+              required
+            >
+              <NativeSelectOption value="USDC" disabled={!env.NEXT_PUBLIC_USDC_ISSUER}>
+                USDC
+              </NativeSelectOption>
+              <NativeSelectOption value="XLM">XLM</NativeSelectOption>
+            </NativeSelect>
           </Label>
           <Label>
             Treasury wallet

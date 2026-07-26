@@ -32,10 +32,12 @@ test("an operator without a merchant organization can still open Operations", ()
   assert.match(source, /<OperatorPanel \/>/);
 });
 
-test("offer activation accepts a USDC issuer address and builds the canonical asset", () => {
-  assert.match(source, /name="issuerAddress"/);
-  assert.match(source, /`USDC:\$\{issuerAddress\}`/);
-  assert.match(source, /Enter the issuer&apos;s Stellar G-address/);
+test("offer activation lets operators choose configured USDC or native XLM", () => {
+  assert.match(source, /name="offerAsset"/);
+  assert.match(source, /<NativeSelectOption value="USDC"[\s\S]*?>\s*USDC\s*<\/NativeSelectOption>/);
+  assert.match(source, /<NativeSelectOption value="XLM">XLM<\/NativeSelectOption>/);
+  assert.match(source, /resolveBillingOfferAsset/);
+  assert.doesNotMatch(source, /name="issuerAddress"/);
 });
 
 test("merchant top-up controls reflect platform safety policy", () => {
