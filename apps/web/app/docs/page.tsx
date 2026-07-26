@@ -96,7 +96,7 @@ const velo = new Velo({
     cancelUrl: "https://your-merchant-site.com/cancel",
   },
   {
-    idempotencyKey: "unique-order-key-1001", // Optional but highly recommended
+    idempotencyKey: "order-1001-attempt-1", // Optional but highly recommended
   }
 );
 
@@ -324,11 +324,11 @@ export function ConnectedAccount() {
     const isCopied = copiedText === id;
     return (
       <div className="group relative my-4 overflow-hidden rounded-lg border border-border bg-muted/70 backdrop-blur-sm">
-        <div className="absolute top-2 right-2 z-10 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100">
+        <div className="absolute top-2 right-2 z-10 opacity-100 transition-opacity md:opacity-0 md:group-focus-within:opacity-100 md:group-hover:opacity-100">
           <button
             onClick={() => handleCopy(code, id)}
             aria-label="Copy code to clipboard"
-            className="flex h-8 w-8 items-center justify-center rounded border border-border bg-background text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="flex h-8 w-8 items-center justify-center rounded border border-border bg-background text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
             title="Copy to clipboard"
           >
             {isCopied ? (
@@ -389,7 +389,7 @@ export function ConnectedAccount() {
                         <button
                           onClick={() => selectSection(s.id)}
                           aria-current={isActive ? "page" : undefined}
-                          className={`w-full text-left px-3 py-1.5 rounded-lg text-sm transition-all flex items-center justify-between ${
+                          className={`flex w-full items-center justify-between rounded-lg px-3 py-1.5 text-left text-sm transition-all ${
                             isActive
                               ? "border-l-2 border-zinc-950 bg-zinc-100 font-medium text-zinc-950 dark:border-white dark:bg-zinc-900 dark:text-white"
                               : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-950 dark:text-zinc-400 dark:hover:bg-zinc-900/40 dark:hover:text-zinc-200"
@@ -1180,7 +1180,10 @@ const session = await velo.checkout.sessions.create({
                   <div className="text-sm">
                     <strong className="mb-1 block text-foreground">Idempotency-Key Option</strong>
                     To avoid duplicate sessions or payments under network failures, supply an
-                    optional `idempotencyKey` inside the second parameter `RequestOptions`.
+                    optional `idempotencyKey` inside the second parameter `RequestOptions`. Checkout
+                    sessions are one-time: after cancellation, create a new PaymentIntent with a
+                    fresh key such as `order-1001-attempt-2`. Reusing the previous key intentionally
+                    returns the original cancelled intent.
                   </div>
                 </div>
               </>
