@@ -12,6 +12,7 @@ import {
 import { currentBillingNetwork } from "../billing/config";
 import { scheduleShadowEvaluation } from "../billing/shadow";
 import { markTopupTerminal, recordTopupException, settleTopup } from "../billing/topups";
+import { requireProjectOwner } from "../projects/helpers";
 import { recordMetric, recordSpan } from "../telemetry_outbox/helpers";
 import { hasEnabledWebhookForEvent } from "../webhook_endpoints/helpers";
 import {
@@ -122,6 +123,188 @@ export const createPaymentIntent = mutation({
     }
 
     return { paymentIntentId: id, projectId: project._id };
+  },
+});
+
+/**
+ * Creates a one-time PaymentIntent from the authenticated merchant dashboard.
+ * Ownership replaces API-key authentication while the existing route, billing,
+ * idempotency, and webhook semantics remain intact.
+ */
+export const createFromDashboard = mutation({
+  args: {
+    projectId: v.id("projects"),
+    requestId: v.string(),
+    amount: v.string(),
+    asset: v.string(),
+    description: v.optional(v.string()),
+    anchor: v.optional(v.union(v.literal("inhouse"), v.literal("pdax"))),
+  },
+  handler: async (ctx, args) => {
+    const project = await requireProjectOwner(ctx, args.projectId);
+    if (!project.paymentAccessActive) {
+      throw new ConvexError("Payment access is not activated for this project.");
+    }
+
+    const requestId = args.requestId.trim();
+    if (!requestId || requestId.length > 128) {
+      throw new ConvexError("Invalid dashboard payment request ID.");
+    }
+    const amount = args.amount.trim();
+    if (!/^(?:0|[1-9]\d*)(?:\.\d+)?$/.test(amount) || Number(amount) <= 0) {
+      throw new ConvexError("Amount must be a positive decimal.");
+    }
+    const asset = args.asset.trim();
+    if (!asset) {
+      throw new ConvexError("Asset is required.");
+    }
+    const description = args.description?.trim() || undefined;
+    if (description && description.length > 500) {
+      throw new ConvexError("Description must be 500 characters or fewer.");
+    }
+
+    const resolvedAnchor = resolvePaymentAnchor({
+      requestedAnchor: args.anchor,
+      projectDefaultAnchor: project.defaultPaymentAnchor,
+    });
+    const fingerprint = createPaymentIntentFingerprint({
+      amount,
+      asset,
+      description,
+      anchor: resolvedAnchor,
+    });
+    const idempotencyKey = `dashboard:${requestId}`;
+    const existing = await ctx.db
+      .query("paymentIntentIdempotencyKeys")
+      .withIndex("by_project_and_key", (q) =>
+        q.eq("projectId", project._id).eq("key", idempotencyKey),
+      )
+      .unique();
+    if (existing) {
+      if (existing.requestFingerprint !== fingerprint) {
+        throw new ConvexError("Dashboard payment request conflicts with an earlier submission.");
+      }
+      const intent = await ctx.db.get(existing.paymentIntentId);
+      if (intent?.projectId === project._id) {
+        return { status: "idempotency_replay" as const, intent };
+      }
+    }
+
+    const now = Date.now();
+    const mappedAsset = resolvedAnchor === "pdax" ? mapAssetToPdax(asset) : undefined;
+    let cachedPdaxRoute: { address: string; memo?: string; mappedAsset: string } | undefined;
+    if (resolvedAnchor === "pdax") {
+      const connection = await ctx.db
+        .query("providerConnections")
+        .withIndex("by_project_provider", (q) =>
+          q.eq("projectId", project._id).eq("provider", "pdax"),
+        )
+        .unique();
+      if (connection?.status !== "connected") {
+        throw new ConvexError("PDAX provider is not connected for this project.");
+      }
+      const cached = await ctx.db
+        .query("pdaxRouteCache")
+        .withIndex("by_project_and_mapped_asset", (q) =>
+          q.eq("projectId", project._id).eq("mappedAsset", mappedAsset!),
+        )
+        .unique();
+      if (cached && cached.expiresAt > now) {
+        cachedPdaxRoute = {
+          address: cached.address,
+          ...(cached.memo !== undefined ? { memo: cached.memo } : {}),
+          mappedAsset: cached.mappedAsset,
+        };
+      }
+    }
+
+    const intentFields = {
+      projectId: project._id,
+      network: currentBillingNetwork(),
+      intentType: "merchant_payment" as const,
+      amount,
+      asset,
+      ...(resolvedAnchor === "inhouse"
+        ? { receiverAddress: project.ownerAddress }
+        : cachedPdaxRoute
+          ? {
+              receiverAddress: cachedPdaxRoute.address,
+              ...(cachedPdaxRoute.memo !== undefined ? { receiverMemo: cachedPdaxRoute.memo } : {}),
+              anchorDepositCurrency: cachedPdaxRoute.mappedAsset,
+            }
+          : {}),
+      merchantName: project.name,
+      ...(description !== undefined ? { description } : {}),
+      status:
+        resolvedAnchor === "pdax" && !cachedPdaxRoute
+          ? ("awaiting_route" as const)
+          : ("created" as const),
+      anchor: resolvedAnchor,
+      correlationId: `dashboard:${requestId}`,
+      expiresAt: now + PAYMENT_INTENT_EXPIRY_MS,
+      stageTimestamps: {
+        created: now,
+        ...(cachedPdaxRoute ? { routeReady: now } : {}),
+      },
+      createdAt: now,
+      updatedAt: now,
+    };
+    const paymentIntentId = await ctx.db.insert("paymentIntents", intentFields);
+    const enforcement = await enforceNewCommercialIntent(ctx, {
+      project,
+      paymentIntentId,
+      network: currentBillingNetwork(),
+      expiresAt: intentFields.expiresAt,
+    });
+    if (!enforcement.allowed) {
+      throw new ConvexError({
+        code: "INSUFFICIENT_BILLING_CREDITS",
+        message: "Organization has no available commercial credits",
+      });
+    }
+    await scheduleShadowEvaluation(ctx, {
+      phase: "would_reserve",
+      projectId: project._id,
+      paymentIntentId,
+      route: resolvedAnchor === "pdax" ? "pdax" : "stellar",
+      idempotencyKey: `shadow:reserve:${paymentIntentId}`,
+    });
+
+    await ctx.db.insert("paymentIntentIdempotencyKeys", {
+      projectId: project._id,
+      key: idempotencyKey,
+      requestFingerprint: fingerprint,
+      paymentIntentId,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    if (resolvedAnchor === "pdax" && !cachedPdaxRoute) {
+      await ctx.db.insert("paymentIntentRouteJobs", {
+        paymentIntentId,
+        projectId: project._id,
+        mappedAsset: mappedAsset!,
+        state: "scheduled",
+        attempts: 0,
+        nextAttemptAt: now,
+        createdAt: now,
+        updatedAt: now,
+      });
+      await ctx.scheduler.runAfter(0, internal.payment_intents.actions.enrichPdaxRoute, {
+        paymentIntentId,
+      });
+    } else if (await hasEnabledWebhookForEvent(ctx, project._id, "payment.created")) {
+      await ctx.scheduler.runAfter(0, internal.webhookDelivery.trigger, {
+        projectId: project._id,
+        eventType: "payment.created",
+        paymentIntentId,
+        correlationId: intentFields.correlationId,
+      });
+    }
+
+    const intent = await ctx.db.get(paymentIntentId);
+    if (!intent) throw new ConvexError("Payment intent not found after creation.");
+    return { status: "success" as const, intent };
   },
 });
 

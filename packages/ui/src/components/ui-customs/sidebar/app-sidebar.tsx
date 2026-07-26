@@ -164,7 +164,14 @@ export function AppSidebar({
     {
       title: "Pay",
       icon: CreditCardIcon,
-      items: [],
+      items: [
+        {
+          title: "Payments",
+          url: `${projectBaseUrl}/payments`,
+          icon: CreditCardIcon,
+          disabled: !activeProject,
+        },
+      ],
     },
     {
       title: "Settle",
