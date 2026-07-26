@@ -71,6 +71,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const isProtectedRoute =
     pathname.startsWith("/dashboard") ||
+    pathname.startsWith("/billing") ||
     pathname.startsWith("/projects") ||
     pathname.startsWith("/profile");
   const showSidebar =
@@ -270,7 +271,15 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const activeProject = sidebarProjects.find((project) => project.id === activeProjectId);
-    const urls = ["/dashboard", "/profile", "/debug", "/docs", "/playground", "/projects/new"];
+    const urls = [
+      "/dashboard",
+      "/billing",
+      "/profile",
+      "/debug",
+      "/docs",
+      "/playground",
+      "/projects/new",
+    ];
 
     if (activeProject) {
       urls.push(

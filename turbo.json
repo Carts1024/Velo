@@ -15,6 +15,11 @@
       "cache": false,
       "inputs": [".oxlintrc.json"]
     },
+    "@repo/backend#lint:fix": {
+      "dependsOn": ["^build"],
+      "cache": false,
+      "inputs": [".oxlintrc.json"]
+    },
     "test": {
       "cache": false
     }

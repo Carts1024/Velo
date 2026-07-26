@@ -188,6 +188,18 @@ export async function createPaymentIntentHandler(baseRequest: Request, telemetry
   } catch (error) {
     if (
       error instanceof Error &&
+      ((error as { data?: { code?: string } }).data?.code === "INSUFFICIENT_BILLING_CREDITS" ||
+        error.message.includes("INSUFFICIENT_BILLING_CREDITS"))
+    ) {
+      return veloErrorResponse({
+        status: 402,
+        type: "billing_error",
+        code: "insufficient_billing_credits",
+        message: "This organization has no available Velo credits.",
+      });
+    }
+    if (
+      error instanceof Error &&
       ((error as { data?: { code?: string } }).data?.code === "anchor_unavailable" ||
         error.message.includes("anchor_unavailable"))
     ) {

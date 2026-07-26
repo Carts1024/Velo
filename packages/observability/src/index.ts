@@ -45,6 +45,16 @@ export const METRIC_NAMES = [
   "velo_journey_duration_seconds",
   "velo_journey_p95_seconds",
   "velo_locked_slo_p95_seconds",
+  "velo_billing_shadow_reservation_total",
+  "velo_billing_shadow_consumption_total",
+  "velo_billing_shadow_release_total",
+  "velo_billing_insufficient_balance_total",
+  "velo_billing_unmatched_success_total",
+  "velo_billing_legacy_divergence_total",
+  "velo_billing_reservation_recovery_total",
+  "velo_billing_pdax_cost_variance",
+  "velo_billing_topup_settlement_total",
+  "velo_billing_reconciliation_exception_total",
 ] as const;
 
 export const DEPENDENCIES = ["convex", "pdax", "stellar_rpc", "horizon", "merchant"] as const;
@@ -61,12 +71,27 @@ export const ERROR_CODES = [
   "export_failed",
 ] as const;
 
+export const UI_TELEMETRY_MARKERS = [
+  "checkout_start",
+  "checkout_ready",
+  "payment_submitted_rendered",
+  "payment_verified_rendered",
+] as const;
+
 export type SpanName = (typeof SPAN_NAMES)[number];
 export type TelemetryStage = (typeof TELEMETRY_STAGES)[number];
 export type MetricName = (typeof METRIC_NAMES)[number];
 export type Dependency = (typeof DEPENDENCIES)[number];
 export type TelemetryOutcome = (typeof OUTCOMES)[number];
 export type TelemetryErrorCode = (typeof ERROR_CODES)[number];
+export type UiTelemetryMarker = (typeof UI_TELEMETRY_MARKERS)[number];
+
+export type UiTelemetryMarkerEnvelope = {
+  paymentIntentId: string;
+  marker: string;
+  durationMs: number;
+  signedAt: number;
+};
 
 export type TelemetryContext = {
   requestCorrelationId: string;
@@ -166,6 +191,32 @@ export function deterministicSample(key: string, ratio = 0.1): boolean {
     hash = Math.imul(hash, 16777619);
   }
   return (hash >>> 0) / 0x1_0000_0000 < ratio;
+}
+
+export function uiTelemetryMarkerPayload(input: UiTelemetryMarkerEnvelope): string {
+  return JSON.stringify([input.paymentIntentId, input.marker, input.durationMs, input.signedAt]);
+}
+
+export async function signUiTelemetryMarker(
+  secret: string,
+  input: UiTelemetryMarkerEnvelope,
+): Promise<string> {
+  const encoder = new TextEncoder();
+  const key = await globalThis.crypto.subtle.importKey(
+    "raw",
+    encoder.encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const signature = await globalThis.crypto.subtle.sign(
+    "HMAC",
+    key,
+    encoder.encode(uiTelemetryMarkerPayload(input)),
+  );
+  return Array.from(new Uint8Array(signature), (byte) => byte.toString(16).padStart(2, "0")).join(
+    "",
+  );
 }
 
 export function projectSafeEvent(value: unknown): Partial<SafeTelemetryEvent> {

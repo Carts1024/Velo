@@ -17,6 +17,13 @@ const exportTelemetry = makeFunctionReference<"action">("telemetry_outbox/action
 const expireTelemetry = makeFunctionReference<"mutation">("telemetry_outbox/mutations:expire");
 const captureTelemetryGauges = makeFunctionReference<"mutation">("telemetry_outbox/gauges:capture");
 const expireJourneyStages = makeFunctionReference<"mutation">("journey_stages/mutations:expire");
+const recoverBillingReservations = makeFunctionReference<"mutation">(
+  "billing/mutations:recoverExpiredReservations",
+);
+const expireBillingCreditLots = makeFunctionReference<"mutation">(
+  "billing/mutations:expireCreditLots",
+);
+const reconcileBilling = makeFunctionReference<"mutation">("billing/reconciliation:run");
 const SCHEDULED_WORKER_PAGE_SIZE = 25;
 
 crons.interval(
@@ -30,6 +37,15 @@ crons.interval("export bounded telemetry outbox", { minutes: 1 }, exportTelemetr
 crons.interval("expire telemetry diagnostics", { hours: 1 }, expireTelemetry, { limit: 100 });
 crons.interval("capture bounded telemetry gauges", { minutes: 1 }, captureTelemetryGauges, {});
 crons.interval("expire safe journey stages", { hours: 1 }, expireJourneyStages, { limit: 100 });
+crons.interval("recover expired billing reservations", { minutes: 1 }, recoverBillingReservations, {
+  limit: SCHEDULED_WORKER_PAGE_SIZE,
+});
+crons.interval("expire billing credit lots", { minutes: 1 }, expireBillingCreditLots, {
+  limit: SCHEDULED_WORKER_PAGE_SIZE,
+});
+crons.interval("reconcile sandbox billing", { minutes: 5 }, reconcileBilling, {
+  limit: SCHEDULED_WORKER_PAGE_SIZE,
+});
 
 crons.interval("drain payment reconciliation jobs", { minutes: 1 }, drainPaymentReconciliation, {
   limit: SCHEDULED_WORKER_PAGE_SIZE,

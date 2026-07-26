@@ -1,6 +1,8 @@
 import { v } from "convex/values";
 
 import { internalMutation } from "../_generated/server";
+import { consumeCommercialReservation, releaseCommercialReservation } from "../billing/commercial";
+import { scheduleShadowEvaluation } from "../billing/shadow";
 
 export const create = internalMutation({
   args: {
@@ -125,6 +127,24 @@ export const updateStatus = internalMutation({
       patchPayload.withdrawalDetails = args.withdrawalDetails;
 
     await ctx.db.patch(existing._id, patchPayload);
+    if (
+      existing.paymentIntentId &&
+      (args.status === "PAYOUT_SUCCEEDED" || args.status === "PAYOUT_FAILED")
+    ) {
+      if (args.status === "PAYOUT_SUCCEEDED") {
+        await consumeCommercialReservation(ctx, existing.paymentIntentId, `pdax:${existing._id}`);
+      } else {
+        await releaseCommercialReservation(ctx, existing.paymentIntentId, "pdax_payout_failed");
+      }
+      await scheduleShadowEvaluation(ctx, {
+        phase: args.status === "PAYOUT_SUCCEEDED" ? "would_consume" : "would_release",
+        projectId: existing.projectId,
+        paymentIntentId: existing.paymentIntentId,
+        route: "pdax",
+        idempotencyKey: `shadow:${args.status.toLowerCase()}:${existing._id}`,
+        settlementTransactionId: existing._id,
+      });
+    }
     return existing._id;
   },
 });

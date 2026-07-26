@@ -4,7 +4,7 @@ import { v } from "convex/values";
 import type { Doc } from "../_generated/dataModel";
 
 import { internalQuery, query } from "../_generated/server";
-import { projectOwnerOrNull } from "../projects/helpers";
+import { projectOwnerOrNull, requireProjectOwner } from "../projects/helpers";
 import {
   verifyApiKeyForPayments,
   resolvePaymentAnchor,
@@ -126,6 +126,69 @@ export const listByProject = query({
       .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
       .order("desc")
       .take(limit);
+  },
+});
+
+/**
+ * Cursor-paginated payment ledger for the authenticated project owner.
+ */
+export const listOwnerPage = query({
+  args: {
+    projectId: v.id("projects"),
+    status: v.optional(paymentIntentStatusValidator),
+    paginationOpts: paginationOptsValidator,
+  },
+  handler: async (ctx, args) => {
+    await requireProjectOwner(ctx, args.projectId);
+
+    return args.status
+      ? await ctx.db
+          .query("paymentIntents")
+          .withIndex("by_project_status_created_at", (q) =>
+            q.eq("projectId", args.projectId).eq("status", args.status!),
+          )
+          .order("desc")
+          .paginate(args.paginationOpts)
+      : await ctx.db
+          .query("paymentIntents")
+          .withIndex("by_project_created_at", (q) => q.eq("projectId", args.projectId))
+          .order("desc")
+          .paginate(args.paginationOpts);
+  },
+});
+
+/**
+ * Exact owner-scoped lookup by PaymentIntent ID or transaction hash.
+ */
+export const findOwnerIntent = query({
+  args: {
+    projectId: v.id("projects"),
+    term: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await requireProjectOwner(ctx, args.projectId);
+    const term = args.term.trim();
+    if (!term) return null;
+
+    const normalizedId = ctx.db.normalizeId("paymentIntents", term);
+    if (normalizedId) {
+      const intent = await ctx.db.get(normalizedId);
+      return intent?.projectId === args.projectId ? intent : null;
+    }
+
+    if (!/^[0-9a-f]{64}$/i.test(term)) return null;
+    const transactionHash = term.toLowerCase();
+    const bySubmittedHash = await ctx.db
+      .query("paymentIntents")
+      .withIndex("by_tx_hash", (q) => q.eq("txHash", transactionHash))
+      .first();
+    if (bySubmittedHash?.projectId === args.projectId) return bySubmittedHash;
+
+    const byVerifiedHash = await ctx.db
+      .query("paymentIntents")
+      .withIndex("by_verified_tx_hash", (q) => q.eq("verifiedTxHash", transactionHash))
+      .first();
+    return byVerifiedHash?.projectId === args.projectId ? byVerifiedHash : null;
   },
 });
 

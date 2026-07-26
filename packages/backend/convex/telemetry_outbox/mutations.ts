@@ -1,7 +1,14 @@
-import { deterministicSample, ERROR_CODES, METRIC_NAMES, SPAN_NAMES } from "@repo/observability";
+import {
+  deterministicSample,
+  ERROR_CODES,
+  METRIC_NAMES,
+  signUiTelemetryMarker,
+  SPAN_NAMES,
+  UI_TELEMETRY_MARKERS,
+} from "@repo/observability";
 import { v } from "convex/values";
 
-import { internalMutation, mutation } from "../_generated/server";
+import { env, internalMutation, mutation } from "../_generated/server";
 import { isConvexTelemetryEnabled } from "./config";
 import { telemetryStageValidator } from "./schema";
 
@@ -14,31 +21,59 @@ const outcome = v.union(
 );
 
 const MAX_CLAIM_BATCH = 50;
+const UI_MARKER_MAX_AGE_MS = 5 * 60_000;
+
+function signaturesMatch(actual: string, expected: string) {
+  if (!/^[0-9a-f]{64}$/.test(actual) || actual.length !== expected.length) return false;
+  let difference = 0;
+  for (let index = 0; index < actual.length; index += 1) {
+    difference |= actual.charCodeAt(index) ^ expected.charCodeAt(index);
+  }
+  return difference === 0;
+}
 
 export const recordUiMarker = mutation({
   args: {
     paymentIntentId: v.id("paymentIntents"),
-    journeyCorrelationId: v.string(),
     marker: v.string(),
     durationMs: v.number(),
-    intakeSecret: v.string(),
+    signedAt: v.number(),
+    signature: v.string(),
   },
   handler: async (ctx, args) => {
-    const expectedSecret = process.env.VELO_UI_TELEMETRY_INTAKE_SECRET;
-    if (!expectedSecret || args.intakeSecret !== expectedSecret) {
+    const expectedSecret = env.VELO_UI_TELEMETRY_INTAKE_SECRET;
+    const now = Date.now();
+    if (
+      !expectedSecret ||
+      !UI_TELEMETRY_MARKERS.includes(args.marker as (typeof UI_TELEMETRY_MARKERS)[number]) ||
+      !Number.isFinite(args.durationMs) ||
+      args.durationMs < 0 ||
+      args.durationMs > 3_600_000 ||
+      !Number.isSafeInteger(args.signedAt) ||
+      Math.abs(now - args.signedAt) > UI_MARKER_MAX_AGE_MS
+    ) {
+      throw new Error("ui_telemetry_unauthorized");
+    }
+    const expectedSignature = await signUiTelemetryMarker(expectedSecret, {
+      paymentIntentId: args.paymentIntentId,
+      marker: args.marker,
+      durationMs: args.durationMs,
+      signedAt: args.signedAt,
+    });
+    if (!signaturesMatch(args.signature, expectedSignature)) {
       throw new Error("ui_telemetry_unauthorized");
     }
     const intent = await ctx.db.get(args.paymentIntentId);
-    if (!intent || intent.correlationId !== args.journeyCorrelationId) return false;
-    const now = Date.now();
-    if (isConvexTelemetryEnabled() && deterministicSample(args.journeyCorrelationId, 0.1)) {
+    if (!intent) return false;
+    const journeyCorrelationId = intent.correlationId ?? `payment-intent:${intent._id}`;
+    if (isConvexTelemetryEnabled() && deterministicSample(journeyCorrelationId, 0.1)) {
       await ctx.db.insert("telemetryOutbox", {
         kind: "span",
         name: "velo.ui.render",
         operation: args.marker.slice(0, 96),
         stage: "ui_render",
         outcome: "success",
-        journeyCorrelationId: args.journeyCorrelationId,
+        journeyCorrelationId,
         traceparent: intent.traceparent,
         durationMs: Math.max(0, args.durationMs),
         state: "pending",
@@ -50,7 +85,7 @@ export const recordUiMarker = mutation({
       });
     }
     await ctx.db.insert("journeyStages", {
-      journeyCorrelationId: args.journeyCorrelationId,
+      journeyCorrelationId,
       name: "ui.rendered",
       source: "ui",
       outcome: "success",

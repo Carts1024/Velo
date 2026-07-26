@@ -28,8 +28,15 @@ type Env = {
   readonly UPSTASH_REDIS_REST_TOKEN: string | undefined;
   readonly UPSTASH_REDIS_REST_URL: string | undefined;
   readonly VELO_CONVEX_TELEMETRY_ENABLED: string | undefined;
+  readonly VELO_DEPLOYMENT_ENVIRONMENT:
+    | "development"
+    | "preview"
+    | "production"
+    | undefined;
   readonly VELO_ENABLE_RATE_LIMIT_BENCHMARK: string | undefined;
   readonly VELO_RATE_LIMIT_SCOPE_SECRET: string | undefined;
+  readonly VELO_STELLAR_NETWORK: "testnet" | "public" | undefined;
+  readonly VELO_UI_TELEMETRY_INTAKE_SECRET: string | undefined;
 };
 
 /**
