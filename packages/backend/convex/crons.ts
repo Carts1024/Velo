@@ -24,6 +24,7 @@ const expireBillingCreditLots = makeFunctionReference<"mutation">(
   "billing/mutations:expireCreditLots",
 );
 const reconcileBilling = makeFunctionReference<"mutation">("billing/reconciliation:run");
+const replayBilling = makeFunctionReference<"mutation">("billing/reconciliation:runDailyReplay");
 const SCHEDULED_WORKER_PAGE_SIZE = 25;
 
 crons.interval(
@@ -44,6 +45,9 @@ crons.interval("expire billing credit lots", { minutes: 1 }, expireBillingCredit
   limit: SCHEDULED_WORKER_PAGE_SIZE,
 });
 crons.interval("reconcile sandbox billing", { minutes: 5 }, reconcileBilling, {
+  limit: SCHEDULED_WORKER_PAGE_SIZE,
+});
+crons.cron("verify daily commercial ledger replay", "0 0 * * *", replayBilling, {
   limit: SCHEDULED_WORKER_PAGE_SIZE,
 });
 

@@ -34,6 +34,7 @@ type Env = {
     | "production"
     | undefined;
   readonly VELO_ENABLE_RATE_LIMIT_BENCHMARK: string | undefined;
+  readonly VELO_MAINNET_USDC_ISSUER: string | undefined;
   readonly VELO_RATE_LIMIT_SCOPE_SECRET: string | undefined;
   readonly VELO_STELLAR_NETWORK: "testnet" | "public" | undefined;
   readonly VELO_UI_TELEMETRY_INTAKE_SECRET: string | undefined;
