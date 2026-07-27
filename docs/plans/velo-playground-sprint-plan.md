@@ -5,7 +5,8 @@ Status: Sprint 1 **IMPLEMENTED — LIVE EVIDENCE PENDING**; Sprint 2
 **IMPLEMENTED AND TESTED — LIVE FIXTURE EVIDENCE PENDING**; Sprint 4
 **IMPLEMENTED AND TESTED — LIVE WALLET/NETWORK EVIDENCE PENDING**; Sprint 5
 **IMPLEMENTED AND DETERMINISTICALLY TESTED — WEBKIT/MANUAL/LIVE QUALIFICATION
-PENDING**; Sprint 6 proposed and unimplemented
+PENDING**; Sprint 6 **IMPLEMENTED AND DETERMINISTICALLY TESTED —
+PLAYWRIGHT/LIVE QUALIFICATION PENDING**
 Created: 2026-07-23  
 Source: `docs/plans/Velo_Playground_Feature_Plan.md`  
 Duration: 6 sprints / 12 weeks  
@@ -50,6 +51,12 @@ generation, privacy-safe funnel telemetry, distributed anonymous abuse controls,
 responsive keyboard behavior, and Playwright/axe qualification. See the
 [Sprint 5 architecture](../architecture/sprint-5-playground-standalone-alpha.md) and
 [evidence report](../references/sprint-5-playground-alpha-evidence.md).
+
+Sprint 6 adds role-aware project persistence, versioned requests, non-secret
+environment variables, 30-day execution history and Velo Logs, reviewed event
+filters, and revocable immutable shares. See the
+[Sprint 6 architecture](../architecture/sprint-6-playground-project-integration.md)
+and [evidence report](../references/sprint-6-playground-evidence.md).
 
 ## 1. Product Outcome
 
@@ -667,7 +674,8 @@ Acceptance criteria:
 
 ## 11. Sprint 6 — Velo Project Integration
 
-**Status:** Proposed and unimplemented.
+**Status:** **IMPLEMENTED AND DETERMINISTICALLY TESTED — PLAYWRIGHT/LIVE
+QUALIFICATION PENDING**
 
 **Goal:** Make Playground part of Velo’s operational workflow rather than a standalone
 contract form generator.
@@ -775,14 +783,29 @@ Acceptance criteria:
 
 ### Sprint 6 exit gate
 
-- A project member can save a contract and request, re-simulate it, invoke it, and
-  inspect project history.
-- A saved request can resolve Testnet/Mainnet project variables and exposes the exact
-  resolved values before simulation.
-- The invocation opens in Velo Logs through a shared correlation chain.
-- An emitted event can pre-populate the existing webhook workflow.
-- A shared request is safe, revocable, and requires recipient re-simulation.
-- The complete recommended demo runs without manual data correction.
+- **Implemented:** owner/editor/viewer membership is enforced in Convex; existing
+  owners retain access and collaborators appear in the project switcher.
+- **Implemented:** project contracts and immutable request versions persist separately
+  from on-chain registry links.
+- **Implemented and tested:** Testnet/Mainnet non-secret variables use typed leaf
+  references, field-path errors, exact previews, and server-side resolution-hash
+  revalidation.
+- **Implemented:** authenticated project simulation/submission/status routes persist
+  HMAC-authenticated, bounded 30-day execution evidence and expose correlated Velo
+  Logs.
+- **Implemented:** event evidence pre-populates a reviewed webhook filter; saved
+  filters gate subsequent `contract.event` delivery without bypassing retries or
+  dead-letter handling.
+- **Implemented and tested:** private and 30-day public-unlisted immutable shares are
+  revocable, exclude arguments by default, remove variable references from public
+  snapshots, and require recipient re-simulation.
+- **Verified:** 41 web test files, 21 backend files / 109 tests, web/backend/Stellar
+  lint and type checks, the production web build, and `git diff --check`.
+- **Known baseline:** the isolated full-suite `transaction-debugger.test.ts` process
+  failure remains; the other nine Stellar test files pass.
+- **Pending:** Sprint 6 authenticated Playwright coverage and live Testnet
+  invocation-to-Logs/event-to-webhook evidence. Sprint 5 manual/live qualification
+  also remains open.
 
 ## 12. Cross-Sprint Engineering Work
 

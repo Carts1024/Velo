@@ -9,4 +9,5 @@ export * from "./transaction-debugger.ts";
 export * from "./validation.ts";
 export * from "./pay-access.ts";
 export * from "./playground-codegen.ts";
+export * from "./playground-project.ts";
 export * from "./webhook.ts";

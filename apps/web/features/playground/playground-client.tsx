@@ -1,6 +1,7 @@
 "use client";
 
 import { useWallet } from "@/core/wallet/wallet-provider";
+import { api } from "@repo/backend/convex/_generated/api";
 import { Badge } from "@repo/ui/components/ui-customs/badge";
 import { Alert, AlertDescription, AlertTitle } from "@repo/ui/components/ui/alert";
 import { Button } from "@repo/ui/components/ui/button";
@@ -12,6 +13,7 @@ import {
   CardTitle,
 } from "@repo/ui/components/ui/card";
 import { Input } from "@repo/ui/components/ui/input";
+import { useQuery } from "convex/react";
 import {
   AlertCircleIcon,
   CheckCircle2Icon,
@@ -25,6 +27,7 @@ import {
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useReducer, useRef, useState } from "react";
 
+import type { Id } from "@repo/backend/convex/_generated/dataModel";
 import type {
   CanonicalArgumentValue,
   ContractSpecDocumentV1,
@@ -44,6 +47,7 @@ import {
   sanitizeHistoryArguments,
   type PlaygroundHistoryEntryV1,
 } from "./history";
+import { ProjectPlaygroundPanel } from "./project-playground-panel";
 import {
   createSimulationContextKey,
   simulationFreshness,
@@ -240,15 +244,37 @@ function requestErrorDetails(error: unknown, fallback: string) {
   };
 }
 
+function projectAuthorizationHeader() {
+  try {
+    const stored = window.sessionStorage.getItem("velo:convex-token");
+    const token = stored ? (JSON.parse(stored) as { token?: string }).token : undefined;
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  } catch {
+    return {};
+  }
+}
+
+function projectRequestHeaders(projectId?: string) {
+  return projectId ? { "X-Velo-Project-Id": projectId, ...projectAuthorizationHeader() } : {};
+}
+
 export function PlaygroundClient({
   initialNetwork,
   initialContractId,
+  projectId,
+  shareToken,
 }: {
   initialNetwork: Network;
   initialContractId: string;
+  projectId?: string;
+  shareToken?: string;
 }) {
   const router = useRouter();
   const wallet = useWallet();
+  const privateShare = useQuery(
+    api.playground_projects.queries.getPrivateShare,
+    projectId && shareToken ? { token: shareToken } : "skip",
+  );
   const [network, setNetwork] = useState<Network>(initialNetwork);
   const [contractId, setContractId] = useState(initialContractId);
   const [contract, setContract] = useState<LoadedContract | null>(null);
@@ -270,6 +296,12 @@ export function PlaygroundClient({
   const [clock, setClock] = useState(Date.now());
   const [announcement, setAnnouncement] = useState("Enter a contract ID to inspect its spec.");
   const [history, setHistory] = useState<PlaygroundHistoryEntryV1[]>([]);
+  const [projectResolution, setProjectResolution] = useState<{
+    argumentTemplateJson: string;
+    resolvedArgumentsJson: string;
+    resolutionHash: string;
+    requestVersionId?: Id<"playgroundRequestVersions">;
+  } | null>(null);
   const simulationAbort = useRef<AbortController | null>(null);
   const simulationRequest = useRef(0);
   const priorContextKey = useRef("");
@@ -279,6 +311,7 @@ export function PlaygroundClient({
   const activeHistoryId = useRef<string | null>(null);
   const priorWalletStatus = useRef(wallet.status);
   const formTelemetryKey = useRef("");
+  const openedPrivateShare = useRef<string | null>(null);
 
   useEffect(() => {
     historyRepository.current = new PlaygroundHistoryRepository(window.localStorage);
@@ -332,7 +365,10 @@ export function PlaygroundClient({
           const result = await responseJson<TransactionResult>(
             await fetch(`/api/v1/playground/transactions/${stored.transactionHash}`, {
               cache: "no-store",
-              headers: { "X-Velo-Journey-Id": playgroundRequestId.current },
+              headers: {
+                "X-Velo-Journey-Id": playgroundRequestId.current,
+                ...projectRequestHeaders(projectId),
+              },
             }),
           );
           if (cancelled) return;
@@ -382,6 +418,16 @@ export function PlaygroundClient({
     selected && contract
       ? (argumentDrafts[selected.name] ?? createFunctionDraft(selected, contract))
       : null;
+
+  useEffect(() => {
+    if (
+      projectResolution &&
+      selectedDraft &&
+      JSON.stringify(selectedDraft.value) !== projectResolution.resolvedArgumentsJson
+    ) {
+      setProjectResolution(null);
+    }
+  }, [projectResolution, selectedDraft]);
   const parsedCpuInstructions = Number(cpuInstructions);
   const settingsValid =
     /^[0-9]+$/.test(baseFee) &&
@@ -484,13 +530,19 @@ export function PlaygroundClient({
         network: targetNetwork,
         contractId: targetContractId.trim().toUpperCase(),
       });
-      router.replace(`/playground?${query.toString()}`, { scroll: false });
+      router.replace(
+        projectId
+          ? `/projects/${projectId}/playground?${query.toString()}`
+          : `/playground?${query.toString()}`,
+        { scroll: false },
+      );
       const loaded = await responseJson<LoadedContract>(
         await fetch("/api/v1/playground/contracts/load", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             "X-Velo-Journey-Id": playgroundRequestId.current,
+            ...projectRequestHeaders(projectId),
           },
           body: JSON.stringify({ network: targetNetwork, contractId: targetContractId }),
         }),
@@ -576,8 +628,23 @@ export function PlaygroundClient({
           headers: {
             "Content-Type": "application/json",
             "X-Velo-Journey-Id": playgroundRequestId.current,
+            ...projectRequestHeaders(projectId),
           },
-          body: JSON.stringify(simulationContext),
+          body: JSON.stringify({
+            ...simulationContext,
+            ...(projectId && projectResolution
+              ? {
+                  projectContext: {
+                    projectId,
+                    argumentTemplateJson: projectResolution.argumentTemplateJson,
+                    resolutionHash: projectResolution.resolutionHash,
+                    ...(projectResolution.requestVersionId
+                      ? { requestVersionId: projectResolution.requestVersionId }
+                      : {}),
+                  },
+                }
+              : {}),
+          }),
           signal: controller.signal,
         }),
       );
@@ -633,7 +700,10 @@ export function PlaygroundClient({
         responseJson<TransactionResult>(
           await fetch(`/api/v1/playground/transactions/${hash}`, {
             cache: "no-store",
-            headers: { "X-Velo-Journey-Id": playgroundRequestId.current },
+            headers: {
+              "X-Velo-Journey-Id": playgroundRequestId.current,
+              ...projectRequestHeaders(projectId),
+            },
           }),
         ),
       (candidate) => candidate.status === "pending",
@@ -689,6 +759,7 @@ export function PlaygroundClient({
           headers: {
             "Content-Type": "application/json",
             "X-Velo-Journey-Id": playgroundRequestId.current,
+            ...projectRequestHeaders(projectId),
           },
           body: JSON.stringify({
             network: "testnet",
@@ -754,6 +825,86 @@ export function PlaygroundClient({
       setBusy(null);
     }
   }
+
+  async function openProjectRequest(version: {
+    network: Network;
+    contractId: string;
+    functionName: string;
+    argumentTemplateJson: string;
+    sourceArgumentTemplateJson?: string;
+    resolutionHash?: string;
+    requestVersionId?: Id<"playgroundRequestVersions">;
+  }) {
+    setBusy("load");
+    setError(null);
+    playgroundRequestId.current = `playground-request-${crypto.randomUUID()}`;
+    try {
+      const loaded = await responseJson<LoadedContract>(
+        await fetch("/api/v1/playground/contracts/load", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Velo-Journey-Id": playgroundRequestId.current,
+            ...projectRequestHeaders(projectId),
+          },
+          body: JSON.stringify({ network: version.network, contractId: version.contractId }),
+        }),
+      );
+      const functionSpec = loaded.functions.find((item) => item.name === version.functionName);
+      if (!functionSpec) throw new Error("Saved function is no longer present in this contract.");
+      const canonicalArguments = JSON.parse(version.argumentTemplateJson) as Record<
+        string,
+        CanonicalArgumentValue
+      >;
+      const initial = createFunctionDraft(functionSpec, loaded);
+      const restored = updateDraftFromValue(initial, functionSpec, canonicalArguments, loaded);
+      setNetwork(version.network);
+      setContractId(loaded.contractId);
+      setContract(loaded);
+      setSelectedFunction(functionSpec.name);
+      setArgumentDrafts({ [functionSpec.name]: restored });
+      setProjectResolution(
+        version.sourceArgumentTemplateJson && version.resolutionHash
+          ? {
+              argumentTemplateJson: version.sourceArgumentTemplateJson,
+              resolvedArgumentsJson: JSON.stringify(canonicalArguments),
+              resolutionHash: version.resolutionHash,
+              ...(version.requestVersionId ? { requestVersionId: version.requestVersionId } : {}),
+            }
+          : null,
+      );
+      setSimulation(null);
+      setTransaction(null);
+      router.replace(
+        `/projects/${projectId}/playground?network=${version.network}&contractId=${encodeURIComponent(loaded.contractId)}`,
+        { scroll: false },
+      );
+      setAnnouncement("Saved project request reopened. Re-simulate before invocation.");
+    } catch (openError) {
+      const details = requestErrorDetails(openError, "Saved request could not be opened.");
+      setError(details.display);
+      setAnnouncement(details.display);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  useEffect(() => {
+    if (!shareToken || !privateShare || openedPrivateShare.current === shareToken) return;
+    openedPrivateShare.current = shareToken;
+    const snapshot = JSON.parse(privateShare.snapshotJson) as {
+      network: Network;
+      contractId: string;
+      functionName: string;
+      argumentTemplate?: Record<string, CanonicalArgumentValue>;
+    };
+    void openProjectRequest({
+      network: snapshot.network,
+      contractId: snapshot.contractId,
+      functionName: snapshot.functionName,
+      argumentTemplateJson: JSON.stringify(snapshot.argumentTemplate ?? {}),
+    });
+  }, [privateShare, shareToken]);
 
   return (
     <section className="grid min-w-0 gap-6 [&_button]:min-h-11 [&_select]:min-h-11">
@@ -832,6 +983,30 @@ export function PlaygroundClient({
           setAnnouncement("Local Playground history cleared.");
         }}
       />
+
+      {projectId ? (
+        <ProjectPlaygroundPanel
+          projectId={projectId}
+          contract={contract}
+          requestDraft={
+            selected &&
+            selectedDraft &&
+            selectedDraft.issues.length === 0 &&
+            !selectedDraft.jsonError
+              ? {
+                  functionName: selected.name,
+                  arguments: selectedDraft.value as Record<string, CanonicalArgumentValue>,
+                  settings: {
+                    baseFee,
+                    cpuInstructions: parsedCpuInstructions,
+                  },
+                }
+              : null
+          }
+          onOpenRequest={(version) => void openProjectRequest(version)}
+          onResolvedPreview={(preview) => setProjectResolution(preview)}
+        />
+      ) : null}
 
       <div className="flex flex-wrap items-center gap-3 rounded-xl border bg-card p-4 text-sm">
         <WalletIcon className="size-4" />
