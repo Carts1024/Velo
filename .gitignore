@@ -72,6 +72,8 @@ docs/operations/
 !docs/release-notes/*
 docs/operations/*
 !docs/operations/sprint-1-measurement-and-slo-lock.md
+!docs/operations/sprint-3-controlled-paid-cohort-launch.md
+!docs/operations/sprint-3-billing-incident-runbook.md
 !docs/operations/sprint-5-scale-competitive-proof-release.md
 !docs/operations/sprint-6-benchmark-evidence-operator-runbook.md
 !docs/operations/sprint-8-durable-financial-reliability-runbook.md

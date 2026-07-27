@@ -55,6 +55,16 @@ export const METRIC_NAMES = [
   "velo_billing_pdax_cost_variance",
   "velo_billing_topup_settlement_total",
   "velo_billing_reconciliation_exception_total",
+  "velo_billing_daily_replay_total",
+  "velo_billing_overdue_exception_total",
+  "velo_billing_unmatched_receipt_total",
+  "velo_billing_unmatched_consumption_total",
+  "velo_billing_launch_gate_change_total",
+  "velo_billing_cohort_activation_total",
+  "velo_billing_net_revenue_usd",
+  "velo_billing_contribution_margin_bps",
+  "velo_billing_dispute_total",
+  "velo_billing_support_minutes",
 ] as const;
 
 export const DEPENDENCIES = ["convex", "pdax", "stellar_rpc", "horizon", "merchant"] as const;
