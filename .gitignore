@@ -92,9 +92,15 @@ docs/references/*
 !docs/references/sprint-1-playground-api-and-type-support.md
 !docs/references/sprint-1-playground-evidence.md
 !docs/references/sprint-4-playground-api-and-lifecycle.md
+!docs/architecture/sprint-5-playground-standalone-alpha.md
+!docs/references/sprint-5-playground-alpha-evidence.md
 !docs/plans/
 docs/plans/*
 !docs/plans/velo-playground-sprint-plan.md
+
+# Local Playwright artifacts
+apps/web/test-results/
+apps/web/playwright-report/
 
 # Sprint 9 keeps compact evidence metadata in Git. Raw captures remain ignored/external.
 .stellar/

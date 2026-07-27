@@ -3,8 +3,9 @@
 Status: Sprint 1 **IMPLEMENTED — LIVE EVIDENCE PENDING**; Sprint 2
 **IMPLEMENTED AND TESTED**; Sprint 3
 **IMPLEMENTED AND TESTED — LIVE FIXTURE EVIDENCE PENDING**; Sprint 4
-**IMPLEMENTED AND TESTED — LIVE WALLET/NETWORK EVIDENCE PENDING**; Sprints 5–6
-proposed and unimplemented
+**IMPLEMENTED AND TESTED — LIVE WALLET/NETWORK EVIDENCE PENDING**; Sprint 5
+**IMPLEMENTED AND DETERMINISTICALLY TESTED — WEBKIT/MANUAL/LIVE QUALIFICATION
+PENDING**; Sprint 6 proposed and unimplemented
 Created: 2026-07-23  
 Source: `docs/plans/Velo_Playground_Feature_Plan.md`  
 Duration: 6 sprints / 12 weeks  
@@ -43,6 +44,12 @@ pending recovery, and terminal result/event evidence. It also adds acknowledged
 Mainnet simulation while keeping Mainnet signing and submission disabled. See the
 [Sprint 4 architecture](../architecture/sprint-4-playground-wallet-review-lifecycle.md)
 and [API/lifecycle reference](../references/sprint-4-playground-api-and-lifecycle.md).
+
+Sprint 5 adds bounded secret-aware local history, deterministic TypeScript/CLI
+generation, privacy-safe funnel telemetry, distributed anonymous abuse controls,
+responsive keyboard behavior, and Playwright/axe qualification. See the
+[Sprint 5 architecture](../architecture/sprint-5-playground-standalone-alpha.md) and
+[evidence report](../references/sprint-5-playground-alpha-evidence.md).
 
 ## 1. Product Outcome
 
@@ -555,7 +562,8 @@ Acceptance criteria:
 
 ## 10. Sprint 5 — Standalone Product Alpha
 
-**Status:** Proposed and unimplemented.
+**Status:** **IMPLEMENTED AND DETERMINISTICALLY TESTED — WEBKIT/MANUAL/LIVE
+QUALIFICATION PENDING**
 
 **Goal:** Turn the end-to-end core into a reliable, reusable, accessible public
 Testnet-first alpha.
@@ -636,13 +644,26 @@ Acceptance criteria:
 
 ### Sprint 5 exit gate
 
-- A first-time user can reach a successful Testnet simulation and invocation without
-  team assistance.
-- Code snippets reproduce fixture invocations.
-- Primary flows pass keyboard, screen-reader, responsive, and browser qualification.
-- Security review confirms no private-key handling, signature storage, or unsafe raw
-  data persistence.
-- Product approves the Testnet-first public alpha.
+- **Implemented:** anonymous history retains at most 50 device-local entries for 30
+  days, removes secret-looking arguments, detects Wasm/spec drift, and supports
+  reopen, duplicate, re-simulation, deletion, and clear-all.
+- **Implemented and deterministically tested:** TypeScript SDK and Stellar CLI 25.2.0
+  snippets use the canonical encoding model, separate simulation/signing/submission,
+  and never embed private keys.
+- **Implemented:** privacy-safe funnel telemetry and correlation propagate without
+  recording arguments, wallet/contract identifiers, XDR, signatures, transaction
+  hashes, generated code, IP hashes, or raw errors.
+- **Implemented and tested:** HMAC-authenticated distributed limits protect contract
+  load, simulation, submission, and status routes with bounded payloads and safe
+  `429`/`503` recovery errors.
+- **Verified:** web, backend, focused Stellar, lint/typecheck, production build,
+  Chromium/Firefox responsive and keyboard flows, axe serious/critical checks, and
+  `git diff --check`.
+- **Pending host dependency:** Playwright WebKit is configured and downloaded, but
+  this runner lacks `libavif16` and cannot install it without sudo credentials.
+- **Pending manual/live gate:** Safari/WebKit, current/previous desktop browser
+  matrix, mobile browsers, VoiceOver/NVDA, live Freighter/Testnet invocation and
+  recovery, and Product approval.
 
 ## 11. Sprint 6 — Velo Project Integration
 

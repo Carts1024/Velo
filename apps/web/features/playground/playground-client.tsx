@@ -26,20 +26,32 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useReducer, useRef, useState } from "react";
 
 import type {
+  CanonicalArgumentValue,
   ContractSpecDocumentV1,
   NormalizedContractFunction,
   NormalizedContractSpecType,
 } from "@repo/stellar";
 
 import { ArgumentEditor } from "./argument-editor";
-import { createFunctionDraft, type FunctionArgumentDraft } from "./argument-editor-state";
+import {
+  createFunctionDraft,
+  updateDraftFromValue,
+  type FunctionArgumentDraft,
+} from "./argument-editor-state";
 import { assertWalletEnvelopeMatchesReview } from "./client-integrity";
+import {
+  PlaygroundHistoryRepository,
+  sanitizeHistoryArguments,
+  type PlaygroundHistoryEntryV1,
+} from "./history";
 import {
   createSimulationContextKey,
   simulationFreshness,
   type SimulationContext,
   type SimulationFreshness,
 } from "./simulation-state";
+import { PlaygroundCodePanel, PlaygroundHistoryPanel } from "./sprint5-panels";
+import { emitPlaygroundTelemetry } from "./telemetry";
 import {
   PLAYGROUND_PENDING_STORAGE_KEY,
   initialTransactionLifecycle,
@@ -257,9 +269,44 @@ export function PlaygroundClient({
   const [error, setError] = useState<string | null>(null);
   const [clock, setClock] = useState(Date.now());
   const [announcement, setAnnouncement] = useState("Enter a contract ID to inspect its spec.");
+  const [history, setHistory] = useState<PlaygroundHistoryEntryV1[]>([]);
   const simulationAbort = useRef<AbortController | null>(null);
   const simulationRequest = useRef(0);
   const priorContextKey = useRef("");
+  const historyRepository = useRef<PlaygroundHistoryRepository | null>(null);
+  const sessionId = useRef(`playground-session-${crypto.randomUUID()}`);
+  const playgroundRequestId = useRef(`playground-request-${crypto.randomUUID()}`);
+  const activeHistoryId = useRef<string | null>(null);
+  const priorWalletStatus = useRef(wallet.status);
+  const formTelemetryKey = useRef("");
+
+  useEffect(() => {
+    historyRepository.current = new PlaygroundHistoryRepository(window.localStorage);
+    setHistory(historyRepository.current.load().entries);
+  }, []);
+
+  function telemetry(
+    event: Parameters<typeof emitPlaygroundTelemetry>[0]["event"],
+    outcome: Parameters<typeof emitPlaygroundTelemetry>[0]["outcome"],
+    durationMs?: number,
+    errorCategory?: string,
+  ) {
+    emitPlaygroundTelemetry({
+      schemaVersion: 1,
+      event,
+      outcome,
+      network,
+      sessionId: sessionId.current,
+      playgroundRequestId: playgroundRequestId.current,
+      ...(durationMs === undefined ? {} : { durationMs }),
+      ...(errorCategory ? { errorCategory } : {}),
+    });
+  }
+
+  function saveHistory(entry: PlaygroundHistoryEntryV1) {
+    const store = historyRepository.current?.upsert(entry);
+    if (store) setHistory(store.entries);
+  }
 
   useEffect(() => {
     setTransaction(null);
@@ -285,6 +332,7 @@ export function PlaygroundClient({
           const result = await responseJson<TransactionResult>(
             await fetch(`/api/v1/playground/transactions/${stored.transactionHash}`, {
               cache: "no-store",
+              headers: { "X-Velo-Journey-Id": playgroundRequestId.current },
             }),
           );
           if (cancelled) return;
@@ -394,30 +442,117 @@ export function PlaygroundClient({
     if (freshness === "expired") dispatchLifecycle({ type: "EXPIRE" });
   }, [freshness]);
 
-  async function load(event?: FormEvent) {
+  useEffect(() => {
+    if (
+      priorWalletStatus.current !== wallet.status &&
+      (wallet.status === "connected" || wallet.status === "rejected")
+    ) {
+      telemetry(
+        "wallet_connection",
+        wallet.status === "connected" ? "success" : "rejected",
+        undefined,
+        wallet.errorCode?.toLowerCase(),
+      );
+    }
+    priorWalletStatus.current = wallet.status;
+  }, [wallet.errorCode, wallet.status]);
+
+  useEffect(() => {
+    if (!selected || !selectedDraft || selectedDraft.issues.length || selectedDraft.jsonError)
+      return;
+    const key = `${selected.name}:${JSON.stringify(selectedDraft.value)}`;
+    if (formTelemetryKey.current === key) return;
+    formTelemetryKey.current = key;
+    telemetry("form_valid", "success");
+  }, [selected, selectedDraft]);
+
+  async function load(event?: FormEvent, replay?: PlaygroundHistoryEntryV1, duplicate = false) {
     event?.preventDefault();
+    const startedAt = performance.now();
+    const targetNetwork = replay?.network ?? network;
+    const targetContractId = replay?.contractId ?? contractId;
+    playgroundRequestId.current = `playground-request-${crypto.randomUUID()}`;
+    if (replay) {
+      setNetwork(replay.network);
+      setContractId(replay.contractId);
+    }
     setBusy("load");
     setError(null);
     setContract(null);
     try {
-      const query = new URLSearchParams({ network, contractId: contractId.trim().toUpperCase() });
+      const query = new URLSearchParams({
+        network: targetNetwork,
+        contractId: targetContractId.trim().toUpperCase(),
+      });
       router.replace(`/playground?${query.toString()}`, { scroll: false });
       const loaded = await responseJson<LoadedContract>(
         await fetch("/api/v1/playground/contracts/load", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ network, contractId }),
+          headers: {
+            "Content-Type": "application/json",
+            "X-Velo-Journey-Id": playgroundRequestId.current,
+          },
+          body: JSON.stringify({ network: targetNetwork, contractId: targetContractId }),
         }),
       );
       setContract(loaded);
-      setArgumentDrafts({});
+      const replayFunction = replay?.functionName
+        ? loaded.functions.find((item) => item.name === replay.functionName)
+        : undefined;
+      const hashMatches =
+        !replay || (replay.wasmHash === loaded.wasmHash && replay.specHash === loaded.specHash);
+      if (replayFunction && replay?.arguments && replay.replayable && hashMatches) {
+        const initial = createFunctionDraft(replayFunction, loaded);
+        setArgumentDrafts({
+          [replayFunction.name]: updateDraftFromValue(
+            initial,
+            replayFunction,
+            replay.arguments,
+            loaded,
+          ),
+        });
+      } else {
+        setArgumentDrafts({});
+      }
       setContractId(loaded.contractId);
-      setSelectedFunction(loaded.functions[0]?.name ?? "");
+      setSelectedFunction(replayFunction?.name ?? loaded.functions[0]?.name ?? "");
       setAnnouncement(`Loaded ${loaded.functions.length} functions from ${loaded.contractId}.`);
+      const historyId = duplicate || !replay ? crypto.randomUUID() : replay.id;
+      activeHistoryId.current = historyId;
+      saveHistory({
+        schemaVersion: 1,
+        id: historyId,
+        kind: replay?.kind ?? "contract",
+        createdAt: new Date().toISOString(),
+        network: loaded.network,
+        contractId: loaded.contractId,
+        wasmHash: loaded.wasmHash,
+        specHash: loaded.specHash,
+        ...(replayFunction ? { functionName: replayFunction.name } : {}),
+        ...(replay?.arguments && replay.replayable && hashMatches
+          ? { arguments: replay.arguments }
+          : {}),
+        replayable: Boolean(replay?.arguments && replay.replayable && hashMatches),
+        ...(!hashMatches
+          ? { privacyReason: "The contract changed. Review arguments before simulating again." }
+          : {}),
+        status: "loaded",
+      });
+      telemetry(
+        replay ? "history_replayed" : "contract_loaded",
+        "success",
+        performance.now() - startedAt,
+      );
     } catch (loadError) {
       const details = requestErrorDetails(loadError, "Contract load failed.");
       setError(details.display);
       setAnnouncement(details.display);
+      telemetry(
+        replay ? "history_replayed" : "contract_loaded",
+        "error",
+        performance.now() - startedAt,
+        String((loadError as { name?: string })?.name ?? "load_error").toLowerCase(),
+      );
     } finally {
       setBusy(null);
     }
@@ -425,6 +560,7 @@ export function PlaygroundClient({
 
   async function simulate() {
     if (!simulationContext) return;
+    const startedAt = performance.now();
     simulationAbort.current?.abort();
     const controller = new AbortController();
     simulationAbort.current = controller;
@@ -437,7 +573,10 @@ export function PlaygroundClient({
       const result = await responseJson<Simulation>(
         await fetch("/api/v1/playground/simulations", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            "X-Velo-Journey-Id": playgroundRequestId.current,
+          },
           body: JSON.stringify(simulationContext),
           signal: controller.signal,
         }),
@@ -447,6 +586,25 @@ export function PlaygroundClient({
       dispatchLifecycle({ type: "REVIEW", transactionHash: result.transactionHash });
       setClock(Date.now());
       setAnnouncement("Simulation ready for review.");
+      const sanitized = sanitizeHistoryArguments(
+        selectedDraft!.value as Record<string, CanonicalArgumentValue>,
+      );
+      const historyId = activeHistoryId.current ?? crypto.randomUUID();
+      activeHistoryId.current = historyId;
+      saveHistory({
+        schemaVersion: 1,
+        id: historyId,
+        kind: "request",
+        createdAt: new Date().toISOString(),
+        network,
+        contractId: contract!.contractId,
+        wasmHash: contract!.wasmHash,
+        specHash: contract!.specHash,
+        functionName: selected!.name,
+        ...sanitized,
+        status: "simulated",
+      });
+      telemetry("simulation_finished", "success", performance.now() - startedAt);
     } catch (simulationError) {
       if (controller.signal.aborted || requestNumber !== simulationRequest.current) return;
       const details = requestErrorDetails(simulationError, "Simulation failed.");
@@ -458,6 +616,12 @@ export function PlaygroundClient({
         correlationId: details.correlationId,
       });
       setAnnouncement(details.display);
+      telemetry(
+        "simulation_finished",
+        "error",
+        performance.now() - startedAt,
+        String((simulationError as { name?: string })?.name ?? "simulation_error").toLowerCase(),
+      );
     } finally {
       if (requestNumber === simulationRequest.current) setBusy(null);
     }
@@ -467,7 +631,10 @@ export function PlaygroundClient({
     const result = await pollPendingTransaction(
       async () =>
         responseJson<TransactionResult>(
-          await fetch(`/api/v1/playground/transactions/${hash}`, { cache: "no-store" }),
+          await fetch(`/api/v1/playground/transactions/${hash}`, {
+            cache: "no-store",
+            headers: { "X-Velo-Journey-Id": playgroundRequestId.current },
+          }),
         ),
       (candidate) => candidate.status === "pending",
       { onResult: setTransaction },
@@ -497,6 +664,7 @@ export function PlaygroundClient({
     let failureStage: "signing" | "review" | "submission" = "signing";
     try {
       const signedXdr = await wallet.signTransaction(simulation.unsignedXdr);
+      telemetry("signature_finished", "success");
       dispatchLifecycle({ type: "SIGNED" });
       failureStage = "review";
       assertWalletEnvelopeMatchesReview(
@@ -518,7 +686,10 @@ export function PlaygroundClient({
       const submitted = await responseJson<TransactionResult>(
         await fetch("/api/v1/playground/transactions/submit", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            "X-Velo-Journey-Id": playgroundRequestId.current,
+          },
           body: JSON.stringify({
             network: "testnet",
             signedXdr,
@@ -546,6 +717,19 @@ export function PlaygroundClient({
             ? "Transaction is unresolved. Check again by hash."
             : "Transaction reached a terminal state.",
       );
+      telemetry(
+        finalResult.status === "success" ? "final_status" : "submission_finished",
+        finalResult.status === "success" ? "success" : "error",
+      );
+      const currentEntry = history.find((entry) => entry.id === activeHistoryId.current);
+      if (currentEntry) {
+        saveHistory({
+          ...currentEntry,
+          createdAt: new Date().toISOString(),
+          status: finalResult.status,
+          transactionHash: finalResult.transactionHash,
+        });
+      }
     } catch (signError) {
       const details = requestErrorDetails(signError, "Wallet signing or submission failed.");
       setError(
@@ -560,24 +744,35 @@ export function PlaygroundClient({
         correlationId: details.correlationId,
       });
       setAnnouncement(details.display);
+      telemetry(
+        failureStage === "signing" ? "signature_finished" : "submission_finished",
+        /reject|denied|cancel/i.test(details.message) ? "rejected" : "error",
+        undefined,
+        String((signError as { name?: string })?.name ?? failureStage).toLowerCase(),
+      );
     } finally {
       setBusy(null);
     }
   }
 
   return (
-    <section className="grid min-w-0 gap-6">
+    <section className="grid min-w-0 gap-6 [&_button]:min-h-11 [&_select]:min-h-11">
       <div>
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="text-3xl font-semibold">Contract Playground</h1>
-          <Badge variant="info">Sprint 4</Badge>
+          <Badge variant="info">Sprint 5 alpha</Badge>
           <Badge variant={network === "mainnet" ? "warning" : "gray"}>
             {network === "mainnet" ? "Mainnet · simulation only" : "Testnet"}
           </Badge>
         </div>
         <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
-          Simulate any supported contract call, review its exact envelope, sign on Testnet, and
-          recover pending results after refresh.
+          Simulate any supported contract call, review its exact envelope, sign on Testnet, recover
+          pending results, and reuse safe requests locally.
+        </p>
+        <p className="mt-2 max-w-3xl text-xs text-muted-foreground">
+          Privacy-safe product telemetry records stages, timings, network, and error categories. It
+          never includes arguments, wallet or contract identifiers, XDR, signatures, hashes, or
+          generated code.
         </p>
       </div>
 
@@ -611,11 +806,32 @@ export function PlaygroundClient({
             />
           </label>
           <Button type="submit" disabled={busy !== null || !contractId.trim()}>
-            {busy === "load" ? <Loader2Icon className="animate-spin" /> : <SearchIcon />}
+            {busy === "load" ? (
+              <Loader2Icon className="motion-safe:animate-spin" />
+            ) : (
+              <SearchIcon />
+            )}
             {busy === "load" ? "Loading…" : "Load contract"}
           </Button>
         </div>
       </form>
+
+      <PlaygroundHistoryPanel
+        entries={history}
+        onOpen={(entry) => void load(undefined, entry)}
+        onDuplicate={(entry) => void load(undefined, entry, true)}
+        onDelete={(id) => {
+          const store = historyRepository.current?.remove(id);
+          if (store) setHistory(store.entries);
+          setAnnouncement("History entry deleted.");
+        }}
+        onClear={() => {
+          if (!window.confirm("Clear all local Playground history? This cannot be undone.")) return;
+          const store = historyRepository.current?.clear();
+          if (store) setHistory(store.entries);
+          setAnnouncement("Local Playground history cleared.");
+        }}
+      />
 
       <div className="flex flex-wrap items-center gap-3 rounded-xl border bg-card p-4 text-sm">
         <WalletIcon className="size-4" />
@@ -673,13 +889,15 @@ export function PlaygroundClient({
                 {contract.contractId}
               </CardDescription>
             </CardHeader>
-            <CardContent className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              <Overview label="Network" value={contract.network} />
-              <Overview label="Functions" value={String(contract.functions.length)} />
-              <Overview label="Custom types" value={String(contract.customTypes.length)} />
-              <Overview label="Loaded" value={new Date(contract.loadedAt).toLocaleString()} />
-              <Overview label="Wasm hash" value={contract.wasmHash} wide />
-              <Overview label="Spec hash" value={contract.specHash} wide />
+            <CardContent>
+              <dl className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <Overview label="Network" value={contract.network} />
+                <Overview label="Functions" value={String(contract.functions.length)} />
+                <Overview label="Custom types" value={String(contract.customTypes.length)} />
+                <Overview label="Loaded" value={new Date(contract.loadedAt).toLocaleString()} />
+                <Overview label="Wasm hash" value={contract.wasmHash} wide />
+                <Overview label="Spec hash" value={contract.specHash} wide />
+              </dl>
             </CardContent>
           </Card>
 
@@ -702,7 +920,10 @@ export function PlaygroundClient({
                       type="button"
                       variant={selected?.name === item.name ? "secondary" : "ghost"}
                       className="justify-start font-mono"
-                      onClick={() => setSelectedFunction(item.name)}
+                      onClick={() => {
+                        setSelectedFunction(item.name);
+                        telemetry("function_selected", "success");
+                      }}
                     >
                       {item.name}
                     </Button>
@@ -779,6 +1000,19 @@ export function PlaygroundClient({
               </Card>
             ) : null}
           </div>
+
+          {selected &&
+          selectedDraft &&
+          selectedDraft.issues.length === 0 &&
+          !selectedDraft.jsonError ? (
+            <PlaygroundCodePanel
+              network={network}
+              contract={contract}
+              functionName={selected.name}
+              arguments={selectedDraft.value}
+              onCopied={() => telemetry("code_copied", "success")}
+            />
+          ) : null}
 
           <Card>
             <CardHeader>
@@ -862,7 +1096,7 @@ export function PlaygroundClient({
                         }
                       >
                         {busy === "simulate" ? (
-                          <Loader2Icon className="animate-spin" />
+                          <Loader2Icon className="motion-safe:animate-spin" />
                         ) : (
                           <PlayIcon />
                         )}
@@ -876,7 +1110,7 @@ export function PlaygroundClient({
                         disabled={busy !== null || !reviewConfirmed}
                       >
                         {busy === "sign" ? (
-                          <Loader2Icon className="animate-spin" />
+                          <Loader2Icon className="motion-safe:animate-spin" />
                         ) : (
                           <WalletIcon />
                         )}
@@ -1118,7 +1352,7 @@ function TransactionOutcome({
   if (transaction.status === "pending") {
     return (
       <Alert>
-        <Loader2Icon className="animate-spin" />
+        <Loader2Icon className="motion-safe:animate-spin" />
         <AlertTitle>Transaction pending</AlertTitle>
         <AlertDescription className="font-mono break-all">
           {transaction.transactionHash}
